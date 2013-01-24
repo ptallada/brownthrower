@@ -15,6 +15,8 @@ setup(
     
     install_requires = [
         'Python >= 2.7',
+        'PyYAML',
+        'Rx',
     ],
     
     #description = "",
