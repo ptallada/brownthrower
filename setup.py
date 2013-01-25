@@ -15,8 +15,9 @@ setup(
     
     install_requires = [
         'Python >= 2.7',
-        #'PyYAML',
+        'PyYAML',
         'jsonschema',
+        'SQLAlchemy < 0.7.999',
     ],
     
     #description = "",
@@ -39,6 +40,13 @@ setup(
     #    "Topic :: Software Development :: Libraries :: Python Modules",
     #    "Topic :: Utilities"
     #],
+    
+    # other arguments here...
+    entry_points = {
+        'paudm.tasks': [
+            'simple_env = brownthrower.tasks.simple_env',
+        ],
+    },
     
     include_package_data=True,
     #zip_safe=True,
