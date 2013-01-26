@@ -45,6 +45,7 @@ setup(
     entry_points = {
         'paudm.task': [
             'store_single_env = brownthrower.tasks.store_single_env',
+            'hostname         = brownthrower.tasks.hostname',
         ],
     },
     

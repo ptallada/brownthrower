@@ -63,7 +63,7 @@ class JobDependency(Base):
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
         ForeignKeyConstraint(['event_id', 'parent_job_id'], ['job.event_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['event_id', 'child_job_id'], ['job.event_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['event_id', 'child_job_id'],  ['job.event_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
