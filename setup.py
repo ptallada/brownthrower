@@ -43,7 +43,7 @@ setup(
     
     # other arguments here...
     entry_points = {
-        'paudm.tasks': [
+        'paudm.task': [
             'simple_env = brownthrower.tasks.simple_env',
         ],
     },

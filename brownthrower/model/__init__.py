@@ -78,9 +78,9 @@ def init(url):
     Base.metadata.bind = engine
     session = scoped_session(sessionmaker(bind=engine))()
 
-init('sqlite:///')
-Base.metadata.create_all()
-e1 = Event(name='e1', status='NEW')
-j1 = Job(name='j1', status='NEW', event=e1)
-session.add(e1)
-session.commit()
+#init('sqlite:///')
+#Base.metadata.create_all()
+#e1 = Event(name='e1', status='NEW')
+#j1 = Job(name='j1', status='NEW', event=e1)
+#session.add(e1)
+#session.commit()

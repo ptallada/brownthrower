@@ -29,11 +29,16 @@ _sample = """\
     path: "output.txt"
 """
 
+_help = "Stores an environment variable in a file."
+
 def check_arguments(config):
     jsonschema.validate(config, _schema)
 
 def get_template():
     return textwrap.dedent(_sample)
+
+def get_help():
+    return _help
 
 def run(config, runner):
     check_arguments(config)
