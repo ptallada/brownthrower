@@ -29,6 +29,7 @@ class Job(Base):
     name     = Column(String(20), nullable=False)
     status   = Column(String(20), nullable=False)
     config   = Column(Text,       nullable=True)
+    result   = Column(Text,       nullable=True)
     
     # Relationships
     event       = relationship('Event', back_populates='jobs') 

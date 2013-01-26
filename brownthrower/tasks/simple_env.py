@@ -29,7 +29,16 @@ _sample = """\
     path: "output.txt"
 """
 
-_help = "Stores an environment variable in a file."
+_help = (
+    """\
+    Stores an environment variable in a file.""",
+    """\
+    The objective of this Job is to store a single environment variable inside a file.
+    It receives two parameters:
+        'key'     The name of the environment variable to be stored
+        'path'    Full path of the file to store the environment variable.
+                  The file will be created if it does not exist, or truncated if it already exists.
+    """)
 
 def check_arguments(config):
     jsonschema.validate(config, _schema)
@@ -38,7 +47,7 @@ def get_template():
     return textwrap.dedent(_sample)
 
 def get_help():
-    return _help
+    return (textwrap.dedent(_help[0]), textwrap.dedent(_help[1]))
 
 def run(config, runner):
     check_arguments(config)

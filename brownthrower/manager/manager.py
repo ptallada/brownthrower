@@ -86,7 +86,7 @@ class Manager(cmd.Cmd):
             """
             max_task_len = max([len(task) for task in self._tasks])
             for name, task in self._tasks.iteritems():
-                print "{0:<{width}}   {1}".format(name, task.get_help(), width=max_task_len)
+                print "{0:<{width}}    {1}".format(name, task.get_help()[0], width=max_task_len)
         
         def do_show(line):
             print "job show"
@@ -101,7 +101,8 @@ class Manager(cmd.Cmd):
             print "job reset"
         
         def do_help(line):
-            print "job help"
+            task = self._tasks.get(line)
+            #if task
         
         subcmd = locals().get("do_%s" % line)
         if subcmd:
