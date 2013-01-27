@@ -18,6 +18,7 @@ setup(
         'PyYAML',
         'jsonschema',
         'SQLAlchemy < 0.7.999',
+        'PrettyTable',
     ],
     
     #description = "",

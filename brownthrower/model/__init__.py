@@ -3,6 +3,7 @@
 
 import sqlalchemy
 
+from sqlalchemy import event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session
 from sqlalchemy.orm.session import sessionmaker
@@ -25,7 +26,7 @@ class Job(Base):
     
     # Columns
     id       = Column(Integer,    nullable=False)
-    event_id = Column(Integer,    nullable=False)
+    event_id = Column(Integer,    nullable=True)
     name     = Column(String(20), nullable=False)
     status   = Column(String(20), nullable=False)
     config   = Column(Text,       nullable=True)
@@ -71,10 +72,16 @@ class JobDependency(Base):
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
 
+def _sqlite_begin(conn):
+    conn.execute("BEGIN")
+
 def init(url):
     global session
     
     engine = create_engine(url)
+    
+    if engine.url.drivername == 'sqlite':
+        event.listen(engine, 'begin', _sqlite_begin)
     
     Base.metadata.bind = engine
     session = scoped_session(sessionmaker(bind=engine))()
