@@ -37,15 +37,11 @@ class Manager(cmd.Cmd):
     def preloop(self):
         self._load_tasks()
         
-        from commands.job import Job, JobDescribe, JobCreate, JobShow, JobRemove, JobSubmit
+        from commands.job import Job
         
-        self._subcmds['job'] = Job()
-        self._subcmds['job'].add_subcmd('describe', JobDescribe(tasks = self._tasks))
-        self._subcmds['job'].add_subcmd('create',   JobCreate(  tasks = self._tasks,
-                                                               editor = _CONFIG['manager.editor']))
-        self._subcmds['job'].add_subcmd('show',     JobShow(    limit = _CONFIG['listing.limit']))
-        self._subcmds['job'].add_subcmd('remove',   JobRemove())
-        self._subcmds['job'].add_subcmd('submit',   JobSubmit())
+        self._subcmds['job'] = Job(  tasks = self._tasks,
+                                    editor = _CONFIG['manager.editor'],
+                                     limit = _CONFIG['listing.limit'])
         
     def _load_tasks(self):
         """
@@ -121,8 +117,13 @@ class Manager(cmd.Cmd):
         print
 
 if __name__ == '__main__':
-    #from pysrc import pydevd
-    #pydevd.settrace()
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+
+    
+    from pysrc import pydevd
+    pydevd.settrace(suspend=False)
     
     #import rpdb
     #rpdb.Rpdb().set_trace()
