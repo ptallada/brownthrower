@@ -121,10 +121,10 @@ class Manager(cmd.Cmd):
         print
 
 if __name__ == '__main__':
-    from pysrc import pydevd
+    #from pysrc import pydevd
     #pydevd.settrace()
     
-    import rpdb
+    #import rpdb
     #rpdb.Rpdb().set_trace()
     
     model.init(_CONFIG['database.url'])
