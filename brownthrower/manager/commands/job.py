@@ -17,8 +17,11 @@ class Job(Command):
         usage: job <command> [options]
         
         Available commands:
-            describe    list all available tasks
-            create      create a single job
+            create      create and configure a job
+            describe    list all available kind of jobs
+            remove      delete a job which is in a final state
+            show        show detailed information for a job
+            submit      mark a job as ready to be executed
         """)
     
     def complete(self, text, items):
@@ -220,3 +223,30 @@ class JobSubmit(Command):
             print "WARNING: Only %d of %d jobs have been successfully marked as ready for execution." % (submitted, len(items))
         else: # submitted == 0
             print "ERROR: No jobs could be marked as ready matching the supplied criteria."
+
+class JobCancel(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job cancel <id> ...
+        
+        Mark the specified jobs as to be cancelled as soon as possible.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if not items:
+            return self.help(items)
+        
+        # TODO: Submit only in initial state
+        submitted = model.session.query(model.Job).filter(model.Job.id.in_(items)).update({'status' : 'READY'}, synchronize_session=False)
+        
+        if submitted == len(items):
+            print "%d have been successfully marked as ready for execution in the database." % submitted
+        elif submitted > 0 and submitted < len(items):
+            print "WARNING: Only %d of %d jobs have been successfully marked as ready for execution." % (submitted, len(items))
+        else: # submitted == 0
+            print "ERROR: No jobs could be marked as ready matching the supplied criteria."
+

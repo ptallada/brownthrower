@@ -1,0 +1,36 @@
+#
+
+digraph job_states {
+    # Possible job states
+    STASHED;        # The job is in preparation phase. It is being configured and cannot be executed yet.
+    READY;          # The job has been configured and its dependencies are already set. Is this state it cannot be modified.
+    QUEUED;         # The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
+    RUNNING;        # The job is being executed.
+    DONE;           # The job has finished its execution with success.
+    CLOSED_DONE;    # The dispatcher has retrieved the output of this job and it has reached the end of its life.
+    FAILED;         # The job has finished its execution with some error condition.
+    CLOSED_FAILED;  # The dispatcher has retrieved the output of this job and it has reached the end of its life.
+    CANCEL;         # The user wants to cancel this job.
+    CANCELLING;     # The dispatcher is already trying to cancel the job.
+    CANCELLED;      # The job has been cancelled.
+    
+    # Expected flow
+    STASHED    -> READY         [label="job is freezed for execution"];
+    READY      -> QUEUED;       [label="dispatcher submitts"];
+    QUEUED     -> RUNNING;      [label="begins execution"];
+    RUNNING    -> DONE;         [label="job finishes successfully"];
+    DONE       -> CLOSED_DONE   [label="dispatcher retrieves its output"];
+    
+    # The job fails to execute
+    RUNNING    -> FAILED;       [label="job executions ends with an error"];
+    FAILED     -> CLOSED_FAILED [label="dispatcher retrieves its output"];
+    
+    # The job has to be cancelled
+    READY      -> CANCELLED     [label="job is cancelled before dispatcher grabs it"];
+    QUEUED     -> CANCEL        [label="mark to be cancelled by the dispatcher"];
+    RUNNING    -> CANCEL        [label="mark to be cancelled by the dispatcher"];
+    CANCEL     -> CANCELLING    [label="dispatcher is trying to cancel"];
+    CANCELLING -> CANCELLED     [label="successfully cancelled"];
+    CANCELLING -> DONE          [label="job finishes successfully"];
+    CANCELLING -> FAILED        [label="job executions ends with an error"];
+}

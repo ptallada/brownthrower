@@ -5,8 +5,6 @@ import cmd
 import jsonschema
 import logging
 import pkg_resources
-import shlex
-import sys
 import textwrap
 import yaml
 
@@ -17,7 +15,7 @@ _CONFIG = {
     'entry_points.task'  : 'paudm.task',
     'entry_points.event' : 'paudm.event',
     'manager.editor'     : 'nano',
-    'database.url'       : 'sqlite:///',
+    'database.url'       : 'sqlite:////tmp/manager.db',
     'listing.limit'      : 50,
 }
 
@@ -39,7 +37,7 @@ class Manager(cmd.Cmd):
     def preloop(self):
         self._load_tasks()
         
-        from commands.job import Job, JobDescribe, JobCreate, JobShow, JobRemove
+        from commands.job import Job, JobDescribe, JobCreate, JobShow, JobRemove, JobSubmit
         
         self._subcmds['job'] = Job()
         self._subcmds['job'].add_subcmd('describe', JobDescribe(tasks = self._tasks))
@@ -47,6 +45,7 @@ class Manager(cmd.Cmd):
                                                                editor = _CONFIG['manager.editor']))
         self._subcmds['job'].add_subcmd('show',     JobShow(    limit = _CONFIG['listing.limit']))
         self._subcmds['job'].add_subcmd('remove',   JobRemove())
+        self._subcmds['job'].add_subcmd('submit',   JobSubmit())
         
     def _load_tasks(self):
         """
@@ -128,10 +127,10 @@ if __name__ == '__main__':
     import rpdb
     #rpdb.Rpdb().set_trace()
     
-    #model.init(_CONFIG['database.url'])
-    model.init('sqlite:////tmp/manager.db')
+    model.init(_CONFIG['database.url'])
+    #model.init('sqlite:////tmp/manager.db')
     #model.Base.metadata.create_all()
     
     manager = Manager()
-    #manager.cmdloop()
+    manager.cmdloop()
 
