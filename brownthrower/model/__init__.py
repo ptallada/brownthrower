@@ -43,6 +43,13 @@ class Job(Base):
                                primaryjoin   = 'JobDependency.parent_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.child_job_id')
     
+    @classmethod
+    def lock(cls, session, mode):
+        session.execute("LOCK TABLE :table IN :mode MODE", {
+            'table' : cls.__tablename__,
+            'mode'  : mode
+        })
+    
     def __repr__(self):
         return u"%s(id=%s, event_id=%s, name=%s, status=%s)" % (
             self.__class__.__name__,
