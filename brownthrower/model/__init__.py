@@ -5,9 +5,9 @@ import sqlalchemy
 
 from sqlalchemy import event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, scoped_session
+from sqlalchemy.orm import relationship, scoped_session, eagerload, eagerload_all
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint
+from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.types import Integer, String, Text
 from sqlalchemy.engine import create_engine
 
@@ -20,6 +20,8 @@ class Job(Base):
     __table_args__ = (
         # Primary key
         PrimaryKeyConstraint('id'),
+        # Unique key
+        UniqueConstraint('event_id', 'id'),
         # Foreign keys
         ForeignKeyConstraint(['event_id'], ['event.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
@@ -40,6 +42,15 @@ class Job(Base):
     child_jobs  = relationship('Job',   back_populates='parent_jobs', secondary='job_dependency',
                                primaryjoin   = 'JobDependency.parent_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.child_job_id')
+    
+    def __repr__(self):
+        return u"%s(id=%s, event_id=%s, name=%s, status=%s)" % (
+            self.__class__.__name__,
+            repr(self.id),
+            repr(self.event_id),
+            repr(self.name),
+            repr(self.status),
+        )
     
 class Event(Base):
     __tablename__ = 'event'
@@ -68,7 +79,7 @@ class JobDependency(Base):
     )
     
     # Columns
-    event_id      = Column(Integer, nullable=False)
+    event_id      = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
 

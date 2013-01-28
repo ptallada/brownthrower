@@ -1,16 +1,17 @@
 digraph job_states {
     // Possible job states
-    STASHED       [shape="circle"];  // The job is in preparation phase. It is being configured and cannot be executed yet.
-    READY         [shape="ellipse"]; // The job has been configured and its dependencies are already set. Is this state it cannot be modified.
-    QUEUED        [shape="ellipse"]; // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
-    RUNNING       [shape="ellipse"]; // The job is being executed.
-    DONE          [shape="ellipse"]; // The job has finished its execution with success.
-    CLOSED_DONE   [shape="box"];     // The dispatcher has retrieved the output of this job and it has reached the end of its life.
-    FAILED        [shape="ellipse"]; // The job has finished its execution with some error condition.
-    CLOSED_FAILED [shape="box"];     // The dispatcher has retrieved the output of this job and it has reached the end of its life.
-    CANCEL        [shape="ellipse"]; // The user wants to cancel this job.
-    CANCELLING    [shape="ellipse"]; // The dispatcher is already trying to cancel the job.
-    CANCELLED     [shape="box"];     // The job has been cancelled.
+    STASHED       [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
+    READY         [shape="ellipse"];   // The job has been configured and its dependencies are already set. Is this state it cannot be modified.
+    QUEUED        [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
+    RUNNING       [shape="ellipse"];   // The job is being executed.
+    DONE          [shape="ellipse"];   // The job has finished its execution with success.
+    CLOSED_DONE   [shape="box"];       // The dispatcher has retrieved the output of this job and it has reached the end of its life.
+    FAILED        [shape="ellipse"];   // The job has finished its execution with some error condition.
+    CLOSED_FAILED [shape="box"];       // The dispatcher has retrieved the output of this job and it has reached the end of its life.
+    CANCEL        [shape="ellipse"];   // The user wants to cancel this job.
+    CANCELLING    [shape="ellipse"];   // The dispatcher is already trying to cancel the job.
+    CANCELLED     [shape="box"];       // The job has been cancelled.
+    DELETED       [shape="plaintext"]; // The job has been deleted.
     
     // Expected flow
     STASHED    -> READY         [style="solid",  label="job is freezed\nfor execution"];
@@ -32,8 +33,13 @@ digraph job_states {
     CANCELLING -> DONE          [style="dotted", label="job finishes\nsuccessfully"];
     CANCELLING -> FAILED        [style="dotted", label="job executions\nends with an error"];
     
-    //Reflows
-    CANCELLED  -> READY        [style="solid",   label="user wants to\nretry the job"];
-    CANCELLED  -> STASHED      [style="solid",   label="user wants to\nreconfigure the job"];
-    READY      -> STASHED      [style="solid",   label="user wants to\nreconfigure the job"];
+    // Reflows
+    CANCELLED  -> READY         [style="solid",   label="user wants to\nretry the job"];
+    CANCELLED  -> STASHED       [style="solid",   label="user wants to\nreconfigure the job"];
+    READY      -> STASHED       [style="solid",   label="user wants to\nreconfigure the job"];
+    
+    // Remove
+    STASHED    -> DELETED       [style="solid",   label="user deletes\nthe job"];
+    READY      -> DELETED       [style="solid",   label="user deletes\nthe job"];
+    CANCELLED  -> DELETED       [style="solid",   label="user deletes\nthe job"];
 }

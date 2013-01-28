@@ -11,58 +11,6 @@ from base import Command
 from brownthrower import model
 from brownthrower.manager import constants
 
-class JobDescribe(Command):
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(JobDescribe, self).__init__(*args, **kwargs)
-        self._tasks = tasks
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job describe [name] ...
-        
-        Show a list of all the tasks available in this environment.
-        If a 'name' is supplied, show a detailed description of that task.
-        """)
-    
-    def do(self, items):
-        if not items:
-            if len(self._tasks) == 0:
-                print "There are no tasks currently registered in this environment."
-                return
-            
-            max_task_len = max([len(task) for task in self._tasks])
-            print
-            print "This environment currently recognizes the following tasks:"
-            print "=========================================================="
-            for name, task in self._tasks.iteritems():
-                print "{0:<{width}}    {1}".format(name, task.get_help()[0], width=max_task_len)
-            print
-            return
-        
-        # Show the details of one or more tasks
-        for item in items:
-            task = self._tasks.get(item)
-            if task:
-                desc = task.get_help()
-                header = "Details for the task '%s'" % item
-                print
-                print header
-                print "=" * len(header)
-                print desc[0]
-                print
-                print desc[1]
-            else:
-                print "The task '%s' is not currently available in this environment."
-                print
-    
-    def complete(self, text, items):
-        matching = set([key
-                        for key in self._tasks.iterkeys()
-                        if key.startswith(text)])
-        
-        return list(matching - set(items))
-
 class JobCreate(Command):
     
     def __init__(self, tasks, editor, *args, **kwargs):
@@ -88,7 +36,7 @@ class JobCreate(Command):
         
         (fd, path) = tempfile.mkstemp()
         fh = os.fdopen(fd, 'w')
-        fh.write(task.get_template())
+        fh.write(task.get_config_template())
         fh.close()
         
         try:
@@ -172,11 +120,28 @@ class JobRemove(Command):
             return self.help(items)
         
         try:
-            # TODO: Remove only in final states
-            # TODO: comprovar en el queries amb cascada aquesta query no peta
-            deleted = model.session.query(model.Job).filter(model.Job.id.in_(items)).delete(synchronize_session=False)
+            deleted = model.session.query(model.Job).filter(
+                model.Job.id.in_(items),
+                model.Job.status.in_([
+                    constants.JobStatus.STASHED,
+                    constants.JobStatus.READY,
+                    constants.JobStatus.CANCELLED,
+                ])).delete(synchronize_session=False)
             model.session.commit()
             
+            
+            
+            
+            
+            cancelled = model.session.query(model.Job).filter(
+                model.Job.id.in_(items),
+                model.Job.status.in_([
+                    constants.JobStatus.READY
+                ])).update(
+                    #TODO: Shall reset all the other fields
+                    {'status' : constants.JobStatus.CANCELLED},
+                synchronize_session = False \
+            )
             if deleted == len(items):
                 print "All %d jobs have been successfully removed from the database." % deleted
             elif deleted > 0 and deleted < len(items):
@@ -337,32 +302,89 @@ class JobReset(Command):
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
 
+class JobAddParent(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job add_parent <id> <parent_id>
+        
+        Add a parent to the specified job.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 2:
+            return self.help(items)
+        
+        try:
+            dependency = model.JobDependency(child_job_id = int(items[0]), parent_job_id = int(items[1]))
+            model.session.add(dependency)
+            model.session.commit()
+            
+            print "The dependency between jobs %d and %d has been succesfully established." % (int(items[0]), int(items[1]))
+            
+        except:
+            model.session.rollback()
+            print "ERROR: Could not complete the query to the database."
+
+class JobAddChild(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job add_child <id> <child_id>
+        
+        Add a child to the specified job.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 2:
+            return self.help(items)
+        
+        try:
+            dependency = model.JobDependency(child_job_id = int(items[1]), parent_job_id = int(items[0]))
+            model.session.add(dependency)
+            model.session.commit()
+            
+            print "The dependency between jobs %d and %d has been succesfully established." % (int(items[0]), int(items[1]))
+            
+        except:
+            model.session.rollback()
+            print "ERROR: Could not complete the query to the database."
+
+
 class Job(Command):
     
     def __init__(self, tasks, editor, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('describe', JobDescribe(tasks = tasks))
-        self.add_subcmd('create',   JobCreate(  tasks = tasks,
-                                               editor = editor))
-        self.add_subcmd('show',     JobShow(    limit = limit))
-        self.add_subcmd('remove',   JobRemove())
-        self.add_subcmd('submit',   JobSubmit())
-        self.add_subcmd('cancel',   JobCancel())
-        self.add_subcmd('reset',    JobReset())
+        self.add_subcmd('add_child',  JobAddChild())
+        self.add_subcmd('add_parent', JobAddParent())
+        self.add_subcmd('create',     JobCreate(  tasks = tasks,
+                                                 editor = editor))
+        self.add_subcmd('show',       JobShow(    limit = limit))
+        self.add_subcmd('remove',     JobRemove())
+        self.add_subcmd('submit',     JobSubmit())
+        self.add_subcmd('cancel',     JobCancel())
+        self.add_subcmd('reset',      JobReset())
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: job <command> [options]
         
         Available commands:
-            cancel      cancel a job o mark it to be cancelled
-            create      create and configure a job
-            describe    list all available kind of jobs
-            remove      delete a job which is in a final state
-            reset       return a job to the stash
-            show        show detailed information for a job
-            submit      mark a job as ready to be executed
+            add_child     add a child to a job
+            add_parent    add a parent to a job
+            cancel        cancel a job o mark it to be cancelled
+            create        create and configure a job
+            remove        delete a job which is in a final state
+            reset         return a job to the stash
+            show          show detailed information for a job
+            submit        mark a job as ready to be executed
         """)
     
     def complete(self, text, items):

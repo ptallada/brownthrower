@@ -15,7 +15,7 @@ _CONFIG = {
     'entry_points.task'  : 'paudm.task',
     'entry_points.event' : 'paudm.event',
     'manager.editor'     : 'nano',
-    'database.url'       : 'sqlite:////tmp/manager.db',
+    'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
     'listing.limit'      : 50,
 }
 
@@ -38,10 +38,13 @@ class Manager(cmd.Cmd):
         self._load_tasks()
         
         from commands.job import Job
+        from commands.task import Task
         
-        self._subcmds['job'] = Job(  tasks = self._tasks,
-                                    editor = _CONFIG['manager.editor'],
-                                     limit = _CONFIG['listing.limit'])
+        
+        self._subcmds['job'] = Job(    tasks = self._tasks,
+                                      editor = _CONFIG['manager.editor'],
+                                       limit = _CONFIG['listing.limit'])
+        self._subcmds['task'] = Task(  tasks = self._tasks)
         
     def _load_tasks(self):
         """
@@ -54,7 +57,7 @@ class Manager(cmd.Cmd):
         for entry in pkg_resources.iter_entry_points(_CONFIG['entry_points.task']):
             try:
                 task = entry.load()
-                task.check_arguments(yaml.load(task.get_template()))
+                task.check_config(yaml.load(task.get_config_template()))
                 
                 if entry.name in self._tasks:
                     log.warning("Cannot use Task '%s:%s'. A Task with the same name is already defined. Task is skipped." % (entry.name, entry.module_name))
@@ -104,6 +107,10 @@ class Manager(cmd.Cmd):
         items = line.strip().split()
         self._subcmds['job']._do(items)
     
+    def do_task(self, line):
+        items = line.strip().split()
+        self._subcmds['task']._do(items)
+    
     def do_quit(self, line):
         import pdb
         pdb.set_trace()
@@ -117,7 +124,6 @@ class Manager(cmd.Cmd):
         print
 
 if __name__ == '__main__':
-    import logging
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
 
