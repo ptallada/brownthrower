@@ -37,8 +37,8 @@ class Manager(cmd.Cmd):
     def preloop(self):
         self._load_tasks()
         
-        from commands.job import Job
-        from commands.task import Task
+        from commands import Job
+        from commands import Task
         
         
         self._subcmds['job'] = Job(    tasks = self._tasks,

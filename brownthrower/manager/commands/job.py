@@ -225,13 +225,13 @@ class JobReset(Command):
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
 
-class JobAddParent(Command):
+class JobLink(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job add_parent <id> <parent_id>
+        usage: job link <parent_id> <child_id>
         
-        Add a parent to the specified job.
+        Establish a dependency between two jobs.
         """)
     
     def complete(self, text, items):
@@ -242,30 +242,44 @@ class JobAddParent(Command):
             return self.help(items)
         
         try:
-            jobs = model.session.query(model.Job).filter(
-                model.Job.id.in_(items),
-                model.Job.status.in_(
-                    constants.JobStatus.manager_links_to(constants.JobStatus.STASHED)
-                )
-            )
+            parent = model.session.query(model.Job).filter(
+                model.Job.id == items[0],
+                model.Job.status != constants.JobStatus.OUTPUT_LOST,
+            ).with_lockmode('read').one()
             
-            dependency = model.JobDependency(child_job_id = int(items[0]), parent_job_id = int(items[1]))
+            child = model.session.query(model.Job).filter(
+                model.Job.id == items[1],
+                model.Job.status.in_(
+                    constants.JobStatus.STASHED,
+                    constants.JobStatus.STEADY,
+                    constants.JobStatus.SUBMIT_FAIL,
+                    constants.JobStatus.CANCELLED,
+                    constants.JobStatus.CLEARED_FAILED,
+                    constants.JobStatus.ABORTED,
+                )
+            ).with_lockmode('read').one()
+            
+            if not (parent and child):
+                print "ERROR: It is not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                return
+            
+            dependency = model.JobDependency(child_job_id = child.id, parent_job_id = parent.id)
             model.session.add(dependency)
             model.session.commit()
             
-            print "The dependency between jobs %d and %d has been succesfully established." % (int(items[0]), int(items[1]))
+            print "The parent-child dependency between jobs %d and %d has been succesfully established." % (parent.id, child.id)
             
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
 
-class JobAddChild(Command):
+class JobUnlink(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job add_child <id> <child_id>
+        usage: job unlink <parent_id> <child_id>
         
-        Add a child to the specified job.
+        Remove the dependency between the specified jobs.
         """)
     
     def complete(self, text, items):
@@ -276,15 +290,38 @@ class JobAddChild(Command):
             return self.help(items)
         
         try:
-            dependency = model.JobDependency(child_job_id = int(items[1]), parent_job_id = int(items[0]))
+            parent = model.session.query(model.Job).filter(
+                model.Job.id == items[0],
+                model.Job.status != constants.JobStatus.OUTPUT_LOST,
+            ).with_lockmode('read').one()
+            
+            child = model.session.query(model.Job).filter(
+                model.Job.id == items[1],
+                model.Job.status.in_(
+                    constants.JobStatus.STASHED,
+                    #TODO: concurrency!  constants.JobStatus.STEADY,
+                    constants.JobStatus.SUBMIT_FAIL,
+                    constants.JobStatus.CANCELLED,
+                    constants.JobStatus.CLEARED_FAILED,
+                    constants.JobStatus.ABORTED,
+                    constants.JobStatus.OUTPUT_LOST,
+                )
+            ).with_lockmode('read').one()
+            
+            if not (parent and child):
+                print "ERROR: It is not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                return
+            
+            dependency = model.JobDependency(child_job_id = child.id, parent_job_id = parent.id)
             model.session.add(dependency)
             model.session.commit()
             
-            print "The dependency between jobs %d and %d has been succesfully established." % (int(items[0]), int(items[1]))
+            print "The parent-child dependency between jobs %d and %d has been succesfully established." % (parent.id, child.id)
             
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
+
 
 class JobCancel(Command):
     

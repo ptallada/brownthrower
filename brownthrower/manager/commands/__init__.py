@@ -13,29 +13,30 @@ class Job(Command):
     def __init__(self, tasks, editor, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('add_child',  job.JobAddChild())
-        self.add_subcmd('add_parent', job.JobAddParent())
-        self.add_subcmd('create',     job.JobCreate(  tasks = tasks,
+        self.add_subcmd('cancel', job.JobCancel())
+        self.add_subcmd('create', job.JobCreate(  tasks = tasks,
                                                  editor = editor))
-        self.add_subcmd('show',       job.JobShow(    limit = limit))
-        self.add_subcmd('remove',     job.JobRemove())
-        self.add_subcmd('submit',     job.JobSubmit())
-        self.add_subcmd('cancel',     job.JobCancel())
-        self.add_subcmd('reset',      job.JobReset())
+        self.add_subcmd('link',   job.JobLink())
+        self.add_subcmd('remove', job.JobRemove())
+        self.add_subcmd('reset',  job.JobReset())
+        self.add_subcmd('show',   job.JobShow(    limit = limit))
+        self.add_subcmd('submit', job.JobSubmit())
+        #self.add_subcmd('unlink', job.JobUnlink())
+
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: job <command> [options]
         
         Available commands:
-            add_child     add a child to a job
-            add_parent    add a parent to a job
-            cancel        cancel a job o mark it to be cancelled
-            create        create and configure a job
-            remove        delete a job which is in a final state
-            reset         return a job to the stash
-            show          show detailed information for a job
-            submit        mark a job as ready to be executed
+            cancel    cancel a job o mark it to be cancelled
+            create    create and configure a job
+            link      establish a dependency between two jobs
+            remove    delete a job which is in a final state
+            reset     return a job to the stash
+            show      show detailed information of a job
+            submit    mark a job as ready to be executed
+            unlink    remove a dependency between two jobs
         """)
     
     def complete(self, text, items):
