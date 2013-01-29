@@ -25,6 +25,14 @@ class JobCreate(Command):
         Create a new job of the given task.
         """)
     
+    def complete(self, text, items):
+        if not items:
+            matching = set([key
+                            for key in self._tasks.iterkeys()
+                            if key.startswith(text)])
+            
+            return list(matching - set(items))
+    
     def do(self, items):
         if not items or len(items) > 1:
             return self.help(items)
@@ -52,14 +60,6 @@ class JobCreate(Command):
         except:
             model.session.rollback()
             print "ERROR: The job could not be created."
-    
-    def complete(self, text, items):
-        if not items:
-            matching = set([key
-                            for key in self._tasks.iterkeys()
-                            if key.startswith(text)])
-            
-            return list(matching - set(items))
 
 class JobShow(Command):
     
@@ -79,6 +79,7 @@ class JobShow(Command):
         return [text]
     
     def do(self, items):
+        # TODO: Show detailed information for a single job
         if items:
             query = model.session.query(model.Job).filter(model.Job.id.in_(items))
         else:
@@ -106,10 +107,10 @@ class JobRemove(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job remove <id> ...
+        usage: job remove <id> { <id> } 
         
-        Remove the job with the supplied id from the database.
-        The job has to be in any of the final states.
+        Remove the jobs with the supplied ids from the database.
+        The jobs must be in any of the final states.
         """)
     
     def complete(self, text, items):
@@ -128,9 +129,9 @@ class JobRemove(Command):
                     constants.JobStatus.CLEARED_FAILED,
                     constants.JobStatus.CLEARED_SUCCESS,
                     constants.JobStatus.OUTPUT_LOST,
-                    constants.JobStatus.STEADY,
                     constants.JobStatus.STASHED,
-                ])).delete(synchronize_session=False)
+                ])
+            ).delete(synchronize_session=False)
             model.session.commit()
             
             if deleted == len(items):
@@ -147,7 +148,7 @@ class JobSubmit(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job submit <id> ...
+        usage: job submit <id> { <id> }
         
         Mark the specified jobs as ready to be executed whenever there are resources available.
         """)
@@ -162,14 +163,10 @@ class JobSubmit(Command):
         try:
             submitted = model.session.query(model.Job).filter(
                 model.Job.id.in_(items),
-                model.Job.status.in_([
-                    constants.JobStatus.ABORTED,
-                    constants.JobStatus.CANCELLED,
-                    constants.JobStatus.STASHED,
-                    constants.JobStatus.SUBMIT_FAIL,
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.STEADY},
+                model.Job.status == constants.JobStatus.STASHED,
+            ).update(
+                #TODO: Shall reset all the other fields
+                {'status' : constants.JobStatus.STEADY},
                 synchronize_session = False \
             )
             model.session.commit()
@@ -188,7 +185,7 @@ class JobReset(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job reset <id> ...
+        usage: job reset <id> { <id> }
         
         Return the specified jobs to the stash for reconfiguring.
         """)
@@ -208,9 +205,11 @@ class JobReset(Command):
                     constants.JobStatus.CANCELLED,
                     constants.JobStatus.STEADY,
                     constants.JobStatus.SUBMIT_FAIL,
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.STASHED},
+                    constants.JobStatus.CLEARED_FAILED,
+                ])
+            ).update(
+                #TODO: Shall reset all the other fields
+                {'status' : constants.JobStatus.STASHED},
                 synchronize_session = False \
             )
             model.session.commit()
@@ -245,22 +244,16 @@ class JobLink(Command):
             parent = model.session.query(model.Job).filter(
                 model.Job.id == items[0],
                 model.Job.status != constants.JobStatus.OUTPUT_LOST,
-            ).with_lockmode('read').one()
+            ).with_lockmode('read').first()
             
             child = model.session.query(model.Job).filter(
                 model.Job.id == items[1],
-                model.Job.status.in_(
-                    constants.JobStatus.STASHED,
-                    constants.JobStatus.STEADY,
-                    constants.JobStatus.SUBMIT_FAIL,
-                    constants.JobStatus.CANCELLED,
-                    constants.JobStatus.CLEARED_FAILED,
-                    constants.JobStatus.ABORTED,
-                )
-            ).with_lockmode('read').one()
+                model.Job.status == constants.JobStatus.STASHED
+            ).with_lockmode('read').first()
             
             if not (parent and child):
-                print "ERROR: It is not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                model.session.rollback()
+                print "ERROR: It was not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
                 return
             
             dependency = model.JobDependency(child_job_id = child.id, parent_job_id = parent.id)
@@ -293,31 +286,28 @@ class JobUnlink(Command):
             parent = model.session.query(model.Job).filter(
                 model.Job.id == items[0],
                 model.Job.status != constants.JobStatus.OUTPUT_LOST,
-            ).with_lockmode('read').one()
+            ).with_lockmode('read').first()
             
             child = model.session.query(model.Job).filter(
                 model.Job.id == items[1],
-                model.Job.status.in_(
-                    constants.JobStatus.STASHED,
-                    #TODO: concurrency!  constants.JobStatus.STEADY,
-                    constants.JobStatus.SUBMIT_FAIL,
-                    constants.JobStatus.CANCELLED,
-                    constants.JobStatus.CLEARED_FAILED,
-                    constants.JobStatus.ABORTED,
-                    constants.JobStatus.OUTPUT_LOST,
-                )
-            ).with_lockmode('read').one()
+                model.Job.status == constants.JobStatus.STASHED
+            ).with_lockmode('read').first()
             
             if not (parent and child):
-                print "ERROR: It is not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                model.session.rollback()
+                print "ERROR: It was not possible to remove the parent-child dependency between jobs %d and %d." % (parent.id, child.id)
                 return
             
-            dependency = model.JobDependency(child_job_id = child.id, parent_job_id = parent.id)
-            model.session.add(dependency)
+            deleted = model.session.query(model.JobDependency).filter_by(
+                parent_job_id = parent.id,
+                child_job_id  = child.id
+            ).delete(synchronize_session=False)
             model.session.commit()
             
-            print "The parent-child dependency between jobs %d and %d has been succesfully established." % (parent.id, child.id)
-            
+            if not deleted:
+                print "ERROR: It was not possible to remove the parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+            else:
+                print "The parent-child dependency between jobs %d and %d has been succesfully removed." % (parent.id, child.id)
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
@@ -327,11 +317,9 @@ class JobCancel(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job cancel <id> ...
+        usage: job cancel <id> { <id> }
         
         Cancel the specified jobs as soon as possible.
-        If the dispatcher has not already queued them, they are immediately cancelled.
-        If the dispatcher has queued them, mark them to be cancelled as soon as possible. 
         """)
     
     def complete(self, text, items):

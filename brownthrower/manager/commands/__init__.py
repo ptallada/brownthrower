@@ -21,7 +21,7 @@ class Job(Command):
         self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow(    limit = limit))
         self.add_subcmd('submit', job.JobSubmit())
-        #self.add_subcmd('unlink', job.JobUnlink())
+        self.add_subcmd('unlink', job.JobUnlink())
 
     
     def help(self, items):
@@ -54,14 +54,18 @@ class Task(Command):
     def __init__(self, tasks, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('show', task.TaskShow(tasks = tasks))
+        self.add_subcmd('schema',   task.TaskSchema(  tasks = tasks))
+        self.add_subcmd('show',     task.TaskShow(    tasks = tasks))
+        self.add_subcmd('template', task.TaskTemplate(tasks = tasks))
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: task <command> [options]
         
         Available commands:
+            schema      show the formal schema of a task dataset
             show        show detailed information for a task
+            template    show a template of a task dataset
         """)
     
     def complete(self, text, items):
