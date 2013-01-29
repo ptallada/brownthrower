@@ -55,6 +55,13 @@ class TaskShow(Command):
             print "ERROR: The task '%s' is not currently available in this environment."
 
 class TaskSchema(Command):
+    
+    _dataset_fn = {
+        'input'  : 
+        'output' :
+        'config' : ])
+    }
+    
     def __init__(self, tasks, *args, **kwargs):
         super(TaskSchema, self).__init__(*args, **kwargs)
         self._tasks = tasks
@@ -68,15 +75,13 @@ class TaskSchema(Command):
         """)
     
     def complete(self, text, items):
-        dataset = set(['input', 'output', 'config'])
-        
         if not items:
             matching = [value
-                        for value in dataset
+                        for value in self._datasets
                         if value.startswith(text)]
             return matching
         
-        if (len(items) == 1) and (items[0] in dataset):
+        if (len(items) == 1) and (items[0] in self._datasets):
             matching = [key
                         for key in self._tasks.iterkeys()
                         if key.startswith(text)]
@@ -84,10 +89,16 @@ class TaskSchema(Command):
             return matching
     
     def do(self, items):
-        if len(items) != 2:
+        if (
+            (len(items) != 2) or
+            (items[0] not in self._datasets) or
+            (items[1] not in self._tasks.keys())
+        ):
             return self.help(items)
         
-        print "do something schema"
+        fn = {
+            
+        }
 
 class TaskTemplate(Command):
     def __init__(self, tasks, *args, **kwargs):
