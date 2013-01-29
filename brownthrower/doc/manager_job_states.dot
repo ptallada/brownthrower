@@ -1,0 +1,70 @@
+digraph job_states {
+    // Possible job states
+    STASHED          [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
+    STEADY           [shape="ellipse"];   // The job has been configured and its dependencies are already set. It will be executed as soon as possible.
+    SUBMIT_FAIL      [shape="ellipse"];   // The dispatcher has been unable to submit this job for execution.
+    QUEUED           [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
+    RUNNING          [shape="ellipse"];   // The job is being executed.
+    ABORTED          [shape="box"];       // The job has failed to complete its execution.
+    CANCEL           [shape="ellipse"];   // The user has asked to cancel this job.
+    CANCELLING       [shape="ellipse"];   // The dispatcher is trying to cancel this job
+    CANCELLED        [shape="box"];       // The job has been cancelled.
+    SUCCESS          [shape="ellipse"];   // The job has finished with exit code == 0
+    FAILED           [shape="ellipse"];   // The job has finished with exit code != 0
+    CLEARED_SUCCESS  [shape="box"];       // The dispatcher has retrieved the output of this job.
+    CLEARED_FAILED   [shape="box"];       // The dispatcher has retrieved the output of this job.
+    OUTPUT_LOST      [shape="box"];       // The dispatcher could not retrieve the output of this job.
+    DELETED          [shape="plaintext"]; // The job has been deleted.
+    
+    // Expected flow
+    STASHED         -> STEADY           [style="solid",  label="freezed\nfor execution"];
+    STEADY          -> QUEUED           [style="dotted", label="dispatcher\nsubmit"];
+    QUEUED          -> RUNNING          [style="dotted", label="begins\nexecution"];
+    RUNNING         -> SUCCESS          [style="dotted", label="exit code == 0"];
+    SUCCESS         -> CLEARED_SUCCESS  [style="dotted", label="retrieve\noutput"];
+    
+    // Submit failure
+    STEADY          -> SUBMIT_FAIL      [style="dotted", label="dispatcher\nfailure"];
+    
+    // The job fails with exit code != 0
+    RUNNING         -> FAILED           [style="dotted", label="exit code != 0"];
+    FAILED          -> CLEARED_FAILED   [style="dotted", label="retrieve\noutput"];
+    
+    // The output is lost
+    SUCCESS         -> OUTPUT_LOST      [style="dotted", label=""];
+    FAILED          -> OUTPUT_LOST      [style="dotted", label=""];
+    
+    // The job is aborted
+    QUEUED          -> ABORTED          [style="dotted", label="dispatcher\nfailure"];
+    RUNNING         -> ABORTED          [style="dotted", label="dispatcher\nfailure"];
+    
+    // The job has to be cancelled
+    QUEUED          -> CANCEL           [style="solid",  label="request to\nbe cancelled"];
+    RUNNING         -> CANCEL           [style="solid",  label="request to\nbe cancelled"];
+    CANCEL          -> CANCELLING       [style="dotted", label="dispatcher is\ntrying to cancel"];
+    CANCEL          -> ABORTED          [style="dotted", label=""];
+    CANCEL          -> SUCCESS          [style="dotted", label=""];
+    CANCEL          -> FAILED           [style="dotted", label=""];
+    CANCELLING      -> CANCELLED        [style="dotted", label=""];
+    CANCELLING      -> ABORTED          [style="dotted", label=""];
+    CANCELLING      -> SUCCESS          [style="dotted", label=""];
+    CANCELLING      -> FAILED           [style="dotted", label=""];
+    
+    // Reflows
+    SUBMIT_FAIL     -> STASHED          [style="solid",  label="reconfigure"];
+    SUBMIT_FAIL     -> STEADY           [style="solid",  label="retry\nthe job"];
+    ABORTED         -> STASHED          [style="solid",  label="reconfigure"];
+    ABORTED         -> STEADY           [style="solid",  label="retry\nthe job"];
+    CANCELLED       -> STEADY           [style="solid",  label="retry\nthe job"];
+    CANCELLED       -> STASHED          [style="solid",  label="reconfigure"];
+    STEADY          -> STASHED          [style="solid",  label="reconfigure"];
+    
+    // Remove
+    STASHED         -> DELETED          [style="solid",  label=""];
+    STEADY          -> DELETED          [style="solid",  label=""];
+    CANCELLED       -> DELETED          [style="solid",  label=""];
+    ABORTED         -> DELETED          [style="solid",  label=""];
+    CLEARED_SUCCESS -> DELETED          [style="solid",  label=""];
+    CLEARED_FAILED  -> DELETED          [style="solid",  label=""];
+    OUTPUT_LOST     -> DELETED          [style="solid",  label=""];
+}

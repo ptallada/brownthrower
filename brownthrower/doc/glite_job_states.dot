@@ -1,0 +1,31 @@
+digraph glite_job_states {
+    // Possible job states
+    SUBMITTED  [shape="ellipse"];  // The job has been submitted by the user but not yet processed by the Network Server
+    WAITING    [shape="ellipse"];  // The job has been accepted by the Network Server but not yet processed by the Workload Manager
+    READY      [shape="ellipse"];  // The job has been assigned to a Computing Element but not yet transferred to it
+    SCHEDULED  [shape="ellipse"];  // The job is waiting in the Computing Element's queue
+    RUNNING    [shape="ellipse"];  // The job is running
+    DONE       [shape="ellipse"];  // The job has finished
+    ABORTED    [shape="box"];      // The job has been aborted by the WMS (e.g. because it was too long, or the proxy certificated expired, etc.)
+    CANCELLED  [shape="box"];      // The job has been cancelled by the user
+    CLEARED    [shape="box"];      // The Output Sandbox has been transferred to the User Interface
+    
+    // Expected flow
+    SUBMITTED -> WAITING    [style="solid", label=""];
+    WAITING   -> READY      [style="solid", label=""];
+    READY     -> SCHEDULED  [style="solid", label=""];
+    SCHEDULED -> RUNNING    [style="solid", label=""];
+    RUNNING   -> DONE       [style="solid", label=""];
+    DONE      -> CLEARED    [style="solid", label=""];
+    
+    // Job is aborted
+    SUBMITTED -> ABORTED  [style="solid", label=""];
+    WAITING   -> ABORTED  [style="solid", label=""];
+    READY     -> ABORTED  [style="solid", label=""];
+    SCHEDULED -> ABORTED  [style="solid", label=""];
+    RUNNING   -> ABORTED  [style="solid", label=""];
+    
+    // Job is cancelled
+    SCHEDULED -> CANCELLED  [style="solid", label=""];
+    RUNNING   -> CANCELLED  [style="solid", label=""];
+}
