@@ -123,28 +123,19 @@ class JobRemove(Command):
             deleted = model.session.query(model.Job).filter(
                 model.Job.id.in_(items),
                 model.Job.status.in_([
-                    constants.JobStatus.STASHED,
-                    constants.JobStatus.READY,
+                    constants.JobStatus.ABORTED,
                     constants.JobStatus.CANCELLED,
+                    constants.JobStatus.CLEARED_FAILED,
+                    constants.JobStatus.CLEARED_SUCCESS,
+                    constants.JobStatus.OUTPUT_LOST,
+                    constants.JobStatus.STEADY,
+                    constants.JobStatus.STASHED,
                 ])).delete(synchronize_session=False)
             model.session.commit()
             
-            
-            
-            
-            
-            cancelled = model.session.query(model.Job).filter(
-                model.Job.id.in_(items),
-                model.Job.status.in_([
-                    constants.JobStatus.READY
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.CANCELLED},
-                synchronize_session = False \
-            )
             if deleted == len(items):
                 print "All %d jobs have been successfully removed from the database." % deleted
-            elif deleted > 0 and deleted < len(items):
+            elif deleted > 0:
                 print "WARNING: Only %d out of %d jobs have been successfully removed from the database." % (deleted, len(items))
             else: # deleted == 0
                 print "WARNING: No jobs could be removed matching the supplied criteria."
@@ -172,93 +163,23 @@ class JobSubmit(Command):
             submitted = model.session.query(model.Job).filter(
                 model.Job.id.in_(items),
                 model.Job.status.in_([
-                    constants.JobStatus.STASHED,
+                    constants.JobStatus.ABORTED,
                     constants.JobStatus.CANCELLED,
+                    constants.JobStatus.STASHED,
+                    constants.JobStatus.SUBMIT_FAIL,
                 ])).update(
                     #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.READY},
+                    {'status' : constants.JobStatus.STEADY},
                 synchronize_session = False \
             )
             model.session.commit()
             
             if submitted == len(items):
                 print "All %d jobs have been successfully marked as ready for execution in the database." % submitted
-            elif submitted > 0 and submitted < len(items):
+            elif submitted > 0:
                 print "WARNING: Only %d of %d jobs have been successfully marked as ready for execution." % (submitted, len(items))
             else: # submitted == 0
                 print "ERROR: No jobs could be marked as ready matching the supplied criteria."
-        except:
-            model.session.rollback()
-            print "ERROR: Could not complete the query to the database."
-
-class JobCancel(Command):
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job cancel <id> ...
-        
-        Cancel the specified jobs as soon as possible.
-        If the dispatcher has not already queued them, they are immediately cancelled.
-        If the dispatcher has queued them, mark them to be cancelled as soon as possible. 
-        """)
-    
-    def complete(self, text, items):
-        return [text]
-    
-    def do(self, items):
-        if not items:
-            return self.help(items)
-        
-        try:
-            cancelled = model.session.query(model.Job).filter(
-                model.Job.id.in_(items),
-                model.Job.status.in_([
-                    constants.JobStatus.READY
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.CANCELLED},
-                synchronize_session = False \
-            )
-            cancel =  model.session.query(model.Job).filter(
-                model.Job.id.in_(items),
-                model.Job.status.in_([
-                    constants.JobStatus.QUEUED,
-                    constants.JobStatus.RUNNING,
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.CANCEL},
-                synchronize_session = False \
-            )
-            model.session.commit()
-            
-            if cancelled == len(items):
-                print "All %d jobs have been successfully cancelled." % cancelled
-                return
-            
-            if cancel == len(items):
-                print "All %d jobs have been marked to be cancelled as soon as possible." % cancel
-                return
-            
-            if cancelled == 0 and cancel == 0:
-                print "ERROR: No jobs could be cancelled matching the supplied criteria."
-                return
-            
-            if cancelled + cancel == len(items):
-                print "All %d jobs have been cancelled (%d) or marked to be cancelled (%d) as soon as possible." % (len(items), cancelled, cancel)
-                return
-            
-            if cancelled == 0 and cancel > 0:
-                print "WARNING: Only %d out of %d jobs could be marked to be cancelled as soon as possible." % (len(items), cancel)
-                return
-            
-            if cancel == 0 and cancelled > 0:
-                print "WARNING: Only %d out of %d jobs could be cancelled." % (len(items), cancelled)
-                return
-            
-            # (cancel > 0) and (cancelled > 0) and (cancel + cancelled < len(items))
-            print "WARNING: Not all %d jobs could be cancelled. %d have been cancelled and %d marked to be cancelled as soon as possible." % (len(items), cancelled, cancel)
-            return
-        
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
@@ -283,8 +204,10 @@ class JobReset(Command):
             resetted = model.session.query(model.Job).filter(
                 model.Job.id.in_(items),
                 model.Job.status.in_([
-                    constants.JobStatus.READY,
+                    constants.JobStatus.ABORTED,
                     constants.JobStatus.CANCELLED,
+                    constants.JobStatus.STEADY,
+                    constants.JobStatus.SUBMIT_FAIL,
                 ])).update(
                     #TODO: Shall reset all the other fields
                     {'status' : constants.JobStatus.STASHED},
@@ -319,6 +242,13 @@ class JobAddParent(Command):
             return self.help(items)
         
         try:
+            jobs = model.session.query(model.Job).filter(
+                model.Job.id.in_(items),
+                model.Job.status.in_(
+                    constants.JobStatus.manager_links_to(constants.JobStatus.STASHED)
+                )
+            )
+            
             dependency = model.JobDependency(child_job_id = int(items[0]), parent_job_id = int(items[1]))
             model.session.add(dependency)
             model.session.commit()
@@ -356,44 +286,43 @@ class JobAddChild(Command):
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
 
-
-class Job(Command):
-    
-    def __init__(self, tasks, editor, limit, *args, **kwargs):
-        super(Job, self).__init__(*args, **kwargs)
-        
-        self.add_subcmd('add_child',  JobAddChild())
-        self.add_subcmd('add_parent', JobAddParent())
-        self.add_subcmd('create',     JobCreate(  tasks = tasks,
-                                                 editor = editor))
-        self.add_subcmd('show',       JobShow(    limit = limit))
-        self.add_subcmd('remove',     JobRemove())
-        self.add_subcmd('submit',     JobSubmit())
-        self.add_subcmd('cancel',     JobCancel())
-        self.add_subcmd('reset',      JobReset())
+class JobCancel(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job <command> [options]
+        usage: job cancel <id> ...
         
-        Available commands:
-            add_child     add a child to a job
-            add_parent    add a parent to a job
-            cancel        cancel a job o mark it to be cancelled
-            create        create and configure a job
-            remove        delete a job which is in a final state
-            reset         return a job to the stash
-            show          show detailed information for a job
-            submit        mark a job as ready to be executed
+        Cancel the specified jobs as soon as possible.
+        If the dispatcher has not already queued them, they are immediately cancelled.
+        If the dispatcher has queued them, mark them to be cancelled as soon as possible. 
         """)
     
     def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
+        return [text]
     
     def do(self, items):
-        self.help(items)
-
+        if not items:
+            return self.help(items)
+        
+        try:
+            cancel =  model.session.query(model.Job).filter(
+                model.Job.id.in_(items),
+                model.Job.status.in_([
+                    constants.JobStatus.QUEUED,
+                    constants.JobStatus.RUNNING,
+                ])).update(
+                    #TODO: Shall reset all the other fields
+                    {'status' : constants.JobStatus.CANCEL},
+                synchronize_session = False \
+            )
+            model.session.commit()
+            
+            if cancel == len(items):
+                print "All %d jobs have been marked to be cancelled as soon as possible." % cancel
+            elif cancel > 0:
+                print "WARNING: Only %d out of %d jobs could be marked to be cancelled as soon as possible." % (cancel, len(items))
+            else: # cancel == 0
+                print "ERROR: No jobs could be cancelled matching the supplied criteria."
+        except:
+            model.session.rollback()
+            print "ERROR: Could not complete the query to the database."

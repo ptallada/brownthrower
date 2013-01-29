@@ -55,28 +55,3 @@ class TaskShow(Command):
                         if key.startswith(text)])
         
         return list(matching - set(items))
-
-class Task(Command):
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(Task, self).__init__(*args, **kwargs)
-        
-        self.add_subcmd('show', TaskShow(tasks = tasks))
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task <command> [options]
-        
-        Available commands:
-            show        show detailed information for a task
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
