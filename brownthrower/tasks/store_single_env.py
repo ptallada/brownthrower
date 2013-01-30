@@ -1,35 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import json
 import jsonschema
 import textwrap
+import yaml
 
 from brownthrower.interfaces import Task
 
 class StoreSingleEnv(Task):
     
-    _config_schema = {
+    _config_schema = """\
+    {
         "type"                 : "object",
         "$schema"              : "http://json-schema.org/draft-03/schema",
-        "required"             : True,
-        "additionalProperties" : False,
+        "required"             : true,
+        "additionalProperties" : false,
         "properties": {
             "key": {
                 "type"     : "string",
-                "required" : True
+                "required" : true
             }, 
             "path": {
                 "type"     : "string",
-                "required" : True
+                "required" : true
             }
         }
     }
+    """
     
-    _input_schema = {
+    _input_schema = """\
+    {
         "type"     : "null",
         "$schema"  : "http://json-schema.org/draft-03/schema",
-        "required" : True
+        "required" : true
     }
+    """
     
     _output_schema = _input_schema
     
@@ -60,15 +66,27 @@ class StoreSingleEnv(Task):
     
     @classmethod
     def check_config(cls, config):
-        jsonschema.validate(config, cls._config_schema)
+        jsonschema.validate(yaml.load(config), json.loads(cls._config_schema))
     
     @classmethod
     def check_input(cls, inp):
-        jsonschema.validate(inp, cls._input_schema)
+        jsonschema.validate(yaml.load(inp), json.loads(cls._input_schema))
     
     @classmethod
     def check_output(cls, out):
-        jsonschema.validate(out, cls._config_schema)
+        jsonschema.validate(yaml.load(out), json.loads(cls._output_schema))
+    
+    @classmethod
+    def get_config_schema(cls):
+        return textwrap.dedent(cls._config_schema)
+    
+    @classmethod
+    def get_input_schema(cls):
+        return textwrap.dedent(cls._input_schema)
+    
+    @classmethod
+    def get_output_schema(cls):
+        return textwrap.dedent(cls._output_schema)
     
     @classmethod
     def get_config_template(cls):
@@ -88,9 +106,6 @@ class StoreSingleEnv(Task):
     
     @classmethod
     def run(cls, runner, config, inp):
-        cls.check_config(config)
-        cls.check_input(config)
-        
         import os
         f = open(config['path'], "w")
         f.write("%s" % os.environ[config['key']])

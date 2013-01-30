@@ -16,6 +16,8 @@ class Job(Command):
         self.add_subcmd('cancel', job.JobCancel())
         self.add_subcmd('create', job.JobCreate(  tasks = tasks,
                                                  editor = editor))
+        self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
+                                                 editor = editor))
         self.add_subcmd('link',   job.JobLink())
         self.add_subcmd('remove', job.JobRemove())
         self.add_subcmd('reset',  job.JobReset())
@@ -31,6 +33,7 @@ class Job(Command):
         Available commands:
             cancel    cancel a job o mark it to be cancelled
             create    create and configure a job
+            edit      edit the value of a dataset
             link      establish a dependency between two jobs
             remove    delete a job which is in a final state
             reset     return a job to the stash

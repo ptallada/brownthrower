@@ -28,11 +28,13 @@ class Job(Base):
     
     # Columns
     id       = Column(Integer,    nullable=False)
+    # TODO: reenable nullable
     event_id = Column(Integer,    nullable=True)
-    name     = Column(String(20), nullable=False)
+    task     = Column(String(20), nullable=False)
     status   = Column(String(20), nullable=False)
     config   = Column(Text,       nullable=True)
-    result   = Column(Text,       nullable=True)
+    input    = Column(Text,       nullable=True)
+    output   = Column(Text,       nullable=True)
     
     # Relationships
     event       = relationship('Event', back_populates='jobs') 
@@ -51,11 +53,11 @@ class Job(Base):
         })
     
     def __repr__(self):
-        return u"%s(id=%s, event_id=%s, name=%s, status=%s)" % (
+        return u"%s(id=%s, event_id=%s, task=%s, status=%s)" % (
             self.__class__.__name__,
             repr(self.id),
             repr(self.event_id),
-            repr(self.name),
+            repr(self.task),
             repr(self.status),
         )
     
@@ -68,9 +70,12 @@ class Event(Base):
     )
     
     # Columns
-    id     = Column(Integer,    nullable=False)
-    name   = Column(String(20), nullable=False)
-    status = Column(String(20), nullable=False)
+    id       = Column(Integer,    nullable=False)
+    name     = Column(String(20), nullable=False)
+    status   = Column(String(20), nullable=False)
+    config   = Column(Text,       nullable=True)
+    input    = Column(Text,       nullable=True)
+    output   = Column(Text,       nullable=True)
     
     # Relationships
     jobs = relationship('Job', back_populates='event')
@@ -86,6 +91,7 @@ class JobDependency(Base):
     )
     
     # Columns
+    # TODO: reenable nullable
     event_id      = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)

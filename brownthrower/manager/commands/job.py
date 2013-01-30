@@ -27,14 +27,14 @@ class JobCreate(Command):
     
     def complete(self, text, items):
         if not items:
-            matching = set([key
-                            for key in self._tasks.iterkeys()
-                            if key.startswith(text)])
+            matching = [key
+                        for key in self._tasks.iterkeys()
+                        if key.startswith(text)]
             
-            return list(matching - set(items))
+            return matching
     
     def do(self, items):
-        if not items or len(items) > 1:
+        if len(items) != 1:
             return self.help(items)
         
         task = self._tasks.get(items[0])
@@ -42,18 +42,11 @@ class JobCreate(Command):
             print "The task '%s' is not currently available in this environment."
             return
         
-        (fd, path) = tempfile.mkstemp()
-        fh = os.fdopen(fd, 'w')
-        fh.write(task.get_config_template())
-        fh.close()
-        
         try:
-            subprocess.check_call([self._editor, path])
-            
-            config = open(path, 'r').read()
-            job = model.Job(name   = items[0],
-                            status = constants.JobStatus.STASHED,
-                            config = config)
+            job = model.Job(
+                task   = items[0],
+                status = constants.JobStatus.STASHED
+            )
             model.session.add(job)
             model.session.commit()
             print "A new job for task '%s' with id %d has been created." % (items[0], job.id)
@@ -89,9 +82,9 @@ class JobShow(Command):
             jobs = query.all()
             model.session.commit()
             
-            t = prettytable.PrettyTable(['id', 'event_id', 'name', 'status'])
+            t = prettytable.PrettyTable(['id', 'event_id', 'task', 'status'])
             for job in jobs:
-                t.add_row([job.id, job.event_id, job.name, job.status])
+                t.add_row([job.id, job.event_id, job.task, job.status])
             
             if not jobs:
                 print "WARNING: No jobs found matching the supplied criteria."
@@ -253,14 +246,14 @@ class JobLink(Command):
             
             if not (parent and child):
                 model.session.rollback()
-                print "ERROR: It was not possible to establish a parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                print "ERROR: It is not possible to establish a parent-child dependency between these jobs."
                 return
             
             dependency = model.JobDependency(child_job_id = child.id, parent_job_id = parent.id)
             model.session.add(dependency)
             model.session.commit()
             
-            print "The parent-child dependency between jobs %d and %d has been succesfully established." % (parent.id, child.id)
+            print "The parent-child dependency has been succesfully established."
             
         except:
             model.session.rollback()
@@ -295,7 +288,7 @@ class JobUnlink(Command):
             
             if not (parent and child):
                 model.session.rollback()
-                print "ERROR: It was not possible to remove the parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                print "ERROR: It is not possible to remove the parent-child dependency."
                 return
             
             deleted = model.session.query(model.JobDependency).filter_by(
@@ -305,13 +298,12 @@ class JobUnlink(Command):
             model.session.commit()
             
             if not deleted:
-                print "ERROR: It was not possible to remove the parent-child dependency between jobs %d and %d." % (parent.id, child.id)
+                print "ERROR: It is not possible to remove the parent-child dependency."
             else:
-                print "The parent-child dependency between jobs %d and %d has been succesfully removed." % (parent.id, child.id)
+                print "The parent-child dependency has been succesfully removed."
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
-
 
 class JobCancel(Command):
     
@@ -351,3 +343,93 @@ class JobCancel(Command):
         except:
             model.session.rollback()
             print "ERROR: Could not complete the query to the database."
+
+class JobEdit(Command):
+    
+    _dataset_attr = {
+        'config' : {
+            'field'    : model.Job.config,
+            'template' : lambda task: task.get_config_template,
+            'check'    : lambda task: task.check_config,
+        },
+        'input'  : {
+            'field'    : model.Job.input,
+            'template' : lambda task: task.get_input_template,
+            'check'    : lambda task: task.check_input,
+        }
+    }
+    
+    def __init__(self, tasks, editor, *args, **kwargs):
+        super(JobEdit, self).__init__(*args, **kwargs)
+        self._tasks   = tasks
+        self._editor  = editor
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job edit <dataset> <id>
+        
+        Edit the specified dataset of a job.
+        Valid values for the dataset parameter are: 'input' and 'config'.
+        """)
+    
+    def complete(self, text, items):
+        if not items:
+            matching = [attr
+                        for attr in self._dataset_attr.keys()
+                        if attr.startswith(text)]
+            return matching
+    
+    def do(self, items):
+        if (
+            (len(items) != 2) or
+            (items[0] not in self._dataset_attr)
+        ):
+            return self.help(items)
+        
+        try:
+            job = model.session.query(model.Job).filter_by(
+                id = items[1],
+                status = constants.JobStatus.STASHED,
+            ).with_lockmode('update_nowait').one()
+        except:
+            model.session.rollback()
+            print "ERROR: Could not lock the job for editting."
+            return
+        
+        task = self._tasks.get(job.task)
+        if not task:
+            print "The task '%s' is not currently available in this environment."
+            return
+        
+        try:
+            field    = self._dataset_attr[items[0]]['field']
+            template = self._dataset_attr[items[0]]['template'](task)()
+            check    = self._dataset_attr[items[0]]['check'](task)
+            
+            current_value = getattr(job, field.key)
+            if not current_value:
+                current_value = template
+            
+            (fd, path) = tempfile.mkstemp()
+            fh = os.fdopen(fd, 'w')
+            fh.write(current_value)
+            fh.close()
+            
+            subprocess.check_call([self._editor, path])
+            
+            new_value = open(path, 'r').read()
+            
+            try:
+                check(new_value)
+            except:
+                model.session.rollback()
+                print "ERROR: The supplied dataset is not valid."
+                return
+            
+            setattr(job, field.key, new_value)
+            model.session.commit()
+            
+            print "The job dataset has been successfully modified."
+        except:
+            model.session.rollback()
+            print "ERROR: The job could not be editted."

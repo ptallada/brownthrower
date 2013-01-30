@@ -57,9 +57,9 @@ class TaskShow(Command):
 class TaskSchema(Command):
     
     _dataset_fn = {
-        'input'  : 
-        'output' :
-        'config' : ])
+        'config' : lambda task: task.get_config_schema,
+        'input'  : lambda task: task.get_input_schema,
+        'output' : lambda task: task.get_output_schema,
     }
     
     def __init__(self, tasks, *args, **kwargs):
@@ -77,11 +77,11 @@ class TaskSchema(Command):
     def complete(self, text, items):
         if not items:
             matching = [value
-                        for value in self._datasets
+                        for value in self._dataset_fn.keys()
                         if value.startswith(text)]
             return matching
         
-        if (len(items) == 1) and (items[0] in self._datasets):
+        if (len(items) == 1) and (items[0] in self._dataset_fn):
             matching = [key
                         for key in self._tasks.iterkeys()
                         if key.startswith(text)]
@@ -91,16 +91,29 @@ class TaskSchema(Command):
     def do(self, items):
         if (
             (len(items) != 2) or
-            (items[0] not in self._datasets) or
+            (items[0] not in self._dataset_fn) or
             (items[1] not in self._tasks.keys())
         ):
             return self.help(items)
         
-        fn = {
-            
-        }
+        task = self._tasks.get(items[1])
+        if not task:
+            print "ERROR: The task '%s' is not currently available in this environment."
+            return
+        
+        try:
+            print self._dataset_fn[items[0]](task)()
+        except:
+            print "ERROR: Could not retrieve the requested schema."
 
 class TaskTemplate(Command):
+    
+    _dataset_fn = {
+        'config' : lambda task: task.get_config_template,
+        'input'  : lambda task: task.get_input_template,
+        'output' : lambda task: task.get_output_template,
+    }
+        
     def __init__(self, tasks, *args, **kwargs):
         super(TaskTemplate, self).__init__(*args, **kwargs)
         self._tasks = tasks
@@ -114,15 +127,13 @@ class TaskTemplate(Command):
         """)
     
     def complete(self, text, items):
-        dataset = set(['input', 'output', 'config'])
-        
         if not items:
             matching = [value
-                        for value in dataset
+                        for value in self._dataset_fn
                         if value.startswith(text)]
             return matching
         
-        if (len(items) == 1) and (items[0] in dataset):
+        if (len(items) == 1) and (items[0] in self._dataset_fn):
             matching = [key
                         for key in self._tasks.iterkeys()
                         if key.startswith(text)]
@@ -130,7 +141,19 @@ class TaskTemplate(Command):
             return matching
     
     def do(self, items):
-        if len(items) != 2:
+        if (
+            (len(items) != 2) or
+            (items[0] not in self._dataset_fn.keys()) or
+            (items[1] not in self._tasks.keys())
+        ):
             return self.help(items)
         
-        print "do something template"
+        task = self._tasks.get(items[1])
+        if not task:
+            print "ERROR: The task '%s' is not currently available in this environment."
+            return
+        
+        try:
+            print self._dataset_fn[items[0]](task)()
+        except:
+            print "ERROR: Could not retrieve the requested template."
