@@ -2,12 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import cmd
-import json
 import jsonschema
 import logging
 import pkg_resources
 import textwrap
-import yaml
 
 from brownthrower import model
 
