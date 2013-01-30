@@ -22,7 +22,7 @@ class Job(Command):
         self.add_subcmd('remove', job.JobRemove())
         self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow(    limit = limit))
-        self.add_subcmd('submit', job.JobSubmit())
+        self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
         self.add_subcmd('unlink', job.JobUnlink())
 
     

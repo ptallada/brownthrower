@@ -122,13 +122,16 @@ class Manager(cmd.Cmd):
     def do_EOF(self, line):
         return True
     
+    def postcmd(self, stop, line):
+        model.session.rollback()
+        return cmd.Cmd.postcmd(self, stop, line)
+    
     def postloop(self):
         print
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
-
     
     from pysrc import pydevd
     pydevd.settrace(suspend=False)
@@ -136,8 +139,8 @@ if __name__ == '__main__':
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    model.init(_CONFIG['database.url'])
-    #model.init('sqlite:////tmp/manager.db')
+    #model.init(_CONFIG['database.url'])
+    model.init('sqlite:////tmp/manager.db')
     #model.Base.metadata.create_all()
     
     manager = Manager()

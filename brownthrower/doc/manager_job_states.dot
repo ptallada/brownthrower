@@ -1,77 +1,51 @@
-digraph job_states { //concentrate="true";
+digraph job_states {
     // Possible job states
-    { rank="min"
-        STASHED          [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
-        STEADY           [shape="ellipse"];   // The job has been configured and its dependencies are already set. It will be executed as soon as possible.
-        SUBMIT_FAIL      [shape="ellipse"];   // The dispatcher has been unable to submit this job for execution.
-    }
-    {
-        QUEUED           [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
-        RUNNING          [shape="ellipse"];   // The job is being executed.
-        SUCCESS          [shape="ellipse"];   // The job has finished with exit code == 0
-    }
-    {
-        CANCEL           [shape="ellipse"];   // The user has asked to cancel this job.
-        CANCELLING       [shape="ellipse"];   // The dispatcher is trying to cancel this job
-        FAILED           [shape="ellipse"];   // The job has finished with exit code != 0
+    DELETED          [shape="plaintext"]; // The job has been deleted.
+    STASHED          [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
+    READY            [shape="ellipse"];   // The job has been configured and its dependencies are already set. It will be executed as soon as possible.
+    SUBMIT_FAIL      [shape="box"];       // The dispatcher has been unable to submit this job for execution.
+    CANCEL           [shape="ellipse"];   // The user has asked to cancel this job.
+    QUEUED           [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
+    RUNNING          [shape="ellipse"];   // The job is being executed.
+    SUCCESS          [shape="box"];       // The job has finished with exit code == 0.
+    FAILURE          [shape="box"];       // The job/runner was unable to complete its execution successfully.
+    
+    // Grouping
+    { rank="source";
+        DELETED;
     }
     { rank="same";
-        CANCELLED        [shape="box"];       // The job has been cancelled.
-        ABORTED          [shape="box"];       // The job has failed to complete its execution.
-        CLEARED_SUCCESS  [shape="box"];       // The dispatcher has retrieved the output of this job.
-        CLEARED_FAILED   [shape="box"];       // The dispatcher has retrieved the output of this job.
-        OUTPUT_LOST      [shape="box"];       // The dispatcher could not retrieve the output of this job.
+        STASHED; READY; SUBMIT_FAIL;
     }
-    {
-        DELETED          [shape="plaintext"]; // The job has been deleted.
+    { rank="same";
+        CANCEL; QUEUED;
+    }
+    { rank="same";
+        SUCCESS; FAILURE;
     }
     
     // Expected flow
-    STASHED         -> STEADY           [style="dotted",                  label=""];
-    STEADY          -> QUEUED           [style="solid",  color="green",   label=""];
-    QUEUED          -> RUNNING          [style="solid",  color="green",   label=""];
-    RUNNING         -> SUCCESS          [style="solid",  color="green",   label=""];
-    SUCCESS         -> CLEARED_SUCCESS  [style="solid",  color="green",   label=""];
+    STASHED         -> READY            [style="dotted"]; // User marks this job as ready for execution
+    READY           -> QUEUED           [style="solid"];  // Dispatcher submits the job to the pool of resources
+    QUEUED          -> RUNNING          [style="solid"];  // Job starts its execution inside the runner
+    RUNNING         -> SUCCESS          [style="solid"];  // Job/Runner finished its execution without error
     
     // Submit failure
-    STEADY          -> SUBMIT_FAIL      [style="solid",  color="red",     label=""];
+    READY           -> SUBMIT_FAIL      [style="solid"];  // Dispatcher has been unable to submit the job
     
-    // The job fails with exit code != 0
-    RUNNING         -> FAILED           [style="solid",  color="red",     label=""];
-    FAILED          -> CLEARED_FAILED   [style="solid",  color="red",     label=""];
-    
-    // The output is lost
-    SUCCESS         -> OUTPUT_LOST      [style="solid",  label=""];
-    FAILED          -> OUTPUT_LOST      [style="solid",  label=""];
-    
-    // The job is aborted
-    QUEUED          -> ABORTED          [style="solid",  color="red",     label=""];
-    RUNNING         -> ABORTED          [style="solid",  color="red",     label=""];
+    // The job/runner fails to finish successfully
+    RUNNING         -> FAILURE          [style="solid", constraint="false"];  // Some exception has occurred inside the Job/Runner
     
     // The job has to be cancelled
-    QUEUED          -> CANCEL           [style="dotted", label=""];
-    RUNNING         -> CANCEL           [style="dotted", label=""];
-    CANCEL          -> CANCELLING       [style="solid",  color="magenta", label=""];
-    CANCEL          -> ABORTED          [style="solid",  color="red",     label=""];
-    CANCEL          -> FAILED           [style="solid",  color="red",     label=""];
-    CANCEL          -> SUCCESS          [style="solid",  color="green",   label=""];
-    CANCELLING      -> SUCCESS          [style="solid",  color="green",   label=""];
-    CANCELLING      -> ABORTED          [style="solid",  color="red",     label=""];
-    CANCELLING      -> FAILED           [style="solid",  color="red",     label=""];
-    CANCELLING      -> CANCELLED        [style="solid",  color="magenta", label=""];
+    QUEUED          -> CANCEL           [style="dotted", constraint="false"]; // The user wants this job to be cancelled
+    RUNNING         -> CANCEL           [style="dotted", constraint="false"]; // The user wants this job to be cancelled
+    CANCEL          -> STASHED          [style="solid"];                      // The job is successfully cancelled
     
-    // Reflows
-    SUBMIT_FAIL     -> STASHED          [style="dotted",                  label=""];
-    ABORTED         -> STASHED          [style="dotted",                  label=""];
-    CANCELLED       -> STASHED          [style="dotted",                  label=""];
-    CLEARED_FAILED  -> STASHED          [style="dotted",                  label=""];
-    STEADY          -> STASHED          [style="dotted",                  label=""];
+    // Return the job to the stash
+    SUBMIT_FAIL     -> STASHED          [style="dotted"];
+    READY           -> STASHED          [style="dotted"];
+    FAILURE         -> STASHED          [style="dotted"];
     
-    // Remove
-    STASHED         -> DELETED          [style="dotted",                  label=""];
-    CANCELLED       -> DELETED          [style="dotted",                  label=""];
-    ABORTED         -> DELETED          [style="dotted",                  label=""];
-    CLEARED_SUCCESS -> DELETED          [style="dotted",                  label=""];
-    CLEARED_FAILED  -> DELETED          [style="dotted",                  label=""];
-    OUTPUT_LOST     -> DELETED          [style="dotted",                  label=""];
+    // Remove the job
+    STASHED         -> DELETED          [style="dotted"];
 }
