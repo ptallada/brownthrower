@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 class JobStatus(object):
-    DELETED     = 'DELETED'     # The job has been deleted.
     STASHED     = 'STASHED'     # The job is in preparation phase. It is being configured and cannot be executed yet.
     READY       = 'READY'       # The job has been configured and its dependencies are already set. It will be executed as soon as possible.
     SUBMIT_FAIL = 'SUBMIT_FAIL' # The dispatcher has been unable to submit this job for execution.

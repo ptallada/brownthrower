@@ -2,16 +2,16 @@
 # -*- coding: utf-8 -*-
 
 class TaskValidationException(Exception):
-    def __init__(self, exception, message):
+    def __init__(self, exception=None, message=None):
         self.exception = exception
-        self.message = message
+        self.message   = message
         
     def __str__(self):
         return repr(self.exception)
 
 class Task(object):
     
-    def run(self, runner, config, inp={}):
+    def run(self, runner, config, inp):
         """
         Executes this task. When this method is called, it can safely assume
         that the 'config' and 'inp' parameters have been checked previously

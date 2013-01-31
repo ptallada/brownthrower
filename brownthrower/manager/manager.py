@@ -4,6 +4,8 @@
 import cmd
 import logging
 import textwrap
+import signal
+import sys
 
 from brownthrower import common
 from brownthrower import model
@@ -86,7 +88,12 @@ class Manager(cmd.Cmd):
     def postloop(self):
         print
 
+def system_exit(*args, **kwargs):
+    sys.exit(1)
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, system_exit)
+    
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
     

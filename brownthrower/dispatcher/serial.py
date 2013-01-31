@@ -31,8 +31,8 @@ class SerialDispatcher(interface.Dispatcher):
         self._tasks = common.load_tasks(_CONFIG['entry_points.task'])
     
     def loop(self):
-        try:
-            while True:
+        while True:
+            try:
                 # Fetch first job which WAS suitable to be executed
                 job = model.session.query(model.Job).filter(
                     model.Job.status == constants.JobStatus.READY,
@@ -43,8 +43,7 @@ class SerialDispatcher(interface.Dispatcher):
                 ).with_lockmode('update').first()
                 
                 if not job:
-                    log.info("No more jobs are ready to be executed. Exitting...")
-                    model.session.rollback()
+                    log.info("There are no more jobs to be executed.")
                     break
                 
                 # Recheck parents to see if it is still runnable
@@ -52,34 +51,61 @@ class SerialDispatcher(interface.Dispatcher):
                     model.Job.child_jobs.contains(job) #@UndefinedVariable
                 ).with_lockmode('read').all()
                 if filter(lambda parent: parent.status != constants.JobStatus.DONE, parents):
-                    log.debug("Some parents of this job have changed its status before being locked. This job is now not ready to be executed. Skipping...")
-                    model.session.rollback()
+                    log.debug("Skipping this job as some of its parents have changed its status before being locked.")
                     continue
                 
                 try:
-                    job.input = yaml.dump([ yaml.load(parent.input) for parent in parents ])
+                    job.input = yaml.dump([ yaml.load(parent.output) for parent in parents ])
+                    
+                    task = self._tasks[job.task]
+                    task.check_config(job.config)
+                    task.check_input(job.input)
+                    
+                    # Prefetch
+                    job_id     = job.id
+                    job_config = job.config
+                    job_input  = job.input
+                    
+                    job.status = constants.JobStatus.RUNNING
+                    model.session.commit()
+                    try:
+                        job_output = task.run(runner = None, config = job_config, inp = job_input)
+                        
+                        job = model.session.query(model.Job).filter_by(
+                            id = job_id
+                        ).with_lockmode('update').one()
+                        
+                        job.output = task.run(runner = None, config = job.config, inp = job.input)
+                        # TODO: Implement CANCEL
+                        task.check_output(job.output)
+                        job.status = constants.JobStatus.DONE
+                        model.session.commit()
+                    except:
+                        try:
+                            raise
+                        except interface.TaskValidationException:
+                            log.error("The output is not valid.")
+                        except model.StatementError:
+                            log.error("Could not commit changes to the database.")
+                        except Exception:
+                            log.error("The job raised an Exception.")
+                        finally:
+                            model.session.rollback()
+                            job.status = constants.JobStatus.FAILED
+                            model.session.commit()
                 except:
-                    log.error("Could not build the input for this job. SKipping...")
-                
-                try:
-                
-                #job.status = constants.JobStatus.RUNNING
-                model.session.commit()
-                try:
-                    out = 
-                    # corre'l
-                    # rebre output, desar-lo
-                    # actualitzar estat
-                    # commit
-                    pass
-                except:
-                    # rollback
-                    # marcar com a fallat
-                    # commit
-                    pass
-        #except:
-            # sortir be
-        #    pass
-        finally:
-            model.session.rollback()
-        
+                    try:
+                        raise
+                    except interface.TaskValidationException:
+                        log.error("The input or the config is not valid.")
+                    except yaml.YAMLError:
+                        log.error("The output of some of its parents is not valid.")
+                    except model.StatementError:
+                        log.error("Could not complete the query to the database.")
+                    finally:
+                        # implementar amb savepoint per no perdre el lock
+                        model.session.rollback()
+                        job.status = constants.JobStatus.SUBMIT_FAIL
+                        model.session.commit()
+            finally:
+                model.session.rollback()

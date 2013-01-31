@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import prettytable
 import subprocess
 import tempfile
@@ -406,7 +405,7 @@ class JobEdit(Command):
             ).with_lockmode('update').first()
             
             if not job:
-                print "ERROR: Could not lock the job for submitting."
+                print "ERROR: Could not find or lock the job for editing."
                 return
             
             task = self._tasks.get(job.task)
@@ -422,14 +421,14 @@ class JobEdit(Command):
             if not current_value:
                 current_value = template
             
-            (fd, path) = tempfile.mkstemp()
-            fh = os.fdopen(fd, 'w')
-            fh.write(current_value)
-            fh.close()
-            
-            subprocess.check_call([self._editor, path])
-            
-            new_value = open(path, 'r').read()
+            with tempfile.NamedTemporaryFile("w+") as fh:
+                fh.write(current_value)
+                fh.flush()
+                
+                subprocess.check_call([self._editor, fh.name])
+                
+                fh.seek(0)
+                new_value = fh.read()
             
             check(new_value)
             
