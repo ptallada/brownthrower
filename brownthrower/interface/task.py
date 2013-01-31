@@ -9,6 +9,9 @@ class TaskValidationException(Exception):
     def __str__(self):
         return repr(self.exception)
 
+class TaskCancelledException(Exception):
+    pass
+
 class Task(object):
     
     def run(self, runner, config, inp):

@@ -4,6 +4,7 @@
 import sqlalchemy
 
 from sqlalchemy import event
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import StatementError 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, eagerload, eagerload_all
@@ -92,28 +93,31 @@ class JobDependency(Base):
     )
     
     # Columns
-    # TODO: reenable nullable
+    # TODO: re-enable nullable
     event_id      = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
 
 def _sqlite_begin(conn):
-    conn.execute("BEGIN")
+    # Force a single active transaction on a sqlite database.
+    # This is needed to emulate FOR UPDATE locks :(
+    conn.execute("BEGIN EXCLUSIVE")
 
 def init(url):
     global session
     
-    engine = create_engine(url)
+    url = make_url(url) 
+    
+    if url.drivername == 'sqlite':
+        # Disable automatic transaction handling to workaround faulty nested transactions
+        engine = create_engine(url, connect_args={'isolation_level':None})
+    else:
+        engine = create_engine(url)
     
     if engine.url.drivername == 'sqlite':
+        # As we have disabled the automatic transaction management, we must explicitly begin a transaction on connection open.
+        # Also, that fixes another bug, by which SELECT statements do not start a new transaction.
         event.listen(engine, 'begin', _sqlite_begin)
     
     Base.metadata.bind = engine
     session = scoped_session(sessionmaker(bind=engine))()
-
-#init('sqlite:///')
-#Base.metadata.create_all()
-#e1 = Event(name='e1', status='NEW')
-#j1 = Job(name='j1', status='NEW', event=e1)
-#session.add(e1)
-#session.commit()
