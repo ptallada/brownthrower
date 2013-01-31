@@ -1,6 +1,14 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+class TaskValidationException(Exception):
+    def __init__(self, exception, message):
+        self.exception = exception
+        self.message = message
+        
+    def __str__(self):
+        return repr(self.exception)
+
 class Task(object):
     
     def run(self, runner, config, inp={}):
@@ -26,7 +34,7 @@ class Task(object):
         
         @param config: YAML string with configuration values
         @type config: basestring
-        @return: None if the config is valid, or some Exception if not.
+        @return: None if the config is valid, or TaskValidationException if not.
         """
         raise NotImplementedError
     
@@ -36,7 +44,7 @@ class Task(object):
         
         @param input: YAML string with input data
         @type input: basestring
-        @return: None if the input is valid, or some Exception if not.
+        @return: None if the input is valid, or TaskValidationException if not.
         """
         raise NotImplementedError
     
@@ -46,7 +54,7 @@ class Task(object):
         
         @param output: YAML string with output data.
         @type output: basestring
-        @return: None if the output is valid, or some Exception if not.
+        @return: None if the output is valid, or TaskValidationException if not.
         """
         raise NotImplementedError
     

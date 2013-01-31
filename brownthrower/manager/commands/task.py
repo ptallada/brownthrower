@@ -101,10 +101,7 @@ class TaskSchema(Command):
             print "ERROR: The task '%s' is not currently available in this environment."
             return
         
-        try:
-            print self._dataset_fn[items[0]](task)()
-        except:
-            print "ERROR: Could not retrieve the requested schema."
+        print self._dataset_fn[items[0]](task)()
 
 class TaskTemplate(Command):
     
@@ -153,7 +150,4 @@ class TaskTemplate(Command):
             print "ERROR: The task '%s' is not currently available in this environment."
             return
         
-        try:
-            print self._dataset_fn[items[0]](task)()
-        except:
-            print "ERROR: Could not retrieve the requested template."
+        print self._dataset_fn[items[0]](task)()

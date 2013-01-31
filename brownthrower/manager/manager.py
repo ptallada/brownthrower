@@ -2,67 +2,24 @@
 # -*- coding: utf-8 -*-
 
 import cmd
-import jsonschema
 import logging
-import pkg_resources
 import textwrap
 
+from brownthrower import common
 from brownthrower import model
 
 # TODO: read and create a global or local configuration file
 _CONFIG = {
-    'entry_points.task'  : 'paudm.task',
-    'entry_points.event' : 'paudm.event',
+    'entry_points.task'  : 'brownthrower.task',
+    'entry_points.event' : 'brownthrower.event',
     'manager.editor'     : 'nano',
     'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
     'listing.limit'      : 50,
 }
 
-log = logging.getLogger('paudm.manager')
+log = logging.getLogger('brownthrower.manager')
 # TODO: Remove
 logging.basicConfig(level=logging.DEBUG)
-
-
-def _load_tasks(entry_point):
-    """
-    Build a list with all the Tasks available in the current environment.
-    """
-    
-    tasks = {}
-    
-    loaded  = 0
-    skipped = 0
-    print "Loading available Tasks..."
-    for entry in pkg_resources.iter_entry_points(entry_point):
-        try:
-            task = entry.load()
-            task.check_config(task.get_config_template())
-            task.check_input( task.get_input_template())
-            task.check_output(task.get_output_template())
-            
-            if entry.name in tasks:
-                log.warning("Cannot use Task '%s:%s'. A Task with the same name is already defined. Task is skipped." % (entry.name, entry.module_name))
-                skipped += 1
-                continue
-            
-            tasks[entry.name] = task
-            loaded += 1
-        
-        except ImportError:
-            log.warning("Could not import Task '%s:%s'" % (entry.name, entry.module_name))
-            skipped += 1
-        
-        except jsonschema.ValidationError:
-            log.warning("Arguments from Task '%s:%s' are not properly documented. Task is skipped." % (entry.name, entry.module_name))
-            skipped += 1
-    
-    print "%d Tasks have been successfully loaded" % loaded
-    print "%d Tasks have been skipped" % skipped
-    
-    if loaded == 0:
-        print "WARNING: Could not load any Task. You will not be able to create any Job."
-    
-    return tasks
 
 class Manager(cmd.Cmd):
     
@@ -75,7 +32,7 @@ class Manager(cmd.Cmd):
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def preloop(self):
-        self._tasks = _load_tasks(_CONFIG['entry_points.task'])
+        self._tasks = common.load_tasks(_CONFIG['entry_points.task'])
         
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
@@ -139,8 +96,8 @@ if __name__ == '__main__':
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    #model.init(_CONFIG['database.url'])
-    model.init('sqlite:////tmp/manager.db')
+    model.init(_CONFIG['database.url'])
+    #model.init('sqlite:////tmp/manager.db')
     #model.Base.metadata.create_all()
     
     manager = Manager()

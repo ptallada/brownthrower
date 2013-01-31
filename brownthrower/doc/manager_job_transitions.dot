@@ -1,0 +1,100 @@
+digraph manager_job_transitions {
+    
+    subgraph cluster_1 {
+        label = "manager job delete";
+        A_PARENT  [label=""];
+        A_CHILD   [label=""];
+        { rank="same";
+        A_STASHED [label="STASHED", shape="plaintext"];
+        A_JOB     [label="U", shape="plaintext"];
+        }
+        A_PARENT -> A_JOB -> A_CHILD;
+        A_STASHED -> A_JOB;
+    }
+    
+    subgraph cluster_2 {
+        label = "manager job link";
+        B_PARENT  [label="R"];
+        { rank="same";
+        B_CHILD   [label="R"];
+        B_STASHED [label="STASHED", shape="plaintext"];
+        }
+        B_PARENT -> B_CHILD;
+        B_STASHED -> B_CHILD;
+    }
+    
+    subgraph cluster_3 {
+        label = "manager job unlink";
+        C_PARENT  [label="R"];
+        { rank="same";
+        C_CHILD   [label="R"];
+        C_STASHED [label="STASHED", shape="plaintext"];
+        }
+        C_PARENT -> C_CHILD [style="invis"];
+        C_STASHED -> C_CHILD;
+    }
+    
+    subgraph cluster_4 {
+        label = "manager job submit";
+        D_PARENT  [label=""];
+        D_CHILD   [label=""];
+        { rank="same";
+        D_JOB     [label="U"];
+        D_STASHED [label="STASHED", shape="plaintext"];
+        D_READY   [label="READY",   shape="plaintext"];
+        }
+        D_PARENT -> D_JOB -> D_CHILD;
+        D_STASHED -> D_JOB -> D_READY;
+    }
+    
+    subgraph cluster_5 {
+        label = "manager job reset";
+        E_PARENT  [label=""];
+        E_CHILD   [label=""];
+        { rank="same";
+        E_JOB     [label="U"];
+        E_STATUS  [label="FAILED\nREADY\nSUBMIT_FAIL", shape="plaintext"];
+        E_STASHED [label="STASHED",                    shape="plaintext"];
+        }
+        E_PARENT -> E_JOB -> E_CHILD;
+        E_STATUS -> E_JOB -> E_STASHED;
+    }
+    
+    subgraph cluster_6 {
+        label = "manager job cancel";
+        F_PARENT  [label=""];
+        F_CHILD   [label=""];
+        { rank="same";
+        F_JOB    [label="U"];
+        F_STATUS [label="QUEUED\nRUNNING", shape="plaintext"];
+        F_CANCEL [label="CANCEL",          shape="plaintext"];
+        }
+        F_PARENT -> F_JOB -> F_CHILD;
+        F_STATUS -> F_JOB -> F_CANCEL;
+    }
+    
+    subgraph cluster_7 {
+        label = "manager job edit";
+        G_PARENT  [label=""];
+        G_CHILD   [label=""];
+        { rank="same";
+        G_JOB     [label="U",       shape="diamond"];
+        G_STASHED [label="STASHED", shape="plaintext"];
+        }
+        G_PARENT -> G_JOB -> G_CHILD;
+        G_STASHED -> G_JOB;
+    }
+    
+    subgraph cluster_8 {
+        label = "dispatcher job queue";
+        H_PARENT  [label="2:R"];
+        H_CHILD   [label=""];
+        { rank="same";
+        H_JOB    [label="1:U"];
+        H_READY  [label="READY",  shape="plaintext"];
+        H_STATUS [label="RUNNING\nQUEUED", shape="plaintext"];
+        }
+        H_PARENT -> H_JOB -> H_CHILD;
+        H_READY -> H_JOB -> H_STATUS;
+    }
+}

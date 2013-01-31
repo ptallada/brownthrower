@@ -6,9 +6,9 @@ import jsonschema
 import textwrap
 import yaml
 
-from brownthrower.interfaces import Task
+from brownthrower import interface
 
-class StoreSingleEnv(Task):
+class StoreSingleEnv(interface.Task):
     
     _config_schema = """\
     {

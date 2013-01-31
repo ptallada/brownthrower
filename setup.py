@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
+#import os
 from setuptools import setup, find_packages
 
 # Read README file for the long description
@@ -44,7 +44,7 @@ setup(
     
     # other arguments here...
     entry_points = {
-        'paudm.task': [
+        'brownthrower.task': [
             'store_single_env = brownthrower.tasks.store_single_env:StoreSingleEnv',
             'hostname         = brownthrower.tasks.hostname:Hostname',
         ],

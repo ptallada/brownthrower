@@ -4,6 +4,7 @@
 import sqlalchemy
 
 from sqlalchemy import event
+from sqlalchemy.exc import StatementError 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, eagerload, eagerload_all
 from sqlalchemy.orm.session import sessionmaker

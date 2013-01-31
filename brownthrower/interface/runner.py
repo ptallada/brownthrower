@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 
-class LocalRunner(object):
+class Runner(object):
     
     def __init__(self, tmp_dir, tmp_prefix):
         self.tmp_dir = tmp_dir

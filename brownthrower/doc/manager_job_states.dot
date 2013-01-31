@@ -7,8 +7,8 @@ digraph job_states {
     CANCEL           [shape="ellipse"];   // The user has asked to cancel this job.
     QUEUED           [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
     RUNNING          [shape="ellipse"];   // The job is being executed.
-    SUCCESS          [shape="box"];       // The job has finished with exit code == 0.
-    FAILURE          [shape="box"];       // The job/runner was unable to complete its execution successfully.
+    DONE             [shape="box"];       // The job has finished with exit code == 0.
+    FAILED           [shape="box"];       // The job/runner was unable to complete its execution successfully.
     
     // Grouping
     { rank="source";
@@ -21,20 +21,20 @@ digraph job_states {
         CANCEL; QUEUED;
     }
     { rank="same";
-        SUCCESS; FAILURE;
+        DONE; FAILED;
     }
     
     // Expected flow
     STASHED         -> READY            [style="dotted"]; // User marks this job as ready for execution
     READY           -> QUEUED           [style="solid"];  // Dispatcher submits the job to the pool of resources
     QUEUED          -> RUNNING          [style="solid"];  // Job starts its execution inside the runner
-    RUNNING         -> SUCCESS          [style="solid"];  // Job/Runner finished its execution without error
+    RUNNING         -> DONE             [style="solid"];  // Job/Runner finished its execution without error
     
     // Submit failure
     READY           -> SUBMIT_FAIL      [style="solid"];  // Dispatcher has been unable to submit the job
     
     // The job/runner fails to finish successfully
-    RUNNING         -> FAILURE          [style="solid", constraint="false"];  // Some exception has occurred inside the Job/Runner
+    RUNNING         -> FAILED           [style="solid", constraint="false"];  // Some exception has occurred inside the Job/Runner
     
     // The job has to be cancelled
     QUEUED          -> CANCEL           [style="dotted", constraint="false"]; // The user wants this job to be cancelled
@@ -44,7 +44,10 @@ digraph job_states {
     // Return the job to the stash
     SUBMIT_FAIL     -> STASHED          [style="dotted"];
     READY           -> STASHED          [style="dotted"];
-    FAILURE         -> STASHED          [style="dotted"];
+    FAILED          -> STASHED          [style="dotted"];
+    
+    // Edit job attributes, or modify its dependencies
+    STASHED:nw      -> STASHED          [style="dotted", constraint="false"];
     
     // Remove the job
     STASHED         -> DELETED          [style="dotted"];

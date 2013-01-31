@@ -8,8 +8,9 @@ import tempfile
 import textwrap
 
 from base import Command
+from brownthrower import interface
 from brownthrower import model
-from brownthrower.manager import constants
+from brownthrower.interface import constants
 
 class JobCreate(Command):
     
@@ -55,9 +56,10 @@ class JobCreate(Command):
             
             model.session.commit()
             print "A new job for task '%s' with id %d has been created." % (items[0], job_id)
-        except:
-            model.session.rollback()
+        except model.StatementError:
             print "ERROR: The job could not be created."
+        finally:
+            model.session.rollback()
 
 class JobShow(Command):
     
@@ -84,9 +86,9 @@ class JobShow(Command):
             query = model.session.query(model.Job).limit(self._limit)
         
         try:
-            jobs = query.all()
-            
             t = prettytable.PrettyTable(['id', 'event_id', 'task', 'status'])
+            
+            jobs = query.all()
             for job in jobs:
                 t.add_row([job.id, job.event_id, job.task, job.status])
             
@@ -98,9 +100,10 @@ class JobShow(Command):
             
             print t
         
-        except:
-            model.session.rollback()
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobRemove(Command):
     
@@ -123,15 +126,17 @@ class JobRemove(Command):
                 id     = items[0],
                 status = constants.JobStatus.STASHED,
             ).delete(synchronize_session=False)
+            
             model.session.commit()
             
             if deleted:
                 print "The job has been successfully removed from the stash."
             else: # deleted == 0
                 print "ERROR: The job could not be removed."
-        except:
-            model.session.rollback()
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobSubmit(Command):
     
@@ -160,32 +165,28 @@ class JobSubmit(Command):
             ).with_lockmode('update').first()
             
             if not job:
-                model.session.rollback()
                 print "ERROR: Could not lock the job for submitting."
                 return
             
             task = self._tasks.get(job.task)
             if not task:
-                model.session.rollback()
                 print "ERROR: The task '%s' is not currently available in this environment." % job.task
                 return
             
-            try:
-                task.check_config(job.config)
-                task.check_input(job.input)
-            except:
-                model.session.rollback()
-                print "ERROR: The job has an invalid config or input."
-                return
+            task.check_config(job.config)
             
             # TODO: Shall reset all the other fields
             job.status = constants.JobStatus.READY
             model.session.commit()
             
             print "The job has been successfully marked as ready for execution."
-        except:
-            model.session.rollback()
+        
+        except interface.TaskValidationException:
+            print "ERROR: The job has an invalid config."
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobReset(Command):
     
@@ -209,7 +210,7 @@ class JobReset(Command):
                 model.Job.status.in_([
                     constants.JobStatus.READY,
                     constants.JobStatus.SUBMIT_FAIL,
-                    constants.JobStatus.FAILURE,
+                    constants.JobStatus.FAILED,
                 ])
             ).update(
                 #TODO: Shall reset all the other fields
@@ -222,9 +223,10 @@ class JobReset(Command):
                 print "The job has been successfully returned to the stash."
             else: # resetted == 0
                 print "ERROR: The job could not be returned to the stash."
-        except:
-            model.session.rollback()
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobLink(Command):
     
@@ -253,7 +255,6 @@ class JobLink(Command):
             ).with_lockmode('read').first()
             
             if not (parent and child):
-                model.session.rollback()
                 print "ERROR: It is not possible to establish a parent-child dependency between these jobs."
                 return
             
@@ -266,9 +267,10 @@ class JobLink(Command):
             
             print "The parent-child dependency has been successfully established."
             
-        except:
-            model.session.rollback()
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobUnlink(Command):
     
@@ -297,7 +299,6 @@ class JobUnlink(Command):
             ).with_lockmode('read').first()
             
             if not (parent and child):
-                model.session.rollback()
                 print "ERROR: It is not possible to remove the parent-child dependency."
                 return
             
@@ -311,9 +312,11 @@ class JobUnlink(Command):
                 print "ERROR: It is not possible to remove the parent-child dependency."
             else:
                 print "The parent-child dependency has been successfully removed."
-        except:
-            model.session.rollback()
+        
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobCancel(Command):
     
@@ -348,9 +351,11 @@ class JobCancel(Command):
                 print "The job has been marked to be cancelled as soon as possible."
             else: # cancel == 0
                 print "ERROR: No jobs could be cancelled matching the supplied criteria."
-        except:
-            model.session.rollback()
+        
+        except model.StatementError:
             print "ERROR: Could not complete the query to the database."
+        finally:
+            model.session.rollback()
 
 class JobEdit(Command):
     
@@ -394,23 +399,21 @@ class JobEdit(Command):
         ):
             return self.help(items)
         
-        job = model.session.query(model.Job).filter_by(
-            id     = items[1],
-            status = constants.JobStatus.STASHED,
-        ).with_lockmode('update').first()
-        
-        if not job:
-            model.session.rollback()
-            print "ERROR: Could not lock the job for submitting."
-            return
-        
-        task = self._tasks.get(job.task)
-        if not task:
-            model.session.rollback()
-            print "The task '%s' is not currently available in this environment."
-            return
-        
         try:
+            job = model.session.query(model.Job).filter_by(
+                id     = items[1],
+                status = constants.JobStatus.STASHED,
+            ).with_lockmode('update').first()
+            
+            if not job:
+                print "ERROR: Could not lock the job for submitting."
+                return
+            
+            task = self._tasks.get(job.task)
+            if not task:
+                print "The task '%s' is not currently available in this environment."
+                return
+            
             field    = self._dataset_attr[items[0]]['field']
             template = self._dataset_attr[items[0]]['template'](task)()
             check    = self._dataset_attr[items[0]]['check'](task)
@@ -428,17 +431,18 @@ class JobEdit(Command):
             
             new_value = open(path, 'r').read()
             
-            try:
-                check(new_value)
-            except:
-                model.session.rollback()
-                print "ERROR: The supplied dataset is not valid."
-                return
+            check(new_value)
             
             setattr(job, field.key, new_value)
             model.session.commit()
             
             print "The job dataset has been successfully modified."
-        except:
+        
+        except EnvironmentError:
+            print "ERROR: Unable to open the temporary dataset buffer."
+        except interface.TaskValidationException:
+            print "ERROR: The new value for the dataset is not valid."
+        except model.StatementError:
+            print "ERROR: Could not complete the query to the database."
+        finally:
             model.session.rollback()
-            print "ERROR: The job could not be edited."
