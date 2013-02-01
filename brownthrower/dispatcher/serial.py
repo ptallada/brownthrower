@@ -58,8 +58,8 @@ class SerialDispatcher(interface.Dispatcher):
                         job.input = yaml.dump([ yaml.safe_load(parent.output) for parent in parents ])
                         
                         task = self._tasks[job.task]
-                        task.check_config(job.config)
-                        task.check_input(job.input)
+                        task.validate_config(job.config)
+                        task.validate_input(job.input)
                         
                         # Cache fields for using after commit
                         job_id     = job.id
@@ -96,7 +96,7 @@ class SerialDispatcher(interface.Dispatcher):
                             raise interface.TaskCancelledException()
                         
                         job.output = job_output
-                        task.check_output(job.output)
+                        task.validate_output(job.output)
                         
                         job.status = constants.JobStatus.DONE
                 except:

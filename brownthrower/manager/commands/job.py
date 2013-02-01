@@ -46,6 +46,7 @@ class JobCreate(Command):
         try:
             job = model.Job(
                 task   = items[0],
+                config = task.get_config_sample(),
                 status = constants.JobStatus.STASHED
             )
             model.session.add(job)
@@ -172,7 +173,7 @@ class JobSubmit(Command):
                 print "ERROR: The task '%s' is not currently available in this environment." % job.task
                 return
             
-            task.check_config(job.config)
+            task.validate_config(job.config)
             
             # TODO: Shall reset all the other fields
             job.status = constants.JobStatus.READY
@@ -361,13 +362,13 @@ class JobEdit(Command):
     _dataset_attr = {
         'config' : {
             'field'    : model.Job.config,
-            'template' : lambda task: task.get_config_template,
-            'check'    : lambda task: task.check_config,
+            'sample'   : lambda task: task.get_config_sample,
+            'validate' : lambda task: task.validate_config,
         },
         'input'  : {
             'field'    : model.Job.input,
-            'template' : lambda task: task.get_input_template,
-            'check'    : lambda task: task.check_input,
+            'sample'   : lambda task: task.get_input_sample,
+            'validate' : lambda task: task.validate_input,
         }
     }
     
@@ -414,12 +415,12 @@ class JobEdit(Command):
                 return
             
             field    = self._dataset_attr[items[0]]['field']
-            template = self._dataset_attr[items[0]]['template'](task)()
-            check    = self._dataset_attr[items[0]]['check'](task)
+            sample   = self._dataset_attr[items[0]]['sample'](task)()
+            validate = self._dataset_attr[items[0]]['validate'](task)
             
             current_value = getattr(job, field.key)
             if not current_value:
-                current_value = template
+                current_value = sample
             
             with tempfile.NamedTemporaryFile("w+") as fh:
                 fh.write(current_value)
@@ -430,7 +431,7 @@ class JobEdit(Command):
                 fh.seek(0)
                 new_value = fh.read()
             
-            check(new_value)
+            validate(new_value)
             
             setattr(job, field.key, new_value)
             model.session.commit()

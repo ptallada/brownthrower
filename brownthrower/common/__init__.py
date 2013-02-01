@@ -23,13 +23,13 @@ def load_tasks(entry_point):
             assert isinstance(task.get_input_schema(),    basestring)
             assert isinstance(task.get_output_schema(),   basestring)
             
-            assert isinstance(task.get_config_template(), basestring)
-            assert isinstance(task.get_input_template(),  basestring)
-            assert isinstance(task.get_output_template(), basestring)
+            assert isinstance(task.get_config_sample(), basestring)
+            assert isinstance(task.get_input_sample(),  basestring)
+            assert isinstance(task.get_output_sample(), basestring)
             
-            task.check_config(task.get_config_template())
-            task.check_input( task.get_input_template())
-            task.check_output(task.get_output_template())
+            task.validate_config(task.get_config_sample())
+            task.validate_input( task.get_input_sample())
+            task.validate_output(task.get_output_sample())
             
             if entry.name in tasks:
                 log.warning("Skipping Task '%s:%s': a Task with the same name is already defined." % (entry.name, entry.module_name))
@@ -39,12 +39,8 @@ def load_tasks(entry_point):
         
         except (AttributeError, AssertionError):
             log.warning("Skipping Task '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-            continue
-        
         except interface.TaskValidationException:
-            log.warning("Skipping Task '%s:%s': their own templates fail to validate." % (entry.name, entry.module_name))
-            continue
-        
+            log.warning("Skipping Task '%s:%s': their own samples fail to validate." % (entry.name, entry.module_name))
         except ImportError:
             log.warning("Skipping Task '%s:%s': unable to load." % (entry.name, entry.module_name))
     

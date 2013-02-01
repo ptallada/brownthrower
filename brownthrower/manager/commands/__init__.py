@@ -57,18 +57,18 @@ class Task(Command):
     def __init__(self, tasks, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('schema',   task.TaskSchema(  tasks = tasks))
-        self.add_subcmd('show',     task.TaskShow(    tasks = tasks))
-        self.add_subcmd('template', task.TaskTemplate(tasks = tasks))
+        self.add_subcmd('schema', task.TaskSchema(tasks = tasks))
+        self.add_subcmd('show',   task.TaskShow(  tasks = tasks))
+        self.add_subcmd('sample', task.TaskSample(tasks = tasks))
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: task <command> [options]
         
         Available commands:
-            schema      show the formal schema of a task dataset
-            show        show detailed information for a task
-            template    show a template of a task dataset
+            schema    show the formal schema of a task dataset
+            show      show detailed information for a task
+            sample    show a sample of a task dataset
         """)
     
     def complete(self, text, items):

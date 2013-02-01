@@ -49,7 +49,6 @@ class TaskShow(Command):
         if task:
             desc = task.get_help()
             print desc[0]
-            print
             print desc[1]
         else:
             print "ERROR: The task '%s' is not currently available in this environment."
@@ -103,23 +102,23 @@ class TaskSchema(Command):
         
         print self._dataset_fn[items[0]](task)()
 
-class TaskTemplate(Command):
+class TaskSample(Command):
     
     _dataset_fn = {
-        'config' : lambda task: task.get_config_template,
-        'input'  : lambda task: task.get_input_template,
-        'output' : lambda task: task.get_output_template,
+        'config' : lambda task: task.get_config_sample,
+        'input'  : lambda task: task.get_input_sample,
+        'output' : lambda task: task.get_output_sample,
     }
         
     def __init__(self, tasks, *args, **kwargs):
-        super(TaskTemplate, self).__init__(*args, **kwargs)
+        super(TaskSample, self).__init__(*args, **kwargs)
         self._tasks = tasks
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: task template <dataset> <task>
+        usage: task sample <dataset> <task>
         
-        Show a template of the specified dataset for a task.
+        Show a sample of the specified dataset for a task.
         Valid values for the dataset parameter are: 'input', 'output' and 'config'.
         """)
     

@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
-import jsonschema
-import textwrap
-import yaml
-
 from brownthrower import interface
 
 class Hostname(interface.Task):
+    """\
+    Returns the hostname of the execution host.
     
-    _config_schema = """\
+    This job gets the hostname of the host in which it has been executed and
+    returns it as its result. It does not require any parameter.
+    """
+    
+    config_schema = """\
     {
         "type"     : "null",
         "$schema"  : "http://json-schema.org/draft-03/schema",
@@ -18,9 +19,9 @@ class Hostname(interface.Task):
     }
     """
     
-    _input_schema = _config_schema
+    input_schema = config_schema
     
-    _output_schema = """\
+    output_schema = """\
     {
         "type"                 : "object",
         "$schema"              : "http://json-schema.org/draft-03/schema",
@@ -35,73 +36,16 @@ class Hostname(interface.Task):
     }
     """
     
-    _config_sample = """\
+    config_sample = """\
         # Nothing is required for this job.
     """
     
-    _input_sample = _config_sample
+    input_sample = config_sample
     
-    _output_sample = """\
+    output_sample = """\
         # Hostname of the execution host
         hostname : test.pau.pic.es
     """
-    
-    _help = (
-        "Returns the hostname of the execution host.",
-        """\
-        This job gets the hostname of the host in which is been executed and returns it as its result.
-        It does not require any parameter.
-        """
-    )
-    
-    @classmethod
-    def check_config(cls, config):
-        try:
-            jsonschema.validate(yaml.safe_load(config), json.loads(cls._config_schema))
-        except jsonschema.ValidationError as e:
-            raise interface.TaskValidationException(e)
-    
-    @classmethod
-    def check_input(cls, inp):
-        try:
-            jsonschema.validate(yaml.safe_load(inp), json.loads(cls._input_schema))
-        except jsonschema.ValidationError as e:
-            raise interface.TaskValidationException(e)
-    
-    @classmethod
-    def check_output(cls, out):
-        try:
-            jsonschema.validate(yaml.safe_load(out), json.loads(cls._output_schema))
-        except jsonschema.ValidationError as e:
-            raise interface.TaskValidationException(e)
-    
-    @classmethod
-    def get_config_schema(cls):
-        return textwrap.dedent(cls._config_schema)
-    
-    @classmethod
-    def get_input_schema(cls):
-        return textwrap.dedent(cls._input_schema)
-    
-    @classmethod
-    def get_output_schema(cls):
-        return textwrap.dedent(cls._output_schema)
-    
-    @classmethod
-    def get_config_template(cls):
-        return textwrap.dedent(cls._config_sample)
-    
-    @classmethod
-    def get_input_template(cls):
-        return textwrap.dedent(cls._input_sample)
-    
-    @classmethod
-    def get_output_template(cls):
-        return textwrap.dedent(cls._output_sample)
-    
-    @classmethod
-    def get_help(cls):
-        return (textwrap.dedent(cls._help[0]), textwrap.dedent(cls._help[1]))
     
     @classmethod
     def run(cls, runner, config, inp):

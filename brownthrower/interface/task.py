@@ -1,6 +1,11 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import json
+import jsonschema
+import textwrap
+import yaml
+
 class TaskValidationException(Exception):
     def __init__(self, exception=None, message=None):
         self.exception = exception
@@ -12,7 +17,74 @@ class TaskValidationException(Exception):
 class TaskCancelledException(Exception):
     pass
 
-class Task(object):
+class BaseTask(object):
+    @classmethod
+    def validate_config(cls, config):
+        try:
+            jsonschema.validate(yaml.safe_load(config), json.loads(cls.config_schema))
+            config = yaml.safe_load(config)
+            cls.check_config(config)
+        except Exception as e:
+            raise TaskValidationException(e)
+    
+    @classmethod
+    def validate_input(cls, inp):
+        try:
+            jsonschema.validate(yaml.safe_load(inp), json.loads(cls.input_schema))
+            inp = yaml.safe_load(inp)
+            cls.check_input(inp)
+        except Exception as e:
+            raise TaskValidationException(e)
+    
+    @classmethod
+    def validate_output(cls, out):
+        try:
+            jsonschema.validate(yaml.safe_load(out), json.loads(cls.output_schema))
+            out = yaml.safe_load(out)
+            cls.check_output(out)
+        except Exception as e:
+            raise TaskValidationException(e)
+    
+    @classmethod
+    def get_config_schema(cls):
+        return textwrap.dedent(cls.config_schema)
+    
+    @classmethod
+    def get_input_schema(cls):
+        return textwrap.dedent(cls.input_schema)
+    
+    @classmethod
+    def get_output_schema(cls):
+        return textwrap.dedent(cls.output_schema)
+    
+    @classmethod
+    def get_config_sample(cls):
+        return textwrap.dedent(cls.config_sample)
+    
+    @classmethod
+    def get_input_sample(cls):
+        return textwrap.dedent(cls.input_sample)
+    
+    @classmethod
+    def get_output_sample(cls):
+        return textwrap.dedent(cls.output_sample)
+    
+    @classmethod
+    def get_help(cls):
+        doc = cls.__doc__.strip().split('\n')
+        short = doc[0].strip()
+        detail = textwrap.dedent('\n'.join(doc[1:]))
+        
+        return (short, detail)
+
+class Task(BaseTask):
+    """\
+    This MUST be a single line describing the objective of this Task.
+    
+    The following line MUST be a more detailed description of this Task, what
+    parameters does it take, what are its configuration values and what kind of
+    output it generates.
+    """
     
     def run(self, runner, config, inp):
         """
@@ -31,37 +103,8 @@ class Task(object):
         """
         raise NotImplementedError
     
-    def check_config(self, config):
-        """
-        Check if the supplied config suites the required schema.
-        
-        @param config: YAML string with configuration values
-        @type config: basestring
-        @return: None if the config is valid, or TaskValidationException if not.
-        """
-        raise NotImplementedError
-    
-    def check_input(self, inp):
-        """
-        Check if the supplied input suites the required schema.
-        
-        @param input: YAML string with input data
-        @type input: basestring
-        @return: None if the input is valid, or TaskValidationException if not.
-        """
-        raise NotImplementedError
-    
-    def check_output(self, out):
-        """
-        Check if the supplied output suites the required schema.
-        
-        @param output: YAML string with output data.
-        @type output: basestring
-        @return: None if the output is valid, or TaskValidationException if not.
-        """
-        raise NotImplementedError
-    
-    def get_config_schema(self):
+    @property
+    def config_schema(self):
         """
         Return the configuration formal JSON schema.
         
@@ -70,7 +113,8 @@ class Task(object):
         """
         raise NotImplementedError
     
-    def get_input_schema(self):
+    @property
+    def input_schema(self):
         """
         Return the input formal JSON schema.
         
@@ -79,7 +123,8 @@ class Task(object):
         """
         raise NotImplementedError
     
-    def get_output_schema(self):
+    @property
+    def output_schema(self):
         """
         Return the output formal JSON schema.
         
@@ -88,40 +133,68 @@ class Task(object):
         """
         raise NotImplementedError
     
-    def get_config_template(self):
+    @property
+    def config_sample(self):
         """
         Return a working configuration sample.
         
-        @return: A YAML string containing the requested template
+        @return: A YAML string containing the requested sample
         @rtype: basestring
         """
         raise NotImplementedError
     
-    def get_input_template(self):
+    @property
+    def input_sample(self):
         """
         Return a working input sample.
         
-        @return: A YAML string containing the requested template
+        @return: A YAML string containing the requested sample
         @rtype: basestring
         """
         raise NotImplementedError
     
-    def get_output_template(self):
+    @property
+    def output_sample(self):
         """
         Return a working output sample.
         
-        @return: A YAML string containing the requested template
+        @return: A YAML string containing the requested sample
         @rtype: basestring
         """
         raise NotImplementedError
     
-    def get_help(self):
+    @classmethod
+    def check_config(self, config):
         """
-        Return a tuple with two elements.
-        The first one MUST be a short description in a single line.
-        The second one MUST be a long description that may span multiple lines.
+        Additional checks to the supplied config, after it has passed the schema
+        validation.
         
-        @return: A short and a longer description of this task
-        @rtype: tuple 
+        @param config: mapping with configuration values
+        @type config: dict
+        @return: None if the config is valid, or any Exception if not.
         """
-        raise NotImplementedError
+        pass
+    
+    @classmethod
+    def check_input(self, inp):
+        """
+        Additional checks to the supplied input, after it has passed the schema
+        validation.
+        
+        @param inp: mapping with input data
+        @type inp: dict
+        @return: None if the input is valid, or any Exception if not.
+        """
+        pass
+    
+    @classmethod
+    def check_output(self, out):
+        """
+        Additional checks to the supplied output, after it has passed the schema
+        validation.
+        
+        @param out: mapping with output data
+        @type out: dict
+        @return: None if the output is valid, or any Exception if not.
+        """
+        pass
