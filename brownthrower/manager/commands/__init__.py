@@ -3,6 +3,7 @@
 
 import textwrap
 
+import dispatcher
 import job
 import task
 
@@ -74,6 +75,31 @@ class Task(Command):
             schema    show the formal schema of a task dataset
             show      show detailed information for a task
             sample    show a sample of a task dataset
+        """)
+    
+    def complete(self, text, items):
+        available = self._subcmds.keys()
+        
+        return [command
+                for command in available
+                if command.startswith(text)]
+    
+    def do(self, items):
+        self.help(items)
+
+class Dispatcher(Command):
+    
+    def __init__(self, dispatchers, *args, **kwargs):
+        super(Dispatcher, self).__init__(*args, **kwargs)
+        
+        self.add_subcmd('show', dispatcher.DispatcherShow(dispatchers = dispatchers))
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: dispatcher <command> [options]
+        
+        Available commands:
+            show        list available dispatchers
         """)
     
     def complete(self, text, items):

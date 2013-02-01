@@ -57,9 +57,10 @@ class Manager(cmd.Cmd):
         usage: <command> [options]
         
         Available commands:
-            job     create, configure, submit and remove jobs
-            quit    exit this program
-            task    show all information about the available tasks
+            dispatcher    show information about the available dispatchers
+            job           create, configure, submit and remove jobs
+            quit          exit this program
+            task          show information about the available tasks
         """)
     
     def completedefault(self, text, line, begidx, endidx):
@@ -68,6 +69,10 @@ class Manager(cmd.Cmd):
             subcmd = self._subcmds.get(items[0])
             if subcmd:
                 return subcmd._complete(text, items[1:])
+    
+    def do_dispatcher(self, line):
+        items = line.strip().split()
+        self._subcmds['dispatcher']._do(items)
     
     def do_job(self, line):
         items = line.strip().split()
