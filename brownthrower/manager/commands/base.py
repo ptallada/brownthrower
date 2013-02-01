@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from termcolor import cprint
+
+def error(msg):
+    cprint("ERROR: %s" % msg, color='red')
+
+def warn(msg):
+    cprint("WARNING: %s" % msg, color='yellow')
+
+def success(msg):
+    cprint("SUCCESS: %s" % msg, color='green')
+
 class Command(object):
     
     def __init__(self, *args, **kwargs):

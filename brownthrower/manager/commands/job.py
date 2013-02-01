@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import textwrap
 
-from base import Command
+from base import Command, error, warn, success
 from brownthrower import interface
 from brownthrower import model
 from brownthrower.interface import constants
@@ -40,7 +40,7 @@ class JobCreate(Command):
         task = self._tasks.get(items[0])
         if not task:
             # TODO: Unificar els missatges de la consola. ERROR, WARNING i OK. Colors.
-            print "ERROR: The task '%s' is not currently available in this environment." % items[0]
+            error("The task '%s' is not currently available in this environment." % items[0])
             return
         
         try:
@@ -55,9 +55,9 @@ class JobCreate(Command):
             job_id = job.id
             
             model.session.commit()
-            print "A new job for task '%s' with id %d has been created." % (items[0], job_id)
+            success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         except model.StatementError:
-            print "ERROR: The job could not be created."
+            error("The job could not be created.")
         finally:
             model.session.rollback()
 
@@ -93,7 +93,7 @@ class JobShow(Command):
                 t.add_row([job.id, job.event_id, job.task, job.status])
             
             if not jobs:
-                print "ERROR: No jobs found matching the supplied criteria."
+                warn("No jobs found matching the supplied criteria.")
                 return
             
             model.session.commit()
@@ -101,7 +101,7 @@ class JobShow(Command):
             print t
         
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -130,11 +130,11 @@ class JobRemove(Command):
             model.session.commit()
             
             if deleted:
-                print "The job has been successfully removed from the stash."
+                success("The job has been successfully removed from the stash.")
             else: # deleted == 0
-                print "ERROR: The job could not be removed."
+                error("The job could not be removed.")
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -165,12 +165,12 @@ class JobSubmit(Command):
             ).with_lockmode('update').first()
             
             if not job:
-                print "ERROR: Could not lock the job for submitting."
+                error("The job could not be submitted.")
                 return
             
             task = self._tasks.get(job.task)
             if not task:
-                print "ERROR: The task '%s' is not currently available in this environment." % job.task
+                error("The task '%s' is not currently available in this environment." % job.task)
                 return
             
             task.validate_config(job.config)
@@ -179,12 +179,12 @@ class JobSubmit(Command):
             job.status = constants.JobStatus.READY
             model.session.commit()
             
-            print "The job has been successfully marked as ready for execution."
+            success("The job has been successfully marked as ready for execution.")
         
         except interface.TaskValidationException:
-            print "ERROR: The job has an invalid config."
+            error("The job has an invalid config.")
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -220,11 +220,11 @@ class JobReset(Command):
             model.session.commit()
             
             if resetted:
-                print "The job has been successfully returned to the stash."
+                success("The job has been successfully returned to the stash.")
             else: # resetted == 0
-                print "ERROR: The job could not be returned to the stash."
+                error("The job could not be returned to the stash.")
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -255,7 +255,7 @@ class JobLink(Command):
             ).with_lockmode('read').first()
             
             if not (parent and child):
-                print "ERROR: It is not possible to establish a parent-child dependency between these jobs."
+                warn("It is not possible to establish a parent-child dependency between these jobs.")
                 return
             
             dependency = model.JobDependency(
@@ -265,10 +265,10 @@ class JobLink(Command):
             model.session.add(dependency)
             model.session.commit()
             
-            print "The parent-child dependency has been successfully established."
+            success("The parent-child dependency has been successfully established.")
             
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -299,7 +299,7 @@ class JobUnlink(Command):
             ).with_lockmode('read').first()
             
             if not (parent and child):
-                print "ERROR: It is not possible to remove the parent-child dependency."
+                warn("It is not possible to remove the parent-child dependency.")
                 return
             
             deleted = model.session.query(model.JobDependency).filter_by(
@@ -309,12 +309,12 @@ class JobUnlink(Command):
             model.session.commit()
             
             if not deleted:
-                print "ERROR: It is not possible to remove the parent-child dependency."
+                error("Could not remove the parent-child dependency.")
             else:
-                print "The parent-child dependency has been successfully removed."
+                success("The parent-child dependency has been successfully removed.")
         
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -348,12 +348,12 @@ class JobCancel(Command):
             model.session.commit()
             
             if cancel:
-                print "The job has been marked to be cancelled as soon as possible."
+                success("The job has been marked to be cancelled as soon as possible.")
             else: # cancel == 0
-                print "ERROR: No jobs could be cancelled matching the supplied criteria."
+                error("The job could not be marked to be cancelled.")
         
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()
 
@@ -406,12 +406,12 @@ class JobEdit(Command):
             ).with_lockmode('update').first()
             
             if not job:
-                print "ERROR: Could not find or lock the job for editing."
+                warn("Could not find or lock the job for editing.")
                 return
             
             task = self._tasks.get(job.task)
             if not task:
-                print "The task '%s' is not currently available in this environment."
+                error("The task '%s' is not currently available in this environment." % job.task)
                 return
             
             field    = self._dataset_attr[items[0]]['field']
@@ -436,13 +436,13 @@ class JobEdit(Command):
             setattr(job, field.key, new_value)
             model.session.commit()
             
-            print "The job dataset has been successfully modified."
+            success("The job dataset has been successfully modified.")
         
         except EnvironmentError:
-            print "ERROR: Unable to open the temporary dataset buffer."
+            error("Unable to open the temporary dataset buffer.")
         except interface.TaskValidationException:
-            print "ERROR: The new value for the dataset is not valid."
+            error("The new value for the dataset is not valid.")
         except model.StatementError:
-            print "ERROR: Could not complete the query to the database."
+            error("Could not complete the query to the database.")
         finally:
             model.session.rollback()

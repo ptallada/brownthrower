@@ -4,7 +4,7 @@
 import prettytable
 import textwrap
 
-from base import Command
+from base import Command, error, warn
 
 class TaskShow(Command):
     
@@ -34,7 +34,7 @@ class TaskShow(Command):
         
         if not items:
             if len(self._tasks) == 0:
-                print "There are no tasks currently registered in this environment."
+                warn("There are no tasks currently registered in this environment.")
                 return
             
             t = prettytable.PrettyTable(['name', 'description'])
@@ -51,7 +51,7 @@ class TaskShow(Command):
             print desc[0]
             print desc[1]
         else:
-            print "ERROR: The task '%s' is not currently available in this environment."
+            error("The task '%s' is not currently available in this environment.")
 
 class TaskSchema(Command):
     
@@ -97,7 +97,7 @@ class TaskSchema(Command):
         
         task = self._tasks.get(items[1])
         if not task:
-            print "ERROR: The task '%s' is not currently available in this environment."
+            error("The task '%s' is not currently available in this environment." % items[1])
             return
         
         print self._dataset_fn[items[0]](task)()
@@ -146,7 +146,7 @@ class TaskSample(Command):
         
         task = self._tasks.get(items[1])
         if not task:
-            print "ERROR: The task '%s' is not currently available in this environment."
+            error("The task '%s' is not currently available in this environment." % items[1])
             return
         
         print self._dataset_fn[items[0]](task)()
