@@ -53,9 +53,14 @@ class SerialDispatcher(interface.Dispatcher):
                     log.debug("Skipping this job as some of its parents have changed its status before being locked.")
                     continue
                 
+                submit_fail = False
                 try:
                     with model.session.begin_nested():
-                        job.input = yaml.dump([ yaml.safe_load(parent.output) for parent in parents ])
+                        if parents:
+                            job.input = yaml.dump(
+                                [ yaml.safe_load(parent.output) for parent in parents ],
+                                default_flow_style = False
+                            )
                         
                         task = self._tasks[job.task]
                         task.validate_config(job.config)
@@ -77,11 +82,14 @@ class SerialDispatcher(interface.Dispatcher):
                     except model.StatementError:
                         log.error("Could not complete the query to the database.")
                     finally:
+                        submit_fail = True
                         job.status = constants.JobStatus.SUBMIT_FAIL
-                        continue
                 finally:
                     # Job is now RUNNING or SUBMIT_FAIL
                     model.session.commit()
+                
+                if submit_fail:
+                    continue
                 
                 # The job is now RUNNING
                 try:
@@ -95,7 +103,7 @@ class SerialDispatcher(interface.Dispatcher):
                         if job.status == constants.JobStatus.CANCEL:
                             raise interface.TaskCancelledException()
                         
-                        job.output = job_output
+                        job.output = yaml.safe_dump(job_output, default_flow_style=False)
                         task.validate_output(job.output)
                         
                         job.status = constants.JobStatus.DONE
