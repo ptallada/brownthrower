@@ -36,7 +36,7 @@ class SerialDispatcher(interface.Dispatcher):
                 job = model.session.query(model.Job).filter(
                     model.Job.status == constants.JobStatus.READY,
                     model.Job.task.in_(self._tasks.keys()),
-                    ~ model.Job.parent_jobs.any( #@UndefinedVariable
+                    ~ model.Job.parents.any( #@UndefinedVariable
                         model.Job.status != constants.JobStatus.DONE,
                     )
                 ).with_lockmode('update').first()
@@ -47,7 +47,7 @@ class SerialDispatcher(interface.Dispatcher):
                 
                 # Re-check parents to see if it is still runnable
                 parents = model.session.query(model.Job).filter(
-                    model.Job.child_jobs.contains(job) #@UndefinedVariable
+                    model.Job.children.contains(job) #@UndefinedVariable
                 ).with_lockmode('read').all()
                 if filter(lambda parent: parent.status != constants.JobStatus.DONE, parents):
                     log.debug("Skipping this job as some of its parents have changed its status before being locked.")
@@ -107,11 +107,13 @@ class SerialDispatcher(interface.Dispatcher):
                         task.validate_output(job.output)
                         
                         job.status = constants.JobStatus.DONE
+                
+                except interface.TaskCancelledException:
+                        log.info("The job was cancelled.")
+                        job.status = constants.JobStatus.STASHED
                 except:
                     try:
                         raise
-                    except interface.TaskCancelledException:
-                        log.info("The job was cancelled.")
                     except interface.TaskValidationException:
                         log.error("The output is not valid.")
                     except model.StatementError:
