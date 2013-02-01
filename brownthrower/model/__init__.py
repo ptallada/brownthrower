@@ -39,11 +39,11 @@ class Job(Base):
     output   = Column(Text,       nullable=True)
     
     # Relationships
-    event       = relationship('Event', back_populates='jobs') 
-    parent_jobs = relationship('Job',   back_populates='child_jobs',  secondary='job_dependency',
+    event    = relationship('Event', back_populates='jobs') 
+    parents  = relationship('Job',   back_populates='children', secondary='job_dependency',
                                primaryjoin   = 'JobDependency.child_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.parent_job_id')
-    child_jobs  = relationship('Job',   back_populates='parent_jobs', secondary='job_dependency',
+    children = relationship('Job',   back_populates='parents',  secondary='job_dependency',
                                primaryjoin   = 'JobDependency.parent_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.child_job_id')
     

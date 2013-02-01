@@ -83,14 +83,14 @@ class JobShow(Command):
         if items:
             query = model.session.query(model.Job).filter(model.Job.id.in_(items))
         else:
-            query = model.session.query(model.Job).limit(self._limit)
+            query = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit)
         
         try:
-            t = prettytable.PrettyTable(['id', 'event_id', 'task', 'status'])
+            t = prettytable.PrettyTable(['id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
             
             jobs = query.all()
             for job in jobs:
-                t.add_row([job.id, job.event_id, job.task, job.status])
+                t.add_row([job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
             
             if not jobs:
                 warn("No jobs found matching the supplied criteria.")
