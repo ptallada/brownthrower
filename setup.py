@@ -19,6 +19,7 @@ setup(
         'jsonschema',
         'SQLAlchemy < 0.7.999',
         'PrettyTable',
+        'termcolor',
     ],
     
     #description = "",
