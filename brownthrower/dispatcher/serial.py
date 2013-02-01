@@ -8,7 +8,6 @@ from brownthrower import common
 from brownthrower import interface
 from brownthrower import model
 from brownthrower.interface import constants
-from brownthrower.interface.task import TaskCancelledException
 
 # TODO: read and create a global or local configuration file
 _CONFIG = {
@@ -94,7 +93,7 @@ class SerialDispatcher(interface.Dispatcher):
                         ).with_lockmode('update').one()
                         
                         if job.status == constants.JobStatus.CANCEL:
-                            raise TaskCancelledException()
+                            raise interface.TaskCancelledException()
                         
                         job.output = job_output
                         task.check_output(job.output)
@@ -103,7 +102,7 @@ class SerialDispatcher(interface.Dispatcher):
                 except:
                     try:
                         raise
-                    except TaskCancelledException:
+                    except interface.TaskCancelledException:
                         log.info("The job was cancelled.")
                     except interface.TaskValidationException:
                         log.error("The output is not valid.")
