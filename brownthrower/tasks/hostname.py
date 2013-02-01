@@ -57,21 +57,21 @@ class Hostname(interface.Task):
     @classmethod
     def check_config(cls, config):
         try:
-            jsonschema.validate(yaml.load(config), json.loads(cls._config_schema))
+            jsonschema.validate(yaml.safe_load(config), json.loads(cls._config_schema))
         except jsonschema.ValidationError as e:
             raise interface.TaskValidationException(e)
     
     @classmethod
     def check_input(cls, inp):
         try:
-            jsonschema.validate(yaml.load(inp), json.loads(cls._input_schema))
+            jsonschema.validate(yaml.safe_load(inp), json.loads(cls._input_schema))
         except jsonschema.ValidationError as e:
             raise interface.TaskValidationException(e)
     
     @classmethod
     def check_output(cls, out):
         try:
-            jsonschema.validate(yaml.load(out), json.loads(cls._output_schema))
+            jsonschema.validate(yaml.safe_load(out), json.loads(cls._output_schema))
         except jsonschema.ValidationError as e:
             raise interface.TaskValidationException(e)
     

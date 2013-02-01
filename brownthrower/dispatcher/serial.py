@@ -55,7 +55,7 @@ class SerialDispatcher(interface.Dispatcher):
                 
                 try:
                     with model.session.begin_nested():
-                        job.input = yaml.dump([ yaml.load(parent.output) for parent in parents ])
+                        job.input = yaml.dump([ yaml.safe_load(parent.output) for parent in parents ])
                         
                         task = self._tasks[job.task]
                         task.check_config(job.config)
