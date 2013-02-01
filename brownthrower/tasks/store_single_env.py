@@ -37,13 +37,20 @@ class StoreSingleEnv(interface.Task):
     
     input_schema = """\
     {
+        "type"     : "array",
+        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "required" : true,
+        "maxItems" : 0
+    }
+    """
+    
+    output_schema = """\
+    {
         "type"     : "null",
         "$schema"  : "http://json-schema.org/draft-03/schema",
         "required" : true
     }
     """
-    
-    output_schema = input_schema
     
     config_sample = """\
         # Environment variable to be printed
@@ -55,9 +62,12 @@ class StoreSingleEnv(interface.Task):
     
     input_sample = """\
         # Nothing is required for this job.
+        []
     """
     
-    output_sample = input_sample
+    output_sample ="""\
+        # This job returns nothing.
+    """ 
     
     @classmethod
     def run(cls, runner, config, inp):

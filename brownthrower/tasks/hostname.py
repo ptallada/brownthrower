@@ -19,7 +19,14 @@ class Hostname(interface.Task):
     }
     """
     
-    input_schema = config_schema
+    input_schema = """\
+    {
+        "type"     : "array",
+        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "required" : true,
+        "maxItems" : 0
+    }
+    """
     
     output_schema = """\
     {
@@ -40,7 +47,10 @@ class Hostname(interface.Task):
         # Nothing is required for this job.
     """
     
-    input_sample = config_sample
+    input_sample = """\
+        # Nothing is required for this job.
+        []
+    """
     
     output_sample = """\
         # Hostname of the execution host
