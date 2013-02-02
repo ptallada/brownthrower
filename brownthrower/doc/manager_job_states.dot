@@ -46,9 +46,6 @@ digraph job_states {
     READY           -> STASHED          [style="dotted"];
     FAILED          -> STASHED          [style="dotted"];
     
-    // Edit job attributes, or modify its dependencies
-    STASHED:nw      -> STASHED          [style="dotted", constraint="false"];
-    
     // Remove the job
     STASHED         -> DELETED          [style="dotted"];
 }
