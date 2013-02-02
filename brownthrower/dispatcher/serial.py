@@ -53,9 +53,10 @@ class SerialDispatcher(interface.Dispatcher):
                     log.debug("Skipping this job as some of its parents have changed its status before being locked.")
                     continue
                 
-                submit_fail = False
                 try:
                     with model.session.begin_nested():
+                        log.info("Queuing job %d of task '%s'" % (job.id, job.task))
+                        
                         if parents:
                             job.input = yaml.dump(
                                 [ yaml.safe_load(parent.output) for parent in parents ],
@@ -68,8 +69,9 @@ class SerialDispatcher(interface.Dispatcher):
                         
                         # Cache fields for using after commit
                         job_id     = job.id
-                        job_config = job.config
-                        job_input  = job.input
+                        job_task   = job.task
+                        job_config = yaml.safe_load(job.config)
+                        job_input  = yaml.safe_load(job.input)
                         
                         job.status = constants.JobStatus.RUNNING
                 except:
@@ -82,48 +84,58 @@ class SerialDispatcher(interface.Dispatcher):
                     except model.StatementError:
                         log.error("Could not complete the query to the database.")
                     finally:
-                        submit_fail = True
                         job.status = constants.JobStatus.SUBMIT_FAIL
-                finally:
-                    # Job is now RUNNING or SUBMIT_FAIL
-                    model.session.commit()
-                
-                if submit_fail:
-                    continue
-                
-                # The job is now RUNNING
-                try:
-                    with model.session.begin_nested():
-                        job_output = task.run(runner = None, config = job_config, inp = job_input)
-                        
-                        job = model.session.query(model.Job).filter_by(
-                            id = job_id
-                        ).with_lockmode('update').one()
-                        
-                        if job.status == constants.JobStatus.CANCEL:
-                            raise interface.TaskCancelledException()
-                        
-                        job.output = yaml.safe_dump(job_output, default_flow_style=False)
-                        task.validate_output(job.output)
-                        
-                        job.status = constants.JobStatus.DONE
-                
-                except interface.TaskCancelledException:
-                        log.info("The job was cancelled.")
-                        job.status = constants.JobStatus.STASHED
-                except:
+                else:
                     try:
-                        raise
-                    except interface.TaskValidationException:
-                        log.error("The output is not valid.")
-                    except model.StatementError:
-                        log.error("Could not commit changes to the database.")
-                    except Exception:
-                        log.error("The job raised an Exception.")
+                        # Job is now RUNNING
+                        model.session.commit()
+                        
+                        try:
+                            log.info("Running job %d of task '%s'" % (job_id, job_task))
+                            
+                            job_output = task.run(runner = None, config = job_config, inp = job_input)
+                            
+                            job = model.session.query(model.Job).filter_by(
+                                id = job_id
+                            ).with_lockmode('update').one()
+                            
+                            if job.status == constants.JobStatus.CANCEL:
+                                raise interface.TaskCancelledException()
+                            
+                            job.output = yaml.safe_dump(job_output, default_flow_style=False)
+                            task.validate_output(job.output)
+                            
+                            job.status = constants.JobStatus.DONE
+                        except:
+                            try:
+                                raise
+                            except interface.TaskCancelledException:
+                                pass # Handled in the finally clause
+                            except interface.TaskValidationException:
+                                log.error("The output is not valid.")
+                            except model.StatementError:
+                                log.error("Could not commit changes to the database.")
+                            except Exception as e:
+                                log.error("The job raised an Exception.")
+                            finally:
+                                job = model.session.query(model.Job).filter_by(
+                                    id = job_id
+                                ).with_lockmode('update').one()
+                                if job.status == constants.JobStatus.CANCEL:
+                                    log.info("The job was cancelled.")
+                                    job.status = constants.JobStatus.STASHED
+                                else:
+                                    job.status = constants.JobStatus.FAILED
+                        finally:
+                            # Job is now DONE, FAILED or STASHED
+                            job_status = job.status
+                            model.session.commit()
+                            log.info("Job %d has moved to status '%s'" % (job_id, job_status))
                     finally:
-                        job.status = constants.JobStatus.FAILED
+                        # Could not change status to RUNNING
+                        model.session.rollback()
                 finally:
-                    # Job is now DONE or cancelled => FAILED
+                    # Job is now SUBMIT_FAIL
                     model.session.commit()
             finally:
                 # Unlock the job if it was skipped
