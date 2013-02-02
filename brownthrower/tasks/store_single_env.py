@@ -54,10 +54,10 @@ class StoreSingleEnv(interface.Task):
     
     config_sample = """\
         # Environment variable to be printed
-        key: "LD_LIBRARY_PATH"
+        key: "PWD"
         
         # Path to the output file where the environment variable has to be printed
-        path: "output.txt"
+        path: "/tmp/output.txt"
     """
     
     input_sample = """\
