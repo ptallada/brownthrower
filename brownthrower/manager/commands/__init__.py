@@ -10,7 +10,7 @@ from base import Command
 
 class Job(Command):
     
-    def __init__(self, tasks, editor, limit, *args, **kwargs):
+    def __init__(self, tasks, editor, viewer, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
         self.add_subcmd('cancel', job.JobCancel())
@@ -20,24 +20,25 @@ class Job(Command):
                                                  editor = editor))
         self.add_subcmd('link',   job.JobLink())
         self.add_subcmd('list',   job.JobList(    limit = limit))
+        self.add_subcmd('output', job.JobOutput( viewer = viewer))
         self.add_subcmd('remove', job.JobRemove())
         self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow())
         self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
         self.add_subcmd('unlink', job.JobUnlink())
-
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: job <command> [options]
         
         Available commands:
-            cancel    cancel a job o mark it to be cancelled
-            create    create and configure a job
+            cancel    cancel a job as soon as possible
+            create    create a new job of a task
             edit      edit the value of a dataset
             link      establish a dependency between two jobs
             list      list all registered jobs
-            remove    delete a job which is in a final state
+            output    show the output of a job
+            remove    delete a job
             reset     return a job to the stash
             show      show detailed information of a job
             submit    mark a job as ready to be executed

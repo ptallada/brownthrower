@@ -15,6 +15,7 @@ _CONFIG = {
     'entry_points.task'  : 'brownthrower.task',
     'entry_points.event' : 'brownthrower.event',
     'manager.editor'     : 'nano',
+    'manager.viewer'     : 'less',
     'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
     'listing.limit'      : 50,
 }
@@ -41,6 +42,7 @@ class Manager(cmd.Cmd):
         
         self._subcmds['job'] = Job(    tasks = self._tasks,
                                       editor = _CONFIG['manager.editor'],
+                                      viewer = _CONFIG['manager.viewer'],
                                        limit = _CONFIG['listing.limit'])
         self._subcmds['task'] = Task(  tasks = self._tasks)
     
@@ -100,13 +102,18 @@ if __name__ == '__main__':
     from pysrc import pydevd
     pydevd.settrace(suspend=False)
     
-    #import rpdb
+    import rpdb
     #rpdb.Rpdb().set_trace()
     
-    model.init(_CONFIG['database.url'])
-    #model.init('sqlite:////tmp/manager.db')
+    #model.init(_CONFIG['database.url'])
+    model.init('sqlite:////tmp/manager.db')
     #model.Base.metadata.create_all()
     
     manager = Manager()
     manager.cmdloop()
+    
+    from brownthrower.dispatcher import SerialDispatcher
+    d = SerialDispatcher()
+    d.loop()
+
 

@@ -39,7 +39,6 @@ class JobCreate(Command):
         
         task = self._tasks.get(items[0])
         if not task:
-            # TODO: Unificar els missatges de la consola. ERROR, WARNING i OK. Colors.
             error("The task '%s' is not currently available in this environment." % items[0])
             return
         
@@ -78,7 +77,6 @@ class JobList(Command):
         return [text]
     
     def do(self, items):
-        # TODO: Show detailed information for a single job
         if len(items) != 0:
             return self.help(items)
         
@@ -478,6 +476,48 @@ class JobEdit(Command):
             error("Unable to open the temporary dataset buffer.")
         except interface.TaskValidationException:
             error("The new value for the dataset is not valid.")
+        except model.StatementError:
+            error("Could not complete the query to the database.")
+        finally:
+            model.session.rollback()
+
+class JobOutput(Command):
+    
+    def __init__(self, viewer, *args, **kwargs):
+        super(JobOutput, self).__init__(*args, **kwargs)
+        self._viewer = viewer
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job output <id>
+        
+        Show the output of a completed job.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            job = model.session.query(model.Job).filter_by(
+                id     = items[0],
+                status = constants.JobStatus.DONE,
+            ).first()
+            
+            if not job:
+                warn("The output from job %d cannot be shown." % items[0])
+                return
+            
+            job_output = job.output
+            
+            model.session.commit()
+            
+            viewer = subprocess.Popen([self._viewer], stdin=subprocess.PIPE)
+            viewer.communicate(input=job_output)
+        
         except model.StatementError:
             error("Could not complete the query to the database.")
         finally:
