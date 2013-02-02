@@ -82,6 +82,7 @@ class JobList(Command):
         
         try:
             table = prettytable.PrettyTable(['id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
+            table.align = 'l'
             
             jobs = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit).all()
             for job in jobs:
@@ -124,6 +125,8 @@ class JobShow(Command):
                 return
             
             table = prettytable.PrettyTable(['kind', 'id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output'])
+            table.align = 'l'
+            
             for parent in job.parents:
                 table.add_row(['PARENT', parent.id, parent.event_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
             table.add_row(['#####', job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None])

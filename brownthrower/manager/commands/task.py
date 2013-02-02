@@ -31,7 +31,8 @@ class TaskList(Command):
             warn("There are no tasks currently registered in this environment.")
             return
         
-        table = prettytable.PrettyTable(['name', 'description'])
+        table = prettytable.PrettyTable(['name', 'description'], sortby='name')
+        table.align = 'l'
         for name, task in self._tasks.iteritems():
             table.add_row([name, task.get_help()[0]])
         

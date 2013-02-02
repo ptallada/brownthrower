@@ -45,9 +45,18 @@ setup(
     
     # other arguments here...
     entry_points = {
+        'console_scripts' : [
+            'manager = brownthrower.manager.__init__:main',
+        ],
         'brownthrower.task': [
-            'store_single_env = brownthrower.tasks.store_single_env:StoreSingleEnv',
-            'hostname         = brownthrower.tasks.hostname:Hostname',
+            # math
+            'math.sum  = examples.math.tasks.sum:Sum',
+            'math.max  = examples.math.tasks.max:Max',
+            'math.min  = examples.math.tasks.min:Min',
+            'math.fact = examples.math.tasks.fact:Fact',
+            # misc
+            'misc.hostname         = examples.misc.tasks.hostname:Hostname',
+            'misc.store_single_env = examples.misc.tasks.store_single_env:StoreSingleEnv',
         ],
     },
     

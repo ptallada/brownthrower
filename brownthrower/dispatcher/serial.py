@@ -115,7 +115,7 @@ class SerialDispatcher(interface.Dispatcher):
                                 log.error("The output is not valid.")
                             except model.StatementError:
                                 log.error("Could not commit changes to the database.")
-                            except Exception as e:
+                            except Exception:
                                 log.error("The job raised an Exception.")
                             finally:
                                 job = model.session.query(model.Job).filter_by(

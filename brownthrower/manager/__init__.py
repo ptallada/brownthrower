@@ -93,7 +93,7 @@ class Manager(cmd.Cmd):
 def system_exit(*args, **kwargs):
     sys.exit(1)
 
-if __name__ == '__main__':
+def main():
     signal.signal(signal.SIGTERM, system_exit)
     
     logging.basicConfig(level=logging.DEBUG)
@@ -116,4 +116,5 @@ if __name__ == '__main__':
     d = SerialDispatcher()
     d.loop()
 
-
+if __name__ == '__main__':
+    main()
