@@ -61,18 +61,17 @@ class JobCreate(Command):
         finally:
             model.session.rollback()
 
-class JobShow(Command):
+class JobList(Command):
     
     def __init__(self, limit, *args, **kwargs):
-        super(JobShow, self).__init__(*args, **kwargs)
+        super(JobList, self).__init__(*args, **kwargs)
         self._limit = limit
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: job show [id] ...
+        usage: job list
         
         Show a list of all the jobs registered in the database.
-        If any 'id' is supplied, show a detailed description of those jobs.
         """)
     
     def complete(self, text, items):
@@ -80,25 +79,62 @@ class JobShow(Command):
     
     def do(self, items):
         # TODO: Show detailed information for a single job
-        if items:
-            query = model.session.query(model.Job).filter(model.Job.id.in_(items))
-        else:
-            query = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit)
+        if len(items) != 0:
+            return self.help(items)
         
         try:
-            t = prettytable.PrettyTable(['id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
+            table = prettytable.PrettyTable(['id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
             
-            jobs = query.all()
+            jobs = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit).all()
             for job in jobs:
-                t.add_row([job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
+                table.add_row([job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
             
             if not jobs:
-                warn("No jobs found matching the supplied criteria.")
+                warn("No jobs found were found.")
                 return
             
             model.session.commit()
             
-            print t
+            print table
+        
+        except model.StatementError:
+            error("Could not complete the query to the database.")
+        finally:
+            model.session.rollback()
+
+class JobShow(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job show <id>
+        
+        Show detailed information about the specified job.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            job = model.session.query(model.Job).filter_by(id = items[0]).options(model.eagerload_all(model.Job.parents, model.Job.children)).first()
+            
+            if not job:
+                warn("Could not found the job with id %d." % items[0])
+                return
+            
+            table = prettytable.PrettyTable(['kind', 'id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output'])
+            for parent in job.parents:
+                table.add_row(['PARENT', parent.id, parent.event_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
+            table.add_row(['#####', job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+            for child in job.children:
+                table.add_row(['CHILD', child.id, child.event_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
+            
+            print table
+            
+            model.session.commit()
         
         except model.StatementError:
             error("Could not complete the query to the database.")

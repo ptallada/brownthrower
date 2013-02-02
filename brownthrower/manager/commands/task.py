@@ -6,6 +6,37 @@ import textwrap
 
 from base import Command, error, warn
 
+class TaskList(Command):
+    
+    def __init__(self, tasks, *args, **kwargs):
+        super(TaskList, self).__init__(*args, **kwargs)
+        self._tasks = tasks
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: task list
+        
+        Show a list of all the tasks available in this environment.
+        """)
+    
+    def complete(self, text, items):
+        pass
+    
+    def do(self, items):
+        if len(items) > 0:
+            return self.help(items)
+        
+        
+        if len(self._tasks) == 0:
+            warn("There are no tasks currently registered in this environment.")
+            return
+        
+        table = prettytable.PrettyTable(['name', 'description'])
+        for name, task in self._tasks.iteritems():
+            table.add_row([name, task.get_help()[0]])
+        
+        print table
+
 class TaskShow(Command):
     
     def __init__(self, tasks, *args, **kwargs):
@@ -14,10 +45,9 @@ class TaskShow(Command):
     
     def help(self, items):
         print textwrap.dedent("""\
-        usage: task show [name]
+        usage: task show <name>
         
-        Show a list of all the tasks available in this environment.
-        If a 'name' is supplied, show a detailed description of that task.
+        Show a detailed description of the specified task.
         """)
     
     def complete(self, text, items):
@@ -29,22 +59,9 @@ class TaskShow(Command):
             return matching
     
     def do(self, items):
-        if len(items) > 1:
+        if len(items) != 1:
             return self.help(items)
         
-        if not items:
-            if len(self._tasks) == 0:
-                warn("There are no tasks currently registered in this environment.")
-                return
-            
-            t = prettytable.PrettyTable(['name', 'description'])
-            for name, task in self._tasks.iteritems():
-                t.add_row([name, task.get_help()[0]])
-            
-            print t
-            return
-        
-        # Show the details of one or more tasks
         task = self._tasks.get(items[0])
         if task:
             desc = task.get_help()
