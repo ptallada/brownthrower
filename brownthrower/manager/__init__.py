@@ -13,7 +13,7 @@ from brownthrower import model
 # TODO: read and create a global or local configuration file
 _CONFIG = {
     'entry_points.dispatcher' : 'brownthrower.dispatcher',
-    'entry_points.event'      : 'brownthrower.event',
+    'entry_points.chain'      : 'brownthrower.chain',
     'entry_points.task'       : 'brownthrower.task',
     'manager.editor'          : 'nano',
     'manager.viewer'          : 'less',
@@ -31,19 +31,23 @@ class Manager(cmd.Cmd):
         cmd.Cmd.__init__(self, *args, **kwargs)
         
         self._dispatchers = {}
+        self._chains      = {}
         self._subcmds     = {}
         self._tasks       = {}
         
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def preloop(self):
+        self._chains      = common.load_chains(     _CONFIG['entry_points.chain'])
         self._dispatchers = common.load_dispatchers(_CONFIG['entry_points.dispatcher'])
         self._tasks       = common.load_tasks(      _CONFIG['entry_points.task'])
         
+        from commands import Chain #@UnresolvedImport
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
+        self._subcmds['chain']      = Chain(           chains = self._chains)
         self._subcmds['dispatcher'] = Dispatcher( dispatchers = self._dispatchers)
         self._subcmds['job']        = Job(              tasks = self._tasks,
                                                        editor = _CONFIG['manager.editor'],
@@ -63,6 +67,7 @@ class Manager(cmd.Cmd):
         usage: <command> [options]
         
         Available commands:
+            chain         show information about the available chains
             dispatcher    show information about the available dispatchers
             job           create, configure, submit and remove jobs
             quit          exit this program
@@ -75,6 +80,10 @@ class Manager(cmd.Cmd):
             subcmd = self._subcmds.get(items[0])
             if subcmd:
                 return subcmd._complete(text, items[1:])
+    
+    def do_chain(self, line):
+        items = line.strip().split()
+        self._subcmds['chain']._do(items)
     
     def do_dispatcher(self, line):
         items = line.strip().split()

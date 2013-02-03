@@ -7,7 +7,7 @@ class Noop(interface.Task):
     """\
     No-operation Task. Pipe the input as the output.
     
-    This Task allows Events to provide additional input to Tasks that already
+    This Task allows Chains to provide additional input to Tasks that already
     have some parents defined. Returns the input as the output.
     """
     
@@ -50,5 +50,5 @@ class Noop(interface.Task):
     """
     
     @classmethod
-    def run(self, runner, config, inp):
+    def process(self, runner, config, inp):
         return inp

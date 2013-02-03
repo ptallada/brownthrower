@@ -5,7 +5,7 @@ import sqlalchemy
 
 from sqlalchemy import event
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.exc import StatementError 
+from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, eagerload, eagerload_all
 from sqlalchemy.orm.session import sessionmaker
@@ -23,23 +23,23 @@ class Job(Base):
         # Primary key
         PrimaryKeyConstraint('id'),
         # Unique key
-        UniqueConstraint('event_id', 'id'),
+        UniqueConstraint('cluster_id', 'id'),
         # Foreign keys
-        ForeignKeyConstraint(['event_id'], ['event.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['cluster_id'], ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
-    id       = Column(Integer,    nullable=False)
+    id         = Column(Integer,    nullable=False)
     # TODO: reenable nullable
-    event_id = Column(Integer,    nullable=True)
-    task     = Column(String(20), nullable=False)
-    status   = Column(String(20), nullable=False)
-    config   = Column(Text,       nullable=True)
-    input    = Column(Text,       nullable=True)
-    output   = Column(Text,       nullable=True)
+    cluster_id = Column(Integer,    nullable=True)
+    task       = Column(String(20), nullable=False)
+    status     = Column(String(20), nullable=False)
+    config     = Column(Text,       nullable=True)
+    input      = Column(Text,       nullable=True)
+    output     = Column(Text,       nullable=True)
     
     # Relationships
-    event    = relationship('Event', back_populates='jobs') 
+    cluster  = relationship('Cluster', back_populates='jobs') 
     parents  = relationship('Job',   back_populates='children', secondary='job_dependency',
                                primaryjoin   = 'JobDependency.child_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.parent_job_id')
@@ -47,24 +47,17 @@ class Job(Base):
                                primaryjoin   = 'JobDependency.parent_job_id == Job.id',
                                secondaryjoin = 'Job.id == JobDependency.child_job_id')
     
-    @classmethod
-    def lock(cls, session, mode):
-        session.execute("LOCK TABLE :table IN :mode MODE", {
-            'table' : cls.__tablename__,
-            'mode'  : mode
-        })
-    
     def __repr__(self):
-        return u"%s(id=%s, event_id=%s, task=%s, status=%s)" % (
+        return u"%s(id=%s, cluster_id=%s, task=%s, status=%s)" % (
             self.__class__.__name__,
             repr(self.id),
-            repr(self.event_id),
+            repr(self.cluster_id),
             repr(self.task),
             repr(self.status),
         )
     
-class Event(Base):
-    __tablename__ = 'event'
+class Cluster(Base):
+    __tablename__ = 'cluster'
     __table_args__ = (
         # Primary key
         PrimaryKeyConstraint('id'),
@@ -73,14 +66,22 @@ class Event(Base):
     
     # Columns
     id       = Column(Integer,    nullable=False)
-    name     = Column(String(20), nullable=False)
+    chain    = Column(String(20), nullable=False)
     status   = Column(String(20), nullable=False)
     config   = Column(Text,       nullable=True)
     input    = Column(Text,       nullable=True)
     output   = Column(Text,       nullable=True)
     
     # Relationships
-    jobs = relationship('Job', back_populates='event')
+    jobs = relationship('Job', back_populates='cluster')
+    
+    def __repr__(self):
+        return u"%s(id=%s, chain=%s, status=%s)" % (
+            self.__class__.__name__,
+            repr(self.id),
+            repr(self.chain),
+            repr(self.status),
+        )
 
 class JobDependency(Base):
     __tablename__ = 'job_dependency'
@@ -88,20 +89,33 @@ class JobDependency(Base):
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
-        ForeignKeyConstraint(['event_id', 'parent_job_id'], ['job.event_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['event_id', 'child_job_id'],  ['job.event_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(              ['parent_job_id'],                   ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(              ['child_job_id'],                    ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['cluster_id', 'parent_job_id'], ['job.cluster_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['cluster_id', 'child_job_id'],  ['job.cluster_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
     # TODO: re-enable nullable
-    event_id      = Column(Integer, nullable=True)
+    cluster_id    = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
+    
+    def __repr__(self):
+        return u"%s(cluster_id=%s, parent_job_id=%s, child_job_id=%s)" % (
+            self.__class__.__name__,
+            repr(self.cluster_id),
+            repr(self.parent_job_id),
+            repr(self.child_job_id),
+        )
 
 def _sqlite_begin(conn):
+    # Foreign keys are NOT enabled by default... WTF!
+    conn.execute("PRAGMA foreign_keys = ON")
     # Force a single active transaction on a sqlite database.
     # This is needed to emulate FOR UPDATE locks :(
     conn.execute("BEGIN EXCLUSIVE")
+    
 
 def init(url):
     global session

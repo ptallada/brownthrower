@@ -3,6 +3,7 @@
 
 import textwrap
 
+import chain
 import dispatcher
 import job
 import task
@@ -104,6 +105,37 @@ class Dispatcher(Command):
             list        show detailed information for a dispatcher
             run         run a dispatcher to execute jobs
             show        list available dispatchers
+        """)
+    
+    def complete(self, text, items):
+        available = self._subcmds.keys()
+        
+        return [command
+                for command in available
+                if command.startswith(text)]
+    
+    def do(self, items):
+        self.help(items)
+
+class Chain(Command):
+    
+    def __init__(self, chains, *args, **kwargs):
+        super(Chain, self).__init__(*args, **kwargs)
+        
+        self.add_subcmd('list',   chain.ChainList(  chains = chains))
+        self.add_subcmd('schema', chain.ChainSchema(chains = chains))
+        self.add_subcmd('show',   chain.ChainShow(  chains = chains))
+        self.add_subcmd('sample', chain.ChainSample(chains = chains))
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: chain <command> [options]
+        
+        Available commands:
+            list      list all available chains
+            schema    show the formal schema of a chain dataset
+            show      show detailed information for a chain
+            sample    show a sample of a chain dataset
         """)
     
     def complete(self, text, items):

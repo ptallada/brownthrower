@@ -7,7 +7,7 @@ import textwrap
 import yaml
 
 class TaskValidationException(Exception):
-    def __init__(self, message=None, exception=None, ):
+    def __init__(self, message=None, exception=None):
         self.exception = exception
         self.message   = message
         
@@ -18,6 +18,10 @@ class TaskCancelledException(Exception):
     pass
 
 class BaseTask(object):
+    
+    def __init__(self, config=None):
+        self._config = config
+    
     @classmethod
     def validate_config(cls, config):
         try:
@@ -47,27 +51,27 @@ class BaseTask(object):
     
     @classmethod
     def get_config_schema(cls):
-        return textwrap.dedent(cls.config_schema)
+        return textwrap.dedent(cls.config_schema).strip()
     
     @classmethod
     def get_input_schema(cls):
-        return textwrap.dedent(cls.input_schema)
+        return textwrap.dedent(cls.input_schema).strip()
     
     @classmethod
     def get_output_schema(cls):
-        return textwrap.dedent(cls.output_schema)
+        return textwrap.dedent(cls.output_schema).strip()
     
     @classmethod
     def get_config_sample(cls):
-        return textwrap.dedent(cls.config_sample)
+        return textwrap.dedent(cls.config_sample).strip()
     
     @classmethod
     def get_input_sample(cls):
-        return textwrap.dedent(cls.input_sample)
+        return textwrap.dedent(cls.input_sample).strip()
     
     @classmethod
     def get_output_sample(cls):
-        return textwrap.dedent(cls.output_sample)
+        return textwrap.dedent(cls.output_sample).strip()
     
     @classmethod
     def get_help(cls):
@@ -76,6 +80,12 @@ class BaseTask(object):
         detail = textwrap.dedent('\n'.join(doc[1:]))
         
         return (short, detail)
+    
+    def run(self, runner, inp):
+        self.validate_config(self.config)
+        self.validate_input(inp)
+        
+        return self.process(runner,inp)
 
 class Task(BaseTask):
     """\
@@ -86,20 +96,19 @@ class Task(BaseTask):
     output it generates.
     """
     
-    def run(self, runner, config, inp):
+    def process(self, runner, config, inp):
         """
         Executes this task. When this method is called, it can safely assume
-        that the 'config' and 'inp' parameters have been checked previously
-        and that they are both valid.
+        that the 'config and 'inp' parameters have been checked previously and
+        that they are both valid.
         
         @param runner: helper to abstract from the execution environment
         @type runner: L{Runner}
         @param config: mapping with the required configuration values
         @type config: dict
-        @param inp:  mapping with the output of the parent jobs
-        @type inp: dict
-        @return: mapping to be delivered as input for child jobs
-        @rtype: dict
+        @param inp:  list with the output of the parent jobs
+        @type inp: list
+        @return: output to be delivered as input for child jobs
         """
         raise NotImplementedError
     
@@ -164,7 +173,7 @@ class Task(BaseTask):
         raise NotImplementedError
     
     @classmethod
-    def check_config(self, config):
+    def check_config(cls, config):
         """
         Additional checks to the supplied config, after it has passed the schema
         validation.
@@ -176,7 +185,7 @@ class Task(BaseTask):
         pass
     
     @classmethod
-    def check_input(self, inp):
+    def check_input(cls, inp):
         """
         Additional checks to the supplied input, after it has passed the schema
         validation.
@@ -188,7 +197,7 @@ class Task(BaseTask):
         pass
     
     @classmethod
-    def check_output(self, out):
+    def check_output(cls, out):
         """
         Additional checks to the supplied output, after it has passed the schema
         validation.

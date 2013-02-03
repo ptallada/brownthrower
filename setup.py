@@ -53,11 +53,15 @@ setup(
         ],
         'brownthrower.task': [
             # math
-            'math.add  = examples.math.tasks.add:Add',
+            'math.add  = examples.math.task.add:Add',
             # misc
-            'misc.noop = examples.misc.tasks.noop:Noop',
+            'misc.noop = examples.misc.task.noop:Noop',
             #'misc.hostname         = examples.misc.tasks.hostname:Hostname',
             #'misc.store_single_env = examples.misc.tasks.store_single_env:StoreSingleEnv',
+        ],
+        'brownthrower.chain': [
+            # math
+            'math.sum  = examples.math.chain.sum:Sum',
         ],
     },
     

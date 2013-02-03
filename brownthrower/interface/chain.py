@@ -6,15 +6,15 @@ import jsonschema
 import textwrap
 import yaml
 
-class EventValidationException(Exception):
-    def __init__(self, exception=None, message=None):
+class ChainValidationException(Exception):
+    def __init__(self, message=None, exception=None):
         self.exception = exception
         self.message   = message
         
     def __str__(self):
-        return repr(self.exception)
+        return "%s: %s" % (self.message, repr(self.exception))
 
-class BaseEvent(object):
+class BaseChain(object):
     @classmethod
     def validate_config(cls, config):
         try:
@@ -22,7 +22,7 @@ class BaseEvent(object):
             config = yaml.safe_load(config)
             cls.check_config(config)
         except Exception as e:
-            raise EventValidationException(e)
+            raise ChainValidationException('Config is not valid', e)
     
     @classmethod
     def validate_input(cls, inp):
@@ -31,7 +31,7 @@ class BaseEvent(object):
             inp = yaml.safe_load(inp)
             cls.check_input(inp)
         except Exception as e:
-            raise EventValidationException(e)
+            raise ChainValidationException('Input is not valid', e)
     
     @classmethod
     def validate_output(cls, out):
@@ -40,31 +40,31 @@ class BaseEvent(object):
             out = yaml.safe_load(out)
             cls.check_output(out)
         except Exception as e:
-            raise EventValidationException(e)
+            raise ChainValidationException('Output is not valid', e)
     
     @classmethod
     def get_config_schema(cls):
-        return textwrap.dedent(cls.config_schema)
+        return textwrap.dedent(cls.config_schema).strip()
     
     @classmethod
     def get_input_schema(cls):
-        return textwrap.dedent(cls.input_schema)
+        return textwrap.dedent(cls.input_schema).strip()
     
     @classmethod
     def get_output_schema(cls):
-        return textwrap.dedent(cls.output_schema)
+        return textwrap.dedent(cls.output_schema).strip()
     
     @classmethod
     def get_config_sample(cls):
-        return textwrap.dedent(cls.config_sample)
+        return textwrap.dedent(cls.config_sample).strip()
     
     @classmethod
     def get_input_sample(cls):
-        return textwrap.dedent(cls.input_sample)
+        return textwrap.dedent(cls.input_sample).strip()
     
     @classmethod
     def get_output_sample(cls):
-        return textwrap.dedent(cls.output_sample)
+        return textwrap.dedent(cls.output_sample).strip()
     
     @classmethod
     def get_help(cls):
@@ -74,32 +74,32 @@ class BaseEvent(object):
         
         return (short, detail)
 
-class Event(BaseEvent):
+class Chain(BaseChain):
     """\
-    This MUST be a single line describing the objective of this Event.
+    This MUST be a single line describing the objective of this Chain.
     
-    The following line MUST be a more detailed description of this Event, what
+    The following line MUST be a more detailed description of this Chain, what
     parameters does it take, what are its configuration values and what kind of
     output it generates.
     """
     
     def prolog(self, tasks, config, inp):
         """
-        Prepares this Event for execution. When this method is called, it can
+        Prepares this Chain for execution. When this method is called, it can
         safely assume that the 'config' and 'inp' parameters have been checked
         previously and that they are both valid.
         
         Return a list of tuples. Each one of this tuples contains two Task
         instances '(parent_task, child_task)' and represents the parent-child
         dependency between them.
-        Initial tasks, which do not have any parent, have to be expressed using
-        None as its virtual parent.
+        Initial tasks, which do not have any parent, MUST have its input
+        instead of a parent.
         
         @param tasks: mapping with all the registered Tasks available
         @type tasks: dict
         @param config: mapping with the required configuration values
         @type config: dict
-        @param inp:  mapping with the output of the parent events
+        @param inp:  mapping with the output of the parent chains
         @type inp: dict
         @return: a list of tuples representing the dependency between Tasks
         @rtype: list
@@ -108,7 +108,7 @@ class Event(BaseEvent):
     
     def epilog(self, config, out):
         """
-        Generate the final output of this Event. When this method is called,
+        Generate the final output of this Chain. When this method is called,
         it can safely assume that the 'config' and 'out' parameters have been
         checked previously and that they are both valid.
         
@@ -116,7 +116,7 @@ class Event(BaseEvent):
         @type config: dict
         @param out:  mapping with the output of the leaf Jobs
         @type out: dict
-        @return: mapping to be delivered as output for child events
+        @return: mapping to be delivered as output for child chains
         @rtype: dict
         """
         raise NotImplementedError
@@ -182,7 +182,7 @@ class Event(BaseEvent):
         raise NotImplementedError
     
     @classmethod
-    def check_config(self, config):
+    def check_config(cls, config):
         """
         Additional checks to the supplied config, after it has passed the schema
         validation.
@@ -194,7 +194,7 @@ class Event(BaseEvent):
         pass
     
     @classmethod
-    def check_input(self, inp):
+    def check_input(cls, inp):
         """
         Additional checks to the supplied input, after it has passed the schema
         validation.
@@ -206,7 +206,7 @@ class Event(BaseEvent):
         pass
     
     @classmethod
-    def check_output(self, out):
+    def check_output(cls, out):
         """
         Additional checks to the supplied output, after it has passed the schema
         validation.

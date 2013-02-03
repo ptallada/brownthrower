@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import logging
 import prettytable
 import subprocess
 import tempfile
 import textwrap
+
+log = logging.getLogger('brownthrower.manager')
 
 from base import Command, error, warn, success
 from brownthrower import interface
@@ -55,8 +58,10 @@ class JobCreate(Command):
             
             model.session.commit()
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
-        except model.StatementError:
+        
+        except model.StatementError as e:
             error("The job could not be created.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -81,12 +86,12 @@ class JobList(Command):
             return self.help(items)
         
         try:
-            table = prettytable.PrettyTable(['id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
+            table = prettytable.PrettyTable(['id', 'cluster_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
             table.align = 'l'
             
             jobs = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit).all()
             for job in jobs:
-                table.add_row([job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
+                table.add_row([job.id, job.cluster_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
             
             if not jobs:
                 warn("No jobs found were found.")
@@ -96,8 +101,9 @@ class JobList(Command):
             
             print table
         
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -124,21 +130,22 @@ class JobShow(Command):
                 warn("Could not found the job with id %d." % items[0])
                 return
             
-            table = prettytable.PrettyTable(['kind', 'id', 'event_id', 'task', 'status', 'has config', 'has input', 'has output'])
+            table = prettytable.PrettyTable(['kind', 'id', 'cluster_id', 'task', 'status', 'has config', 'has input', 'has output'])
             table.align = 'l'
             
             for parent in job.parents:
-                table.add_row(['PARENT', parent.id, parent.event_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
-            table.add_row(['#####', job.id, job.event_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                table.add_row(['PARENT', parent.id, parent.cluster_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
+            table.add_row(['#####', job.id, job.cluster_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
             for child in job.children:
-                table.add_row(['CHILD', child.id, child.event_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
+                table.add_row(['CHILD', child.id, child.cluster_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
             
             print table
             
             model.session.commit()
         
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -170,10 +177,17 @@ class JobRemove(Command):
                 success("The job has been successfully removed from the stash.")
             else: # deleted == 0
                 error("The job could not be removed.")
-        except model.StatementError:
-            error("Could not complete the query to the database.")
-        finally:
-            model.session.rollback()
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.IntegrityError:
+                error("Some dependencies prevent this job from being deleted.")
+            except model.StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                model.session.rollback()
+                log.debug(e)
 
 class JobSubmit(Command):
     
@@ -218,12 +232,16 @@ class JobSubmit(Command):
             
             success("The job has been successfully marked as ready for execution.")
         
-        except interface.TaskValidationException:
-            error("The job has an invalid config.")
-        except model.StatementError:
-            error("Could not complete the query to the database.")
-        finally:
-            model.session.rollback()
+        except BaseException as e:
+            try:
+                raise
+            except interface.TaskValidationException:
+                error("The job has an invalid config.")
+            except model.StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                model.session.rollback()
+                log.debug(e)
 
 class JobReset(Command):
     
@@ -260,8 +278,10 @@ class JobReset(Command):
                 success("The job has been successfully returned to the stash.")
             else: # resetted == 0
                 error("The job could not be returned to the stash.")
-        except model.StatementError:
+        
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -304,8 +324,9 @@ class JobLink(Command):
             
             success("The parent-child dependency has been successfully established.")
             
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -350,8 +371,9 @@ class JobUnlink(Command):
             else:
                 success("The parent-child dependency has been successfully removed.")
         
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -389,8 +411,9 @@ class JobCancel(Command):
             else: # cancel == 0
                 error("The job could not be marked to be cancelled.")
         
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()
 
@@ -475,14 +498,18 @@ class JobEdit(Command):
             
             success("The job dataset has been successfully modified.")
         
-        except EnvironmentError:
-            error("Unable to open the temporary dataset buffer.")
-        except interface.TaskValidationException:
-            error("The new value for the %s is not valid." % items[0])
-        except model.StatementError:
-            error("Could not complete the query to the database.")
-        finally:
-            model.session.rollback()
+        except BaseException as e:
+            try:
+                raise
+            except EnvironmentError:
+                error("Unable to open the temporary dataset buffer.")
+            except interface.TaskValidationException:
+                error("The new value for the %s is not valid." % items[0])
+            except model.StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+                model.session.rollback()
 
 class JobOutput(Command):
     
@@ -521,7 +548,8 @@ class JobOutput(Command):
             viewer = subprocess.Popen([self._viewer], stdin=subprocess.PIPE)
             viewer.communicate(input=job_output)
         
-        except model.StatementError:
+        except model.StatementError as e:
             error("Could not complete the query to the database.")
+            log.debug(e)
         finally:
             model.session.rollback()

@@ -56,5 +56,5 @@ class Add(interface.Task):
     """
     
     @classmethod
-    def run(cls, runner, config, inp):
+    def process(cls, runner, config, inp):
         return inp[0] + inp[1]

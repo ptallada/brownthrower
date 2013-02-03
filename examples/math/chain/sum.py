@@ -1,13 +1,15 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from itertools import izip_longest, islice
+
 from brownthrower import interface
 
-class Sum(interface.Event):
+class Sum(interface.Chain):
     """\
     Calculate the sum of the input.
     
-    Return the sum of all the inputs. This Event generates its output building
+    Return the sum of all the inputs. This Chain generates its output building
     a chain of 'add' Tasks.
     """
     
@@ -56,9 +58,34 @@ class Sum(interface.Event):
     
     def prolog(self, tasks, config, inp):
         task = tasks['math.add']
-        dependencies = []
+        noop = tasks['misc.noop']
         
-        dependencies.append(())
-    
+        dependencies = []
+        pending = []
+        
+        # First pass for initial tasks
+        for (i1, i2) in izip_longest(islice(inp, 0, None, 2), islice(inp, 1, None, 2)):
+            if i2 != None:
+                t = task(config)
+                dependencies.append((i1, i2), t)
+            else:
+                t = noop(config)
+                dependencies.append(i1, t)
+            pending.append(t)
+            
+        # Now group the tasks two by two
+        inp = pending
+        while len(inp) > 1:
+            for (t1, t2) in izip_longest(islice(inp, 0, None, 2), islice(inp, 1, None, 2)):
+                if t2 != None:
+                    t = task(config)
+                    dependencies.append(t1, t)
+                    dependencies.append(t2, t)
+                else:
+                    t = t1
+                pending.append(t)
+            inp = pending
+        return dependencies
+        
     def epilog(self, config, out):
-        pass
+        return out[0]

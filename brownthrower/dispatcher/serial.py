@@ -12,7 +12,7 @@ from brownthrower.interface import constants
 # TODO: read and create a global or local configuration file
 _CONFIG = {
     'entry_points.task'  : 'brownthrower.task',
-    'entry_points.event' : 'brownthrower.event',
+    'entry_points.chain' : 'brownthrower.chain',
     'manager.editor'     : 'nano',
     'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
 }
