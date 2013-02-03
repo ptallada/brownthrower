@@ -80,16 +80,17 @@ class SerialDispatcher(interface.Dispatcher):
                         job_input  = yaml.safe_load(job.input)
                         
                         job.status = constants.JobStatus.RUNNING
-                except:
+                except BaseException as e:
                     try:
                         raise
                     except interface.TaskValidationException:
-                        log.error("The input or the config is not valid.")
+                        log.error("The job %d could not be queued: config or input are not valid." % job_id)
                     except yaml.YAMLError:
-                        log.error("The output of some of its parents is not valid.")
+                        log.error("The job %d could not be queued: could not parse the output of a parent." % job_id)
                     except model.StatementError:
                         log.error("Could not complete the query to the database.")
                     finally:
+                        log.debug(e)
                         job.status = constants.JobStatus.SUBMIT_FAIL
                 else:
                     try:
@@ -112,17 +113,17 @@ class SerialDispatcher(interface.Dispatcher):
                             task.validate_output(job.output)
                             
                             job.status = constants.JobStatus.DONE
-                        except:
+                        except BaseException as e:
                             try:
                                 raise
                             except interface.TaskCancelledException:
                                 pass # Handled in the finally clause
                             except interface.TaskValidationException:
-                                log.error("The output is not valid.")
+                                log.error("Job %d has failed: it has produced an invalid output." % job_id)
                             except model.StatementError:
-                                log.error("Could not commit changes to the database.")
+                                log.error("Job %d has failed: could not complete the query to the database." % job_id)
                             except Exception:
-                                log.error("The job raised an Exception.")
+                                log.error("Job %d has failed: it raised an Exception." % job_id)
                             finally:
                                 job = model.session.query(model.Job).filter_by(
                                     id = job_id
@@ -131,6 +132,7 @@ class SerialDispatcher(interface.Dispatcher):
                                     log.info("The job was cancelled.")
                                     job.status = constants.JobStatus.STASHED
                                 else:
+                                    log.debug(e)
                                     job.status = constants.JobStatus.FAILED
                         finally:
                             # Job is now DONE, FAILED or STASHED

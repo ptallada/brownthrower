@@ -7,12 +7,12 @@ import textwrap
 import yaml
 
 class TaskValidationException(Exception):
-    def __init__(self, exception=None, message=None):
+    def __init__(self, message=None, exception=None, ):
         self.exception = exception
         self.message   = message
         
     def __str__(self):
-        return repr(self.exception)
+        return "%s: %s" % (self.message, repr(self.exception))
 
 class TaskCancelledException(Exception):
     pass
@@ -25,7 +25,7 @@ class BaseTask(object):
             config = yaml.safe_load(config)
             cls.check_config(config)
         except Exception as e:
-            raise TaskValidationException(e)
+            raise TaskValidationException('Config is not valid', e)
     
     @classmethod
     def validate_input(cls, inp):
@@ -34,7 +34,7 @@ class BaseTask(object):
             inp = yaml.safe_load(inp)
             cls.check_input(inp)
         except Exception as e:
-            raise TaskValidationException(e)
+            raise TaskValidationException('Input is not valid', e)
     
     @classmethod
     def validate_output(cls, out):
@@ -43,7 +43,7 @@ class BaseTask(object):
             out = yaml.safe_load(out)
             cls.check_output(out)
         except Exception as e:
-            raise TaskValidationException(e)
+            raise TaskValidationException('Output is not valid', e)
     
     @classmethod
     def get_config_schema(cls):

@@ -478,7 +478,7 @@ class JobEdit(Command):
         except EnvironmentError:
             error("Unable to open the temporary dataset buffer.")
         except interface.TaskValidationException:
-            error("The new value for the dataset is not valid.")
+            error("The new value for the %s is not valid." % items[0])
         except model.StatementError:
             error("Could not complete the query to the database.")
         finally:

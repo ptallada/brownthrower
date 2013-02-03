@@ -41,10 +41,12 @@ def load_tasks(entry_point):
             
             tasks[entry.name] = task
         
-        except (AttributeError, AssertionError):
+        except (AttributeError, AssertionError) as e:
             log.warning("Skipping Task '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-        except interface.TaskValidationException:
+            log.debug("Task '%s:%s': %s" % (entry.name, entry.module_name, e))
+        except interface.TaskValidationException as e:
             log.warning("Skipping Task '%s:%s': their own samples fail to validate." % (entry.name, entry.module_name))
+            log.debug("Task '%s:%s': %s" % (entry.name, entry.module_name, e))
         except ImportError:
             log.warning("Skipping Task '%s:%s': unable to load." % (entry.name, entry.module_name))
     
@@ -71,10 +73,9 @@ def load_dispatchers(entry_point):
             
             dispatchers[entry.name] = dispatcher
         
-        except (AttributeError, AssertionError):
+        except (AttributeError, AssertionError) as e:
             log.warning("Skipping Dispatcher '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-        except interface.TaskValidationException:
-            log.warning("Skipping Dispatcher '%s:%s': their own samples fail to validate." % (entry.name, entry.module_name))
+            log.debug("Dispatcher '%s:%s': %s" % (entry.name, entry.module_name, e))
         except ImportError:
             log.warning("Skipping Dispatcher '%s:%s': unable to load." % (entry.name, entry.module_name))
     

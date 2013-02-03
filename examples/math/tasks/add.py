@@ -3,11 +3,11 @@
 
 from brownthrower import interface
 
-class Sum(interface.Task):
+class Add(interface.Task):
     """\
-    Calculate the sum of the input.
+    Add the two of its inputs.
     
-    This task returns the integer sum of its input.
+    This task returns the integer addition of its two inputs.
     It does not require any configuration.
     """
     
@@ -24,7 +24,8 @@ class Sum(interface.Task):
         "type"     : "array",
         "$schema"  : "http://json-schema.org/draft-03/schema",
         "required" : true,
-        "minItems" : 1,
+        "minItems" : 2,
+        "maxItems" : 2,
         "items"    : {
             "type"     : "integer",
             "required" : true
@@ -45,8 +46,8 @@ class Sum(interface.Task):
     """
     
     input_sample = """\
-        # An unbounded array of integers
-        [ 1, 2, 3, 4 ]
+        # An array with two integers
+        [ 2, 3 ]
     """
     
     output_sample = """\
@@ -56,4 +57,4 @@ class Sum(interface.Task):
     
     @classmethod
     def run(cls, runner, config, inp):
-        return sum(inp)
+        return inp[0] + inp[1]

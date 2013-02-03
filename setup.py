@@ -53,13 +53,11 @@ setup(
         ],
         'brownthrower.task': [
             # math
-            'math.sum  = examples.math.tasks.sum:Sum',
-            'math.max  = examples.math.tasks.max:Max',
-            'math.min  = examples.math.tasks.min:Min',
-            'math.fact = examples.math.tasks.fact:Fact',
+            'math.add  = examples.math.tasks.add:Add',
             # misc
-            'misc.hostname         = examples.misc.tasks.hostname:Hostname',
-            'misc.store_single_env = examples.misc.tasks.store_single_env:StoreSingleEnv',
+            'misc.noop = examples.misc.tasks.noop:Noop',
+            #'misc.hostname         = examples.misc.tasks.hostname:Hostname',
+            #'misc.store_single_env = examples.misc.tasks.store_single_env:StoreSingleEnv',
         ],
     },
     
