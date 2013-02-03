@@ -26,7 +26,6 @@ class TaskList(Command):
         if len(items) > 0:
             return self.help(items)
         
-        
         if len(self._tasks) == 0:
             warn("There are no tasks currently registered in this environment.")
             return
@@ -69,7 +68,7 @@ class TaskShow(Command):
             print desc[0]
             print desc[1]
         else:
-            error("The task '%s' is not currently available in this environment.")
+            error("The task '%s' is not currently available in this environment." % items[0])
 
 class TaskSchema(Command):
     

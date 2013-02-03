@@ -12,12 +12,13 @@ from brownthrower import model
 
 # TODO: read and create a global or local configuration file
 _CONFIG = {
-    'entry_points.task'  : 'brownthrower.task',
-    'entry_points.event' : 'brownthrower.event',
-    'manager.editor'     : 'nano',
-    'manager.viewer'     : 'less',
-    'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
-    'listing.limit'      : 50,
+    'entry_points.dispatcher' : 'brownthrower.dispatcher',
+    'entry_points.event'      : 'brownthrower.event',
+    'entry_points.task'       : 'brownthrower.task',
+    'manager.editor'          : 'nano',
+    'manager.viewer'          : 'less',
+    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
+    'listing.limit'           : 50,
 }
 
 log = logging.getLogger('brownthrower.manager')
@@ -29,22 +30,27 @@ class Manager(cmd.Cmd):
     def __init__(self, *args, **kwargs):
         cmd.Cmd.__init__(self, *args, **kwargs)
         
-        self._tasks   = {}
-        self._subcmds = {}
+        self._dispatchers = {}
+        self._subcmds     = {}
+        self._tasks       = {}
         
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def preloop(self):
-        self._tasks = common.load_tasks(_CONFIG['entry_points.task'])
+        self._dispatchers = common.load_dispatchers(_CONFIG['entry_points.dispatcher'])
+        self._tasks       = common.load_tasks(      _CONFIG['entry_points.task'])
         
+        from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
-        self._subcmds['job'] = Job(    tasks = self._tasks,
-                                      editor = _CONFIG['manager.editor'],
-                                      viewer = _CONFIG['manager.viewer'],
-                                       limit = _CONFIG['listing.limit'])
-        self._subcmds['task'] = Task(  tasks = self._tasks)
+        self._subcmds['dispatcher'] = Dispatcher( dispatchers = self._dispatchers)
+        self._subcmds['job']        = Job(              tasks = self._tasks,
+                                                       editor = _CONFIG['manager.editor'],
+                                                       viewer = _CONFIG['manager.viewer'],
+                                                        limit = _CONFIG['listing.limit'])
+        self._subcmds['task']       = Task(             tasks = self._tasks)
+        
     
     def do_help(self, line):
         items = line.strip().split()
@@ -116,10 +122,6 @@ def main():
     
     manager = Manager()
     manager.cmdloop()
-    
-    from brownthrower.dispatcher import SerialDispatcher
-    d = SerialDispatcher()
-    d.loop()
 
 if __name__ == '__main__':
     main()

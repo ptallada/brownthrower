@@ -22,6 +22,12 @@ log = logging.getLogger('brownthrower.dispatcher.serial')
 logging.basicConfig(level=logging.DEBUG)
 
 class SerialDispatcher(interface.Dispatcher):
+    """\
+    Basic serial dispatcher for testing and development.
+    
+    This dispatcher executes the jobs one by one in succession.
+    It supports both SQLite and PostgreSQL.
+    """
     
     _tasks = {}
     
@@ -29,7 +35,7 @@ class SerialDispatcher(interface.Dispatcher):
         # TODO: Fallar si no hi ha tasks
         self._tasks = common.load_tasks(_CONFIG['entry_points.task'])
     
-    def loop(self):
+    def run(self):
         while True:
             try:
                 # Fetch first job which WAS suitable to be executed

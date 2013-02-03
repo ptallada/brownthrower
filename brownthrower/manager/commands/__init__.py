@@ -92,6 +92,8 @@ class Dispatcher(Command):
     def __init__(self, dispatchers, *args, **kwargs):
         super(Dispatcher, self).__init__(*args, **kwargs)
         
+        self.add_subcmd('list', dispatcher.DispatcherList(dispatchers = dispatchers))
+        self.add_subcmd('run',  dispatcher.DispatcherRun( dispatchers = dispatchers))
         self.add_subcmd('show', dispatcher.DispatcherShow(dispatchers = dispatchers))
     
     def help(self, items):
@@ -99,6 +101,8 @@ class Dispatcher(Command):
         usage: dispatcher <command> [options]
         
         Available commands:
+            list        show detailed information for a dispatcher
+            run         run a dispatcher to execute jobs
             show        list available dispatchers
         """)
     

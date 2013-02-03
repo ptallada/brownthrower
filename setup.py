@@ -48,6 +48,9 @@ setup(
         'console_scripts' : [
             'manager = brownthrower.manager.__init__:main',
         ],
+        'brownthrower.dispatcher' : [
+            "serial = brownthrower.dispatcher.serial:SerialDispatcher",
+        ],
         'brownthrower.task': [
             # math
             'math.sum  = examples.math.tasks.sum:Sum',
