@@ -63,6 +63,10 @@ class SerialDispatcher(interface.Dispatcher):
                     with model.session.begin_nested():
                         log.info("Queuing job %d of task '%s'" % (job.id, job.task))
                         
+                        # Cache fields for using after commit
+                        job_id     = job.id
+                        job_task   = job.task
+                        
                         if parents:
                             job.input = yaml.dump(
                                 [ yaml.safe_load(parent.output) for parent in parents ],
@@ -74,8 +78,6 @@ class SerialDispatcher(interface.Dispatcher):
                         task.validate_input(job.input)
                         
                         # Cache fields for using after commit
-                        job_id     = job.id
-                        job_task   = job.task
                         job_config = yaml.safe_load(job.config)
                         job_input  = yaml.safe_load(job.input)
                         

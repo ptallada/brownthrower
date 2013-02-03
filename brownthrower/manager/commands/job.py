@@ -225,6 +225,8 @@ class JobSubmit(Command):
                 return
             
             task.validate_config(job.config)
+            if not job.parents:
+                task.validate_input(job.input)
             
             # TODO: Shall reset all the other fields
             job.status = constants.JobStatus.READY
@@ -236,7 +238,7 @@ class JobSubmit(Command):
             try:
                 raise
             except interface.TaskValidationException:
-                error("The job has an invalid config.")
+                error("The job has an invalid config or input.")
             except model.StatementError:
                 error("Could not complete the query to the database.")
             finally:
