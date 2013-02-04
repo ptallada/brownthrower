@@ -122,7 +122,7 @@ def main():
     from pysrc import pydevd
     pydevd.settrace(suspend=False)
     
-    import rpdb
+    #import rpdb
     #rpdb.Rpdb().set_trace()
     
     #model.init(_CONFIG['database.url'])

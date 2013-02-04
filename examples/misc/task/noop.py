@@ -49,6 +49,5 @@ class Noop(interface.Task):
         42
     """
     
-    @classmethod
-    def process(self, runner, config, inp):
+    def run(self, runner, inp):
         return inp

@@ -102,7 +102,7 @@ class SerialDispatcher(interface.Dispatcher):
                         try:
                             log.info("Running job %d of task '%s'" % (job_id, job_task))
                             
-                            job_output = task.run(runner = None, config = job_config, inp = job_input)
+                            job_output = task(config = job_config).run(runner = None, inp = job_input)
                             
                             job = model.session.query(model.Job).filter_by(
                                 id = job_id
