@@ -114,9 +114,9 @@ class Task(BaseTask):
     
     def run(self, runner, inp):
         """
-        Executes this task. When this method is called, it can safely assume
-        that the 'config and 'inp' parameters have been checked previously and
-        that they are both valid.
+        Executes this Task. When this method is called, it can safely assume
+        that the 'inp' parameter has been checked previously and that it is
+        valid.
         
         @param runner: helper to abstract from the execution environment
         @type runner: L{Runner}

@@ -15,11 +15,26 @@ class ChainValidationException(Exception):
         return "%s: %s" % (self.message, repr(self.exception))
 
 class BaseChain(object):
+    
+    @property
+    def config(self):
+        return self._config
+    
+    @config.setter
+    def config(self, config):
+        try:
+            jsonschema.validate(config, json.loads(self.config_schema))
+            self.check_config(config)
+        except Exception as e:
+            raise ChainValidationException('Config is not valid', e)
+        else:
+            self._config = config
+    
     @classmethod
     def validate_config(cls, config):
         try:
-            jsonschema.validate(yaml.safe_load(config), json.loads(cls.config_schema))
             config = yaml.safe_load(config)
+            jsonschema.validate(config, json.loads(cls.config_schema))
             cls.check_config(config)
         except Exception as e:
             raise ChainValidationException('Config is not valid', e)
@@ -27,8 +42,8 @@ class BaseChain(object):
     @classmethod
     def validate_input(cls, inp):
         try:
-            jsonschema.validate(yaml.safe_load(inp), json.loads(cls.input_schema))
             inp = yaml.safe_load(inp)
+            jsonschema.validate(inp, json.loads(cls.input_schema))
             cls.check_input(inp)
         except Exception as e:
             raise ChainValidationException('Input is not valid', e)
@@ -36,8 +51,8 @@ class BaseChain(object):
     @classmethod
     def validate_output(cls, out):
         try:
-            jsonschema.validate(yaml.safe_load(out), json.loads(cls.output_schema))
             out = yaml.safe_load(out)
+            jsonschema.validate(out, json.loads(cls.output_schema))
             cls.check_output(out)
         except Exception as e:
             raise ChainValidationException('Output is not valid', e)
@@ -70,7 +85,7 @@ class BaseChain(object):
     def get_help(cls):
         doc = cls.__doc__.strip().split('\n')
         short = doc[0].strip()
-        detail = textwrap.dedent('\n'.join(doc[1:]))
+        detail = textwrap.dedent('\n'.join(doc[1:])).strip()
         
         return (short, detail)
 
@@ -83,11 +98,22 @@ class Chain(BaseChain):
     output it generates.
     """
     
-    def prolog(self, tasks, config, inp):
+    def __init__(self, config):
+        """
+        Create a new instance of this Chain. The instantiation will only
+        succeed if the supplied config is valid and passes the additional
+        checks (if present)
+        
+        @param config: mapping with the required configuration values
+        @type config: dict
+        """
+        self.config = config
+    
+    def prolog(self, tasks, inp):
         """
         Prepares this Chain for execution. When this method is called, it can
-        safely assume that the 'config' and 'inp' parameters have been checked
-        previously and that they are both valid.
+        safely assume that the 'inp' parameter has been checked previously and
+        that it is valid.
         
         Return a list of tuples. Each one of this tuples contains two Task
         instances '(parent_task, child_task)' and represents the parent-child
@@ -97,11 +123,9 @@ class Chain(BaseChain):
         
         @param tasks: mapping with all the registered Tasks available
         @type tasks: dict
-        @param config: mapping with the required configuration values
-        @type config: dict
         @param inp:  mapping with the output of the parent chains
         @type inp: dict
-        @return: a list of tuples representing the dependency between Tasks
+        @return: a list of tuples representing the dependency between Tasks or Chains
         @rtype: list
         """
         raise NotImplementedError
