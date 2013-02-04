@@ -1,0 +1,41 @@
+digraph cluster_states {
+    // Possible job states
+    DELETED    [shape="plaintext"]; // The cluster has been deleted.
+    STASHED    [shape="circle"];    // The cluster is in preparation phase. It is being configured and cannot be executed yet.
+    READY      [shape="ellipse"];   // The cluster has been configured and its dependencies are already set. It will be executed as soon as possible.
+    CANCELLING [shape="ellipse"];   // The user has asked to cancel this cluster.
+    FAILING    [shape="ellipse"];   // The cluster is still being processed and some job has failed.
+    PROCESSING [shape="ellipse"];   // The cluster is being processed.
+    DONE       [shape="box"];       // All the jobs have finished successfully.
+    FAILED     [shape="box"];       // All the jobs have finished successfully and some have failed.
+    
+    // Grouping
+    { //rank="source";
+        CANCELLING; FAILING; FAILED;
+    }
+    { rank="same";
+        DELETED; STASHED; READY; PROCESSING; DONE;
+    }
+    
+    // Expected flow
+    STASHED         -> READY      [style="dotted"]; // User marks this cluster as ready for execution
+    READY           -> PROCESSING [style="solid"];  // The dispatcher is handling some of the jobs of this cluster 
+    PROCESSING      -> DONE       [style="solid"];  // All the jobs of this cluster have finished successfully
+    
+    // The job/runner fails to finish successfully
+    PROCESSING      -> FAILING    [style="solid"];  // A job did not finish successfully
+    FAILING         -> FAILED     [style="solid"];  // All the jobs in the cluster have finished and some failed.
+    
+    // The job has to be cancelled
+    PROCESSING      -> CANCELLING [style="dotted"]; // The user wants this job to be cancelled
+    FAILING         -> CANCELLING [style="solid", constraint="false"]; // The user wants this job to be cancelled
+    CANCELLING      -> FAILED     [style="solid"];  // All jobs have been cancelled, but at least one of them failed.
+    CANCELLING      -> STASHED    [style="solid"];  // The job is successfully cancelled
+    
+    // Return the job to the stash
+    READY           -> STASHED    [style="dotted"];
+    FAILED          -> STASHED    [style="dotted"];
+    
+    // Remove the job
+    STASHED         -> DELETED    [style="dotted", constraint="false"];
+}
