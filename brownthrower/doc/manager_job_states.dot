@@ -1,51 +1,43 @@
 digraph job_states {
     // Possible job states
-    DELETED          [shape="plaintext"]; // The job has been deleted.
-    STASHED          [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
-    READY            [shape="ellipse"];   // The job has been configured and its dependencies are already set. It will be executed as soon as possible.
-    SUBMIT_FAIL      [shape="box"];       // The dispatcher has been unable to submit this job for execution.
-    CANCEL           [shape="ellipse"];   // The user has asked to cancel this job.
-    QUEUED           [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
-    RUNNING          [shape="ellipse"];   // The job is being executed.
-    DONE             [shape="box"];       // The job has finished with exit code == 0.
-    FAILED           [shape="box"];       // The job/runner was unable to complete its execution successfully.
+    DELETED    [shape="plaintext"]; // The job has been deleted.
+    STASHED    [shape="circle"];    // The job is in preparation phase. It is being configured and cannot be executed yet.
+    READY      [shape="ellipse"];   // The job has been configured and its dependencies are already set. It will be executed as soon as possible.
+    CANCELLING [shape="ellipse"];   // The user has asked to cancel this job.
+    QUEUED     [shape="ellipse"];   // The dispatcher has submitted this job for execution and it is waiting for some resources to be available.
+    RUNNING    [shape="ellipse"];   // The job is being executed.
+    DONE       [shape="box"];       // The job has finished with exit code == 0.
+    FAILED     [shape="box"];       // The job/runner was unable to complete its execution successfully.
     
     // Grouping
     { rank="source";
-        DELETED;
+        CANCELLING;
     }
     { rank="same";
-        STASHED; READY; SUBMIT_FAIL;
+        DELETED; STASHED; READY; QUEUED; RUNNING; DONE;
     }
-    { rank="same";
-        CANCEL; QUEUED;
-    }
-    { rank="same";
-        DONE; FAILED;
+    { rank="sink";
+        FAILED;
     }
     
     // Expected flow
-    STASHED         -> READY            [style="dotted"]; // User marks this job as ready for execution
-    READY           -> QUEUED           [style="solid"];  // Dispatcher submits the job to the pool of resources
-    QUEUED          -> RUNNING          [style="solid"];  // Job starts its execution inside the runner
-    RUNNING         -> DONE             [style="solid"];  // Job/Runner finished its execution without error
-    
-    // Submit failure
-    READY           -> SUBMIT_FAIL      [style="solid"];  // Dispatcher has been unable to submit the job
+    STASHED         -> READY      [style="dotted"]; // User marks this job as ready for execution
+    READY           -> QUEUED     [style="solid"];  // Dispatcher submits the job to the pool of resources
+    QUEUED          -> RUNNING    [style="solid"];  // Job starts its execution inside the runner
+    RUNNING         -> DONE       [style="solid"];  // Job/Runner finished its execution without error
     
     // The job/runner fails to finish successfully
-    RUNNING         -> FAILED           [style="solid", constraint="false"];  // Some exception has occurred inside the Job/Runner
+    RUNNING         -> FAILED     [style="solid"];  // Some exception has occurred inside the Job/Runner
     
     // The job has to be cancelled
-    QUEUED          -> CANCEL           [style="dotted", constraint="false"]; // The user wants this job to be cancelled
-    RUNNING         -> CANCEL           [style="dotted", constraint="false"]; // The user wants this job to be cancelled
-    CANCEL          -> STASHED          [style="solid"];                      // The job is successfully cancelled
+    QUEUED          -> CANCELLING [style="dotted"]; // The user wants this job to be cancelled
+    RUNNING         -> CANCELLING [style="dotted"]; // The user wants this job to be cancelled
+    CANCELLING      -> STASHED:n  [style="solid", constraint="false"]; // The job is successfully cancelled
     
     // Return the job to the stash
-    SUBMIT_FAIL     -> STASHED          [style="dotted"];
-    READY           -> STASHED          [style="dotted"];
-    FAILED          -> STASHED          [style="dotted"];
+    READY           -> STASHED    [style="dotted"];
+    FAILED          -> STASHED:s  [style="dotted", constraint="false"];
     
     // Remove the job
-    STASHED         -> DELETED          [style="dotted"];
+    STASHED         -> DELETED    [style="dotted", constraint="false"];
 }
