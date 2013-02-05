@@ -57,8 +57,7 @@ class Hostname(interface.Task):
         hostname : test.pau.pic.es
     """
     
-    @classmethod
-    def run(cls, runner, config, inp):
+    def run(self, runner, inp):
         import socket
         
         return { 'hostname' : socket.gethostname() }

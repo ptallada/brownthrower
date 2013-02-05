@@ -69,9 +69,9 @@ class StoreSingleEnv(interface.Task):
         # This job returns nothing.
     """ 
     
-    @classmethod
-    def run(cls, runner, config, inp):
+    def run(self, runner, inp):
         import os
-        f = open(config['path'], "w")
-        f.write("%s" % os.environ[config['key']])
+        
+        f = open(self.config['path'], "w")
+        f.write("%s" % os.environ[self.config['key']])
         f.close()

@@ -16,10 +16,9 @@ from brownthrower.interface import constants
 
 class JobCreate(Command):
     
-    def __init__(self, tasks, editor, *args, **kwargs):
+    def __init__(self, tasks, *args, **kwargs):
         super(JobCreate, self).__init__(*args, **kwargs)
         self._tasks   = tasks
-        self._editor  = editor
     
     def help(self, items):
         print textwrap.dedent("""\

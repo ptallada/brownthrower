@@ -4,6 +4,7 @@
 import textwrap
 
 import chain
+import cluster
 import dispatcher
 import job
 import task
@@ -16,8 +17,7 @@ class Job(Command):
         super(Job, self).__init__(*args, **kwargs)
         
         self.add_subcmd('cancel', job.JobCancel())
-        self.add_subcmd('create', job.JobCreate(  tasks = tasks,
-                                                 editor = editor))
+        self.add_subcmd('create', job.JobCreate(  tasks = tasks))
         self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
                                                  editor = editor))
         self.add_subcmd('link',   job.JobLink())
@@ -136,6 +136,35 @@ class Chain(Command):
             schema    show the formal schema of a chain dataset
             show      show detailed information for a chain
             sample    show a sample of a chain dataset
+        """)
+    
+    def complete(self, text, items):
+        available = self._subcmds.keys()
+        
+        return [command
+                for command in available
+                if command.startswith(text)]
+    
+    def do(self, items):
+        self.help(items)
+
+class Cluster(Command):
+    
+    def __init__(self, chains, limit, *args, **kwargs):
+        super(Cluster, self).__init__(*args, **kwargs)
+        
+        self.add_subcmd('create', cluster.ClusterCreate(chains = chains))
+        self.add_subcmd('list',   cluster.ClusterList(   limit = limit))
+        self.add_subcmd('show',   cluster.ClusterShow())
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: cluster <command> [options]
+        
+        Available commands:
+            create    create a new cluster of a chain
+            list      list all registered clusters
+            show      show detailed information of a cluster
         """)
     
     def complete(self, text, items):

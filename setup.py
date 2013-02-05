@@ -55,9 +55,9 @@ setup(
             # math
             'math.add  = examples.math.task.add:Add',
             # misc
-            'misc.noop = examples.misc.task.noop:Noop',
-            #'misc.hostname         = examples.misc.tasks.hostname:Hostname',
-            #'misc.store_single_env = examples.misc.tasks.store_single_env:StoreSingleEnv',
+            'misc.noop             = examples.misc.task.noop:Noop',
+            'misc.hostname         = examples.misc.task.hostname:Hostname',
+            'misc.store_single_env = examples.misc.task.store_single_env:StoreSingleEnv',
         ],
         'brownthrower.chain': [
             # math

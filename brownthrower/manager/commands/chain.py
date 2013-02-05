@@ -66,6 +66,7 @@ class ChainShow(Command):
         if chain:
             desc = chain.get_help()
             print desc[0]
+            print
             print desc[1]
         else:
             error("The chain '%s' is not currently available in this environment." % items[0])

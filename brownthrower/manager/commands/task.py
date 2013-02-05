@@ -66,6 +66,7 @@ class TaskShow(Command):
         if task:
             desc = task.get_help()
             print desc[0]
+            print
             print desc[1]
         else:
             error("The task '%s' is not currently available in this environment." % items[0])

@@ -22,8 +22,6 @@ _CONFIG = {
 }
 
 log = logging.getLogger('brownthrower.manager')
-# TODO: Remove
-logging.basicConfig(level=logging.DEBUG)
 
 class Manager(cmd.Cmd):
     
@@ -43,11 +41,14 @@ class Manager(cmd.Cmd):
         self._tasks       = common.load_tasks(      _CONFIG['entry_points.task'])
         
         from commands import Chain #@UnresolvedImport
+        from commands import Cluster #@UnresolvedImport
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
         self._subcmds['chain']      = Chain(           chains = self._chains)
+        self._subcmds['cluster']    = Cluster(         chains = self._chains,
+                                                        limit = _CONFIG['listing.limit'])
         self._subcmds['dispatcher'] = Dispatcher( dispatchers = self._dispatchers)
         self._subcmds['job']        = Job(              tasks = self._tasks,
                                                        editor = _CONFIG['manager.editor'],
@@ -68,6 +69,7 @@ class Manager(cmd.Cmd):
         
         Available commands:
             chain         show information about the available chains
+            cluster       create, configure, submit and remove clusters
             dispatcher    show information about the available dispatchers
             job           create, configure, submit and remove jobs
             quit          exit this program
@@ -84,6 +86,10 @@ class Manager(cmd.Cmd):
     def do_chain(self, line):
         items = line.strip().split()
         self._subcmds['chain']._do(items)
+    
+    def do_cluster(self, line):
+        items = line.strip().split()
+        self._subcmds['cluster']._do(items)
     
     def do_dispatcher(self, line):
         items = line.strip().split()
@@ -116,8 +122,9 @@ def system_exit(*args, **kwargs):
 def main():
     signal.signal(signal.SIGTERM, system_exit)
     
+    # TODO: Remove
     logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
     
     from pysrc import pydevd
     pydevd.settrace(suspend=False)
@@ -125,8 +132,8 @@ def main():
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    #model.init(_CONFIG['database.url'])
-    model.init('sqlite:////tmp/manager.db')
+    model.init(_CONFIG['database.url'])
+    #model.init('sqlite:////tmp/manager.db')
     #model.Base.metadata.create_all()
     
     manager = Manager()

@@ -32,7 +32,7 @@ class Job(Base):
     id         = Column(Integer,    nullable=False)
     # TODO: reenable nullable
     cluster_id = Column(Integer,    nullable=True)
-    task       = Column(String(20), nullable=False)
+    task       = Column(String(30), nullable=False)
     status     = Column(String(20), nullable=False)
     config     = Column(Text,       nullable=True)
     input      = Column(Text,       nullable=True)
@@ -66,14 +66,20 @@ class Cluster(Base):
     
     # Columns
     id       = Column(Integer,    nullable=False)
-    chain    = Column(String(20), nullable=False)
+    chain    = Column(String(30), nullable=False)
     status   = Column(String(20), nullable=False)
     config   = Column(Text,       nullable=True)
     input    = Column(Text,       nullable=True)
     output   = Column(Text,       nullable=True)
     
     # Relationships
-    jobs = relationship('Job', back_populates='cluster')
+    jobs     = relationship('Job', back_populates='cluster')
+    parents  = relationship('Cluster',   back_populates='children', secondary='cluster_dependency',
+                               primaryjoin   = 'ClusterDependency.child_cluster_id == Cluster.id',
+                               secondaryjoin = 'Cluster.id == ClusterDependency.parent_cluster_id')
+    children = relationship('Cluster',   back_populates='parents',  secondary='cluster_dependency',
+                               primaryjoin   = 'ClusterDependency.parent_cluster_id == Cluster.id',
+                               secondaryjoin = 'Cluster.id == ClusterDependency.child_cluster_id')
     
     def __repr__(self):
         return u"%s(id=%s, chain=%s, status=%s)" % (
@@ -107,6 +113,27 @@ class JobDependency(Base):
             repr(self.cluster_id),
             repr(self.parent_job_id),
             repr(self.child_job_id),
+        )
+
+class ClusterDependency(Base):
+    __tablename__ = 'cluster_dependency'
+    __table_args__ = (
+        # Primary key
+        PrimaryKeyConstraint('parent_cluster_id', 'child_cluster_id'),
+        # Foreign keys
+        ForeignKeyConstraint(['parent_cluster_id'], ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['child_cluster_id'],  ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+    )
+    
+    # Columns
+    parent_cluster_id = Column(Integer, nullable=False)
+    child_cluster_id  = Column(Integer, nullable=False)
+    
+    def __repr__(self):
+        return u"%s(parent_cluster_id=%s, child_cluster_id=%s)" % (
+            self.__class__.__name__,
+            repr(self.parent_cluster_id),
+            repr(self.child_cluster_id),
         )
 
 def _sqlite_begin(conn):
