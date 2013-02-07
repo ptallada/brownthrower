@@ -271,7 +271,6 @@ class JobReset(Command):
                 model.Job.id == items[0],
                 model.Job.status.in_([
                     constants.JobStatus.READY,
-                    constants.JobStatus.SUBMIT_FAIL,
                     constants.JobStatus.FAILED,
                 ])
             ).update(

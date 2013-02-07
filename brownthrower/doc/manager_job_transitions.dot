@@ -53,8 +53,8 @@ digraph manager_job_transitions {
         E_CHILD   [label=""];
         { rank="same";
         E_JOB     [label="U"];
-        E_STATUS  [label="FAILED\nREADY\nSUBMIT_FAIL", shape="plaintext"];
-        E_STASHED [label="STASHED",                    shape="plaintext"];
+        E_STATUS  [label="FAILED\nREADY", shape="plaintext"];
+        E_STASHED [label="STASHED",       shape="plaintext"];
         }
         E_PARENT -> E_JOB -> E_CHILD;
         E_STATUS -> E_JOB -> E_STASHED;
@@ -67,7 +67,7 @@ digraph manager_job_transitions {
         { rank="same";
         F_JOB    [label="U"];
         F_STATUS [label="QUEUED\nRUNNING", shape="plaintext"];
-        F_CANCEL [label="CANCEL",          shape="plaintext"];
+        F_CANCEL [label="CANCELLING",      shape="plaintext"];
         }
         F_PARENT -> F_JOB -> F_CHILD;
         F_STATUS -> F_JOB -> F_CANCEL;

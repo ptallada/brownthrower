@@ -89,7 +89,10 @@ class ClusterList(Command):
             table = prettytable.PrettyTable(['id', 'chain', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
             table.align = 'l'
             
-            clusters = model.session.query(model.Cluster).options(model.eagerload_all(model.Cluster.parents, model.Cluster.children)).limit(self._limit).all()
+            clusters = model.session.query(model.Cluster).options(
+                model.joinedload(model.Cluster.parents),
+                model.joinedload(model.Cluster.children),
+            ).limit(self._limit).all()
             for cluster in clusters:
                 table.add_row([cluster.id, cluster.chain, cluster.status, cluster.config != None, cluster.input != None, cluster.output != None, len(cluster.parents), len(cluster.children)])
             
@@ -124,7 +127,10 @@ class ClusterShow(Command):
             return self.help(items)
         
         try:
-            cluster = model.session.query(model.Cluster).filter_by(id = items[0]).options(model.eagerload_all(model.Cluster.parents, model.Cluster.children)).first()
+            cluster = model.session.query(model.Cluster).filter_by(id = items[0]).options(
+                model.joinedload(model.Cluster.parents),
+                model.joinedload(model.Cluster.children),
+            ).first()
             
             if not cluster:
                 warn("Could not found the cluster with id %d." % items[0])
@@ -397,14 +403,41 @@ class ClusterCancel(Command):
         try:
             cluster = model.session.query(model.Cluster).filter(
                 model.Cluster.id == items[0],
+                model.Cluster.status.in_([
+                    constants.ClusterStatus.DEPLOYED,
+                    constants.ClusterStatus.PROCESSING,
+                    constants.ClusterStatus.FAILING,
+                ])
             ).options(
-                model.subqueryload(model.Cluster.parents),
-                model.subqueryload(model.Cluster.children),
+                model.subqueryload(model.Cluster.jobs),
             ).with_lockmode('update').first()
             
             if not cluster:
                 error("The cluster could not be cancelled.")
                 return
+            
+            model.session.query(model.Job).filter_by(
+                cluster = cluster,
+                status  = constants.JobStatus.READY,
+            ).update(
+                #TODO: Shall reset all the other fields
+                {'status' : constants.JobStatus.STASHED},
+                synchronize_session = False \
+            )
+            
+            model.session.query(model.Job).filter(
+                model.Job.cluster == cluster,
+                model.Job.status.in_([
+                    constants.JobStatus.QUEUED,
+                    constants.JobStatus.RUNNING,
+                ])
+            ).update(
+                #TODO: Shall reset all the other fields
+                {'status' : constants.JobStatus.CANCELLING},
+                synchronize_session = False \
+            ) 
+            
+            # Fer la matriu de transicions
             
             model.session.commit()
             
