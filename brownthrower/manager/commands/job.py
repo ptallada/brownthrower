@@ -88,7 +88,10 @@ class JobList(Command):
             table = prettytable.PrettyTable(['id', 'cluster_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children'])
             table.align = 'l'
             
-            jobs = model.session.query(model.Job).options(model.eagerload_all(model.Job.parents, model.Job.children)).limit(self._limit).all()
+            jobs = model.session.query(model.Job).options(
+                model.joinedload(model.Job.parents),
+                model.joinedload(model.Job.children),
+            ).limit(self._limit).all()
             for job in jobs:
                 table.add_row([job.id, job.cluster_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children)])
             
@@ -123,7 +126,10 @@ class JobShow(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(id = items[0]).options(model.eagerload_all(model.Job.parents, model.Job.children)).first()
+            job = model.session.query(model.Job).filter_by(id = items[0]).options(
+                model.joinedload(model.Job.parents),
+                model.joinedload(model.Job.children)
+            ).first()
             
             if not job:
                 warn("Could not found the job with id %d." % items[0])

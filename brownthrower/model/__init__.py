@@ -7,7 +7,7 @@ from sqlalchemy import event
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, scoped_session, eagerload, eagerload_all
+from sqlalchemy.orm import relationship, scoped_session, joinedload, subqueryload
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.types import Integer, String, Text

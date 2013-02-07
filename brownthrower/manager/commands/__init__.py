@@ -150,21 +150,39 @@ class Chain(Command):
 
 class Cluster(Command):
     
-    def __init__(self, chains, limit, *args, **kwargs):
+    def __init__(self, chains, limit, viewer, editor, *args, **kwargs):
         super(Cluster, self).__init__(*args, **kwargs)
         
+        self.add_subcmd('cancel', cluster.ClusterCancel())
         self.add_subcmd('create', cluster.ClusterCreate(chains = chains))
+        self.add_subcmd('edit',   cluster.ClusterEdit(  chains = chains,
+                                                        editor = editor))
+        self.add_subcmd('link',   cluster.ClusterLink())
         self.add_subcmd('list',   cluster.ClusterList(   limit = limit))
+        self.add_subcmd('output', cluster.ClusterOutput(viewer = viewer))
+        self.add_subcmd('remove', cluster.ClusterRemove())
+        self.add_subcmd('reset',  cluster.ClusterReset())
         self.add_subcmd('show',   cluster.ClusterShow())
+        self.add_subcmd('submit', cluster.ClusterSubmit(chains = chains))
+        self.add_subcmd('unlink', cluster.ClusterUnlink())
+        
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: cluster <command> [options]
         
         Available commands:
+            cancel    cancel a cluster as soon as possible
             create    create a new cluster of a chain
+            edit      edit the value of a dataset
+            link      establish a dependency between two clusters
             list      list all registered clusters
+            output    show the output of a job
+            remove    delete a cluster
+            reset     return a cluster to the stash
             show      show detailed information of a cluster
+            submit    mark a cluster as ready to be processed
+            unlink    remove a dependency between two clusters
         """)
     
     def complete(self, text, items):

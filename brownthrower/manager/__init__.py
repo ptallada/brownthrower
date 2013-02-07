@@ -46,15 +46,17 @@ class Manager(cmd.Cmd):
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
-        self._subcmds['chain']      = Chain(           chains = self._chains)
-        self._subcmds['cluster']    = Cluster(         chains = self._chains,
-                                                        limit = _CONFIG['listing.limit'])
-        self._subcmds['dispatcher'] = Dispatcher( dispatchers = self._dispatchers)
-        self._subcmds['job']        = Job(              tasks = self._tasks,
-                                                       editor = _CONFIG['manager.editor'],
-                                                       viewer = _CONFIG['manager.viewer'],
-                                                        limit = _CONFIG['listing.limit'])
-        self._subcmds['task']       = Task(             tasks = self._tasks)
+        self._subcmds['chain']      = Chain(          chains = self._chains)
+        self._subcmds['cluster']    = Cluster(        chains = self._chains,
+                                                      editor = _CONFIG['manager.editor'],
+                                                      viewer = _CONFIG['manager.viewer'],
+                                                       limit = _CONFIG['listing.limit'])
+        self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
+        self._subcmds['job']        = Job(             tasks = self._tasks,
+                                                      editor = _CONFIG['manager.editor'],
+                                                      viewer = _CONFIG['manager.viewer'],
+                                                       limit = _CONFIG['listing.limit'])
+        self._subcmds['task']       = Task(            tasks = self._tasks)
         
     
     def do_help(self, line):
@@ -124,7 +126,7 @@ def main():
     
     # TODO: Remove
     logging.basicConfig(level=logging.DEBUG)
-    #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
     
     from pysrc import pydevd
     pydevd.settrace(suspend=False)

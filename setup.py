@@ -62,6 +62,8 @@ setup(
         'brownthrower.chain': [
             # math
             'math.sum  = examples.math.chain.sum:Sum',
+            # misc
+            'misc.noop = examples.misc.chain.noop:Noop',
         ],
     },
     

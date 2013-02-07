@@ -130,7 +130,7 @@ class Chain(BaseChain):
         """
         raise NotImplementedError
     
-    def epilog(self, config, out):
+    def epilog(self, clusters, out):
         """
         Generate the final output of this Chain. When this method is called,
         it can safely assume that the 'config' and 'out' parameters have been
