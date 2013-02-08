@@ -408,13 +408,25 @@ class ClusterCancel(Command):
                     constants.ClusterStatus.PROCESSING,
                     constants.ClusterStatus.FAILING,
                 ])
-            ).options(
-                model.subqueryload(model.Cluster.jobs),
             ).with_lockmode('update').first()
             
             if not cluster:
                 error("The cluster could not be cancelled.")
                 return
+            
+            stashed = model.session.query(model.Job).filter_by(
+                cluster = cluster,
+                status  = constants.JobStatus.READY
+            ).update(
+            )
+            with_lockmode('update').all()
+            
+            
+            
+            
+            
+            
+            
             
             model.session.query(model.Job).filter_by(
                 cluster = cluster,

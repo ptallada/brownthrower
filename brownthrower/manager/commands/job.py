@@ -405,9 +405,10 @@ class JobCancel(Command):
                 model.Job.status.in_([
                     constants.JobStatus.QUEUED,
                     constants.JobStatus.RUNNING,
-                ])).update(
-                    #TODO: Shall reset all the other fields
-                    {'status' : constants.JobStatus.CANCEL},
+                ])
+            ).update(
+                #TODO: Shall reset all the other fields
+                {'status' : constants.JobStatus.CANCELLING},
                 synchronize_session = False \
             )
             model.session.commit()

@@ -2,4 +2,5 @@
 /.project
 /.pydevproject
 /.settings
+/dist/
 *.py[co]

@@ -14,7 +14,7 @@ digraph cluster_states {
     
     // Grouping
     { //rank="source";
-        CANCELLING; FAILING; FAILED; CANCELLED;
+        PROLOG_FAIL;
     }
     { rank="same";
         DELETED; STASHED; READY; DEPLOYED; PROCESSING; DONE;
@@ -35,13 +35,14 @@ digraph cluster_states {
     
     // The job has to be cancelled
     PROCESSING      -> CANCELLING  [style="dotted"]; // The user wants this cluster to be cancelled
-    FAILING         -> CANCELLING  [style="solid"];  // The user wants this cluster to be cancelled
+    FAILING         -> CANCELLING  [style="dotted"]; // The user wants this cluster to be cancelled
     CANCELLING      -> FAILED      [style="solid", constraint="false"];  // All jobs have been cancelled, but at least one of them failed.
     CANCELLING      -> CANCELLED   [style="solid"];  // All jobs have been cancelled and no one failed.
     
     // Return the cluster to the stash
-    READY           -> STASHED     [style="dotted"];
-    PROLOG_FAIL:w   -> STASHED:s   [style="dotted", constraint="false"];
+    READY           -> STASHED     [style="dotted", constraint="false"];
+    PROLOG_FAIL:w   -> STASHED   [style="dotted", constraint="false"];
+    CANCELLED:w     -> STASHED:s   [style="dotted"];
     
     // Retry/resume the cluster
     FAILED          -> DEPLOYED    [style="dotted"];
