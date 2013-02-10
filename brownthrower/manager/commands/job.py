@@ -10,7 +10,7 @@ import textwrap
 log = logging.getLogger('brownthrower.manager')
 
 from base import Command, error, warn, success
-#from brownthrower import interface
+from brownthrower import interface
 from brownthrower import model
 from brownthrower.interface import constants
 
@@ -190,18 +190,17 @@ class JobRemove(Command):
                 id = items[0]
             ).with_lockmode('update').one()
             
-            deleted = model.session.query(model.Job).filter_by(
-                superjob = None,
-                id       = items[0],
-                status   = constants.JobStatus.STASHED,
-            ).delete(synchronize_session=False)
+            if job.super_id:
+                error("This job is not a top-level job and cannot be removed.")
+                return
             
+            if job.status != constants.JobStatus.STASHED:
+                error("Only jobs in the STASHED state can be removed.")
+                return
+            
+            model.session.delete(job)
             model.session.commit()
-            
-            if deleted:
-                success("The job has been successfully removed from the stash.")
-            else: # deleted == 0
-                error("The job could not be removed.")
+            success("The job has been successfully removed from the stash.")
         
         except BaseException as e:
             try:
@@ -216,62 +215,65 @@ class JobRemove(Command):
                 model.session.rollback()
                 log.debug(e)
 
-#class JobSubmit(Command):
-#    
-#    def __init__(self, tasks, *args, **kwargs):
-#        super(JobSubmit, self).__init__(*args, **kwargs)
-#        self._tasks   = tasks
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job submit <id>
-#        
-#        Mark the specified job as ready to be executed whenever there are resources available.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 1:
-#            return self.help(items)
-#        
-#        try:
-#            job = model.session.query(model.Job).filter_by(
-#                id     = items[0],
-#                status = constants.JobStatus.STASHED,
-#            ).with_lockmode('update').first()
-#            
-#            if not job:
-#                error("The job could not be submitted.")
-#                return
-#            
-#            task = self._tasks.get(job.task)
-#            if not task:
-#                error("The task '%s' is not currently available in this environment." % job.task)
-#                return
-#            
-#            task.validate_config(job.config)
-#            if not job.parents:
-#                task.validate_input(job.input)
-#            
-#            # TODO: Shall reset all the other fields
-#            job.status = constants.JobStatus.READY
-#            model.session.commit()
-#            
-#            success("The job has been successfully marked as ready for execution.")
-#        
-#        except BaseException as e:
-#            try:
-#                raise
-#            except interface.TaskValidationException:
-#                error("The job has an invalid config or input.")
-#            except model.StatementError:
-#                error("Could not complete the query to the database.")
-#            finally:
-#                model.session.rollback()
-#                log.debug(e)
-#
+class JobSubmit(Command):
+    
+    def __init__(self, tasks, *args, **kwargs):
+        super(JobSubmit, self).__init__(*args, **kwargs)
+        self._tasks   = tasks
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job submit <id>
+        
+        Mark the specified job as ready to be executed whenever there are resources available.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            job = model.session.query(model.Job).filter_by(
+                id = items[0]
+            ).options(
+                model.joinedload(model.Job.subjobs)
+            ).with_lockmode('update').one()
+            
+            if job.status != constants.JobStatus.STASHED:
+                error("For the moment, only jobs in status STASHED can be submitted.")
+                return
+            
+            task = self._tasks.get(job.task)
+            if not task:
+                error("The task '%s' is not currently available in this environment." % job.task)
+                return
+            
+            task.validate_config(job.config)
+            if not job.parents:
+                task.validate_input(job.input)
+            
+            # TODO: Shall reset all the other fields
+            job.status = constants.JobStatus.QUEUED
+            model.session.commit()
+            
+            success("The job has been successfully marked as ready for execution.")
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("The specified job does not exist.")
+            except interface.TaskValidationException:
+                error("The job has an invalid config or input.")
+            except model.StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                model.session.rollback()
+                log.debug(e)
+
 #class JobReset(Command):
 #    
 #    def help(self, items):

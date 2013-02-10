@@ -36,21 +36,13 @@ class Manager(cmd.Cmd):
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def preloop(self):
-        self._chains      = common.load_chains(     _CONFIG['entry_points.chain'])
         self._dispatchers = common.load_dispatchers(_CONFIG['entry_points.dispatcher'])
         self._tasks       = common.load_tasks(      _CONFIG['entry_points.task'])
         
-        from commands import Chain #@UnresolvedImport
-        from commands import Cluster #@UnresolvedImport
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
-        self._subcmds['chain']      = Chain(          chains = self._chains)
-        self._subcmds['cluster']    = Cluster(        chains = self._chains,
-                                                      editor = _CONFIG['manager.editor'],
-                                                      viewer = _CONFIG['manager.viewer'],
-                                                       limit = _CONFIG['listing.limit'])
         self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
         self._subcmds['job']        = Job(             tasks = self._tasks,
                                                       editor = _CONFIG['manager.editor'],
@@ -84,14 +76,6 @@ class Manager(cmd.Cmd):
             subcmd = self._subcmds.get(items[0])
             if subcmd:
                 return subcmd._complete(text, items[1:])
-    
-    def do_chain(self, line):
-        items = line.strip().split()
-        self._subcmds['chain']._do(items)
-    
-    def do_cluster(self, line):
-        items = line.strip().split()
-        self._subcmds['cluster']._do(items)
     
     def do_dispatcher(self, line):
         items = line.strip().split()
