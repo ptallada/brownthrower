@@ -1,11 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import json
-import jsonschema
-import textwrap
-import yaml
-
 class TaskValidationException(Exception):
     def __init__(self, message=None, exception=None):
         self.exception = exception
@@ -17,89 +12,22 @@ class TaskValidationException(Exception):
 class TaskCancelledException(Exception):
     pass
 
-class BaseTask(object):
-    
-    @property
-    def config(self):
-        return self._config
-    
-    @config.setter
-    def config(self, config):
-        try:
-            jsonschema.validate(config, json.loads(self.config_schema))
-            self.check_config(config)
-        except Exception as e:
-            raise TaskValidationException('Config is not valid', e)
-        else:
-            self._config = config
-    
-    @classmethod
-    def validate_config(cls, config):
-        try:
-            config = yaml.safe_load(config)
-            jsonschema.validate(config, json.loads(cls.config_schema))
-            cls.check_config(config)
-        except Exception as e:
-            raise TaskValidationException('Config is not valid', e)
-    
-    @classmethod
-    def validate_input(cls, inp):
-        try:
-            inp = yaml.safe_load(inp)
-            jsonschema.validate(inp, json.loads(cls.input_schema))
-            cls.check_input(inp)
-        except Exception as e:
-            raise TaskValidationException('Input is not valid', e)
-    
-    @classmethod
-    def validate_output(cls, out):
-        try:
-            out = yaml.safe_load(out)
-            jsonschema.validate(out, json.loads(cls.output_schema))
-            cls.check_output(out)
-        except Exception as e:
-            raise TaskValidationException('Output is not valid', e)
-    
-    @classmethod
-    def get_config_schema(cls):
-        return textwrap.dedent(cls.config_schema).strip()
-    
-    @classmethod
-    def get_input_schema(cls):
-        return textwrap.dedent(cls.input_schema).strip()
-    
-    @classmethod
-    def get_output_schema(cls):
-        return textwrap.dedent(cls.output_schema).strip()
-    
-    @classmethod
-    def get_config_sample(cls):
-        return textwrap.dedent(cls.config_sample).strip()
-    
-    @classmethod
-    def get_input_sample(cls):
-        return textwrap.dedent(cls.input_sample).strip()
-    
-    @classmethod
-    def get_output_sample(cls):
-        return textwrap.dedent(cls.output_sample).strip()
-    
-    @classmethod
-    def get_help(cls):
-        doc = cls.__doc__.strip().split('\n')
-        short = doc[0].strip()
-        detail = textwrap.dedent('\n'.join(doc[1:])).strip()
-        
-        return (short, detail)
-
-class Task(BaseTask):
+class Task(object):
     """\
-    This MUST be a single line describing the objective of this Task.
+    Expected interface for the Task objects.
+    
+    This class represents the interface that the brownthrower framework expects
+    when dealing with Tasks. A Task can be of two kinds, depending on the subset
+    of the interface that it implements
+    
+    Si genera fills, el run no es cridarà.
+    
     
     The following line MUST be a more detailed description of this Task, what
     parameters does it take, what are its configuration values and what kind of
     output it generates.
     """
+    # TODO: review documentation
     
     def __init__(self, config):
         """
@@ -111,6 +39,42 @@ class Task(BaseTask):
         @type config: dict
         """
         self.config = config
+    
+    def prolog(self, tasks, inp):
+        """
+        Prepares this Job for execution. When this method is called, it can
+        safely assume that the 'inp' parameter has been checked previously and
+        that it is valid.
+        
+        Return a list of tuples. Each one of this tuples contains two Task
+        instances '(parent_task, child_task)' and represents the parent-child
+        dependency between them.
+        Initial tasks, which do not have any parent, MUST have its input
+        instead of a parent.
+        
+        @param tasks: mapping with all the registered Tasks available
+        @type tasks: dict
+        @param inp:  mapping with the output of the parent chains
+        @type inp: dict
+        @return: a list of tuples representing the dependency between Tasks or Chains
+        @rtype: list
+        """
+        raise NotImplementedError
+    
+    def epilog(self, tasks, out):
+        """
+        Generate the final output of this Job. When this method is called,
+        it can safely assume that the 'config' and 'out' parameters have been
+        checked previously and that they are both valid.
+        
+        @param config: mapping with the required configuration values
+        @type config: dict
+        @param out:  mapping with the output of the leaf Jobs
+        @type out: dict
+        @return: mapping to be delivered as output for child chains
+        @rtype: dict
+        """
+        raise NotImplementedError
     
     def run(self, runner, inp):
         """

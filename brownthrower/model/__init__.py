@@ -8,6 +8,7 @@ from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, scoped_session, joinedload, subqueryload
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.types import Integer, String, Text
@@ -23,15 +24,15 @@ class Job(Base):
         # Primary key
         PrimaryKeyConstraint('id'),
         # Unique key
-        UniqueConstraint('cluster_id', 'id'),
+        UniqueConstraint('super_id', 'id'),
         # Foreign keys
-        ForeignKeyConstraint(['cluster_id'], ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
     id         = Column(Integer,    nullable=False)
     # TODO: reenable nullable
-    cluster_id = Column(Integer,    nullable=True)
+    super_id   = Column(Integer,    nullable=True)
     task       = Column(String(30), nullable=False)
     status     = Column(String(20), nullable=False)
     config     = Column(Text,       nullable=True)
@@ -39,55 +40,28 @@ class Job(Base):
     output     = Column(Text,       nullable=True)
     
     # Relationships
-    cluster  = relationship('Cluster', back_populates='jobs') 
-    parents  = relationship('Job',   back_populates='children', secondary='job_dependency',
-                               primaryjoin   = 'JobDependency.child_job_id == Job.id',
-                               secondaryjoin = 'Job.id == JobDependency.parent_job_id')
-    children = relationship('Job',   back_populates='parents',  secondary='job_dependency',
-                               primaryjoin   = 'JobDependency.parent_job_id == Job.id',
-                               secondaryjoin = 'Job.id == JobDependency.child_job_id')
+    parents  = relationship('Job', back_populates = 'children', secondary = 'job_dependency',
+                                   primaryjoin    = 'JobDependency.child_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == JobDependency.parent_job_id')
+    children = relationship('Job', back_populates = 'parents',  secondary = 'job_dependency',
+                                   primaryjoin    = 'JobDependency.parent_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == JobDependency.child_job_id')
+    superjob = relationship('Job', back_populates = 'subjobs',
+                                   primaryjoin    = 'Job.super_id == Job.id',
+                                   remote_side    = 'Job.id')
+    subjobs  = relationship('Job', back_populates = 'superjob',
+                                   primaryjoin    = 'Job.super_id == Job.id',
+                                   cascade        = 'all', passive_deletes = True)
     
     def __repr__(self):
-        return u"%s(id=%s, cluster_id=%s, task=%s, status=%s)" % (
+        return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
             self.__class__.__name__,
             repr(self.id),
-            repr(self.cluster_id),
+            repr(self.super_id),
             repr(self.task),
             repr(self.status),
         )
     
-class Cluster(Base):
-    __tablename__ = 'cluster'
-    __table_args__ = (
-        # Primary key
-        PrimaryKeyConstraint('id'),
-        # Foreign keys
-    )
-    
-    # Columns
-    id       = Column(Integer,    nullable=False)
-    chain    = Column(String(30), nullable=False)
-    status   = Column(String(20), nullable=False)
-    config   = Column(Text,       nullable=True)
-    input    = Column(Text,       nullable=True)
-    output   = Column(Text,       nullable=True)
-    
-    # Relationships
-    jobs     = relationship('Job', back_populates='cluster')
-    parents  = relationship('Cluster',   back_populates='children', secondary='cluster_dependency',
-                               primaryjoin   = 'ClusterDependency.child_cluster_id == Cluster.id',
-                               secondaryjoin = 'Cluster.id == ClusterDependency.parent_cluster_id')
-    children = relationship('Cluster',   back_populates='parents',  secondary='cluster_dependency',
-                               primaryjoin   = 'ClusterDependency.parent_cluster_id == Cluster.id',
-                               secondaryjoin = 'Cluster.id == ClusterDependency.child_cluster_id')
-    
-    def __repr__(self):
-        return u"%s(id=%s, chain=%s, status=%s)" % (
-            self.__class__.__name__,
-            repr(self.id),
-            repr(self.chain),
-            repr(self.status),
-        )
 
 class JobDependency(Base):
     __tablename__ = 'job_dependency'
@@ -95,45 +69,24 @@ class JobDependency(Base):
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
-        ForeignKeyConstraint(              ['parent_job_id'],                   ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(              ['child_job_id'],                    ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(['cluster_id', 'parent_job_id'], ['job.cluster_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(['cluster_id', 'child_job_id'],  ['job.cluster_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
     # TODO: re-enable nullable
-    cluster_id    = Column(Integer, nullable=True)
+    super_id      = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
     
     def __repr__(self):
-        return u"%s(cluster_id=%s, parent_job_id=%s, child_job_id=%s)" % (
+        return u"%s(super_id=%s, parent_job_id=%s, child_job_id=%s)" % (
             self.__class__.__name__,
-            repr(self.cluster_id),
+            repr(self.super_id),
             repr(self.parent_job_id),
             repr(self.child_job_id),
-        )
-
-class ClusterDependency(Base):
-    __tablename__ = 'cluster_dependency'
-    __table_args__ = (
-        # Primary key
-        PrimaryKeyConstraint('parent_cluster_id', 'child_cluster_id'),
-        # Foreign keys
-        ForeignKeyConstraint(['parent_cluster_id'], ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(['child_cluster_id'],  ['cluster.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-    )
-    
-    # Columns
-    parent_cluster_id = Column(Integer, nullable=False)
-    child_cluster_id  = Column(Integer, nullable=False)
-    
-    def __repr__(self):
-        return u"%s(parent_cluster_id=%s, child_cluster_id=%s)" % (
-            self.__class__.__name__,
-            repr(self.parent_cluster_id),
-            repr(self.child_cluster_id),
         )
 
 def _sqlite_begin(conn):

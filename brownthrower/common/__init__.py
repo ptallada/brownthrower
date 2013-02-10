@@ -52,50 +52,6 @@ def load_tasks(entry_point):
     
     return tasks
 
-def load_chains(entry_point):
-    """
-    Build a list with all the Chains available in the current environment.
-    """
-    
-    chains = {}
-    
-    for entry in pkg_resources.iter_entry_points(entry_point):
-        try:
-            chain = entry.load()
-            
-            assert isinstance(chain.get_config_schema(),   basestring)
-            assert isinstance(chain.get_input_schema(),    basestring)
-            assert isinstance(chain.get_output_schema(),   basestring)
-            
-            assert isinstance(chain.get_config_sample(), basestring)
-            assert isinstance(chain.get_input_sample(),  basestring)
-            assert isinstance(chain.get_output_sample(), basestring)
-            
-            chain.validate_config(chain.get_config_sample())
-            chain.validate_input( chain.get_input_sample())
-            chain.validate_output(chain.get_output_sample())
-            
-            assert len(chain.get_help()[0]) > 0
-            assert len(chain.get_help()[1]) > 0
-            assert '\n' not in chain.get_help()[0]
-            
-            if entry.name in chains:
-                log.warning("Skipping Chain '%s:%s': a Chain with the same name is already defined." % (entry.name, entry.module_name))
-                continue
-            
-            chains[entry.name] = chain
-        
-        except (AttributeError, AssertionError) as e:
-            log.warning("Skipping Chain '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-            log.debug(e)
-        except interface.TaskValidationException as e:
-            log.warning("Skipping Chain '%s:%s': their own samples fail to validate." % (entry.name, entry.module_name))
-            log.debug(e)
-        except ImportError:
-            log.warning("Skipping Chain '%s:%s': unable to load." % (entry.name, entry.module_name))
-    
-    return chains
-
 def load_dispatchers(entry_point):
     """
     Build a list with all the Dispatchers available in the current environment.

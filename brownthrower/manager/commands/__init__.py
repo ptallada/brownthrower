@@ -3,8 +3,6 @@
 
 import textwrap
 
-import chain
-import cluster
 import dispatcher
 import job
 import task
@@ -16,18 +14,18 @@ class Job(Command):
     def __init__(self, tasks, editor, viewer, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('cancel', job.JobCancel())
+        #self.add_subcmd('cancel', job.JobCancel())
         self.add_subcmd('create', job.JobCreate(  tasks = tasks))
-        self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
-                                                 editor = editor))
-        self.add_subcmd('link',   job.JobLink())
-        self.add_subcmd('list',   job.JobList(    limit = limit))
-        self.add_subcmd('output', job.JobOutput( viewer = viewer))
-        self.add_subcmd('remove', job.JobRemove())
-        self.add_subcmd('reset',  job.JobReset())
-        self.add_subcmd('show',   job.JobShow())
-        self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
-        self.add_subcmd('unlink', job.JobUnlink())
+        #self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
+        #                                         editor = editor))
+        #self.add_subcmd('link',   job.JobLink())
+        #self.add_subcmd('list',   job.JobList(    limit = limit))
+        #self.add_subcmd('output', job.JobOutput( viewer = viewer))
+        #self.add_subcmd('remove', job.JobRemove())
+        #self.add_subcmd('reset',  job.JobReset())
+        #self.add_subcmd('show',   job.JobShow())
+        #self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
+        #self.add_subcmd('unlink', job.JobUnlink())
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -105,84 +103,6 @@ class Dispatcher(Command):
             list        show detailed information for a dispatcher
             run         run a dispatcher to execute jobs
             show        list available dispatchers
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
-
-class Chain(Command):
-    
-    def __init__(self, chains, *args, **kwargs):
-        super(Chain, self).__init__(*args, **kwargs)
-        
-        self.add_subcmd('list',   chain.ChainList(  chains = chains))
-        self.add_subcmd('schema', chain.ChainSchema(chains = chains))
-        self.add_subcmd('show',   chain.ChainShow(  chains = chains))
-        self.add_subcmd('sample', chain.ChainSample(chains = chains))
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: chain <command> [options]
-        
-        Available commands:
-            list      list all available chains
-            schema    show the formal schema of a chain dataset
-            show      show detailed information for a chain
-            sample    show a sample of a chain dataset
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
-
-class Cluster(Command):
-    
-    def __init__(self, chains, limit, viewer, editor, *args, **kwargs):
-        super(Cluster, self).__init__(*args, **kwargs)
-        
-        self.add_subcmd('cancel', cluster.ClusterCancel())
-        self.add_subcmd('create', cluster.ClusterCreate(chains = chains))
-        self.add_subcmd('edit',   cluster.ClusterEdit(  chains = chains,
-                                                        editor = editor))
-        self.add_subcmd('link',   cluster.ClusterLink())
-        self.add_subcmd('list',   cluster.ClusterList(   limit = limit))
-        self.add_subcmd('output', cluster.ClusterOutput(viewer = viewer))
-        self.add_subcmd('remove', cluster.ClusterRemove())
-        self.add_subcmd('reset',  cluster.ClusterReset())
-        self.add_subcmd('show',   cluster.ClusterShow())
-        self.add_subcmd('submit', cluster.ClusterSubmit(chains = chains))
-        self.add_subcmd('unlink', cluster.ClusterUnlink())
-        
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: cluster <command> [options]
-        
-        Available commands:
-            cancel    cancel a cluster as soon as possible
-            create    create a new cluster of a chain
-            edit      edit the value of a dataset
-            link      establish a dependency between two clusters
-            list      list all registered clusters
-            output    show the output of a job
-            remove    delete a cluster
-            reset     return a cluster to the stash
-            show      show detailed information of a cluster
-            submit    mark a cluster as ready to be processed
-            unlink    remove a dependency between two clusters
         """)
     
     def complete(self, text, items):

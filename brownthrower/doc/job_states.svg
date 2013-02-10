@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="63cm" height="23cm" viewBox="-80 140 1260 442" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g>
+    <rect style="fill: #bfbfff" x="800" y="140" width="380" height="120"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="800" y="140" width="380" height="120"/>
+  </g>
+  <g>
+    <rect style="fill: #bfbfff" x="360" y="380" width="820" height="120"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="360" y="380" width="820" height="120"/>
+  </g>
+  <g>
+    <rect style="fill: #ffc0c0" x="-80" y="140" width="440" height="360"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #ffbfbf" x="-80" y="140" width="440" height="360"/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="400" y="180" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="400" y="180" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="470" y="203.789">
+      <tspan x="470" y="203.789">CANCELLED</tspan>
+    </text>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 423.333 300 L 516.667,300 C 529.553,300 540,308.954 540,320 C 540,331.046 529.553,340 516.667,340 L 423.333,340 C 410.447,340 400,331.046 400,320 C 400,308.954 410.447,300 423.333,300z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 423.333 300 L 516.667,300 C 529.553,300 540,308.954 540,320 C 540,331.046 529.553,340 516.667,340 L 423.333,340 C 410.447,340 400,331.046 400,320 C 400,308.954 410.447,300 423.333,300"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="470" y="323.881">
+      <tspan x="470" y="323.881">QUEUED</tspan>
+    </text>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 643.333 300 L 736.667,300 C 749.553,300 760,308.954 760,320 C 760,331.046 749.553,340 736.667,340 L 643.333,340 C 630.447,340 620,331.046 620,320 C 620,308.954 630.447,300 643.333,300z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 643.333 300 L 736.667,300 C 749.553,300 760,308.954 760,320 C 760,331.046 749.553,340 736.667,340 L 643.333,340 C 630.447,340 620,331.046 620,320 C 620,308.954 630.447,300 643.333,300"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="690" y="323.881">
+      <tspan x="690" y="323.881">PROCESSING</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="620" y="540" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="620" y="540" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="690" y="563.789">
+      <tspan x="690" y="563.789">FAILED</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="840" y="300" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="840" y="300" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="910" y="323.789">
+      <tspan x="910" y="323.789">DONE</tspan>
+    </text>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 643.333 180 L 736.667,180 C 749.553,180 760,188.954 760,200 C 760,211.046 749.553,220 736.667,220 L 643.333,220 C 630.447,220 620,211.046 620,200 C 620,188.954 630.447,180 643.333,180z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 643.333 180 L 736.667,180 C 749.553,180 760,188.954 760,200 C 760,211.046 749.553,220 736.667,220 L 643.333,220 C 630.447,220 620,211.046 620,200 C 620,188.954 630.447,180 643.333,180"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="690" y="203.881">
+      <tspan x="690" y="203.881">CANCELLING</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="539.999" y1="320" x2="608.029" y2="320"/>
+    <polygon style="fill: #000000" points="615.529,320 605.529,325 608.029,320 605.529,315 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="615.529,320 605.529,325 608.029,320 605.529,315 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" x1="470" y1="220.991" x2="470" y2="287.037"/>
+    <polygon style="fill: #000000" points="470,294.537 465,284.537 470,287.037 475,284.537 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="470,294.537 465,284.537 470,287.037 475,284.537 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="620.001" y1="200" x2="552.924" y2="200"/>
+    <polygon style="fill: #000000" points="545.424,200 555.424,195 552.924,200 555.424,205 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="545.424,200 555.424,195 552.924,200 555.424,205 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" x1="690" y1="299.009" x2="690" y2="232.963"/>
+    <polygon style="fill: #000000" points="690,225.463 695,235.463 690,232.963 685,235.463 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="690,225.463 695,235.463 690,232.963 685,235.463 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="759.999" y1="320" x2="827.076" y2="320"/>
+    <polygon style="fill: #000000" points="834.576,320 824.576,325 827.076,320 824.576,315 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="834.576,320 824.576,325 827.076,320 824.576,315 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="690" y1="340.987" x2="690" y2="527.037"/>
+    <polygon style="fill: #000000" points="690,534.537 685,524.537 690,527.037 695,524.537 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="690,534.537 685,524.537 690,527.037 695,524.537 "/>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 200 300 L 300,300 L 320,320 L 300,340 L 200,340 L 180,320 L 200,300z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 200 300 L 300,300 L 320,320 L 300,340 L 200,340 L 180,320 L 200,300"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="250" y="323.881">
+      <tspan x="250" y="323.881">STASHED</tspan>
+    </text>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 283.147,351.924 A 372.182,372.182 0 0 0 618.992,566.573"/>
+    <polygon style="fill: #000000" points="280.018,345.112 288.553,352.334 282.972,352.006 279.361,356.273 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="280.018,345.112 288.553,352.334 282.972,352.006 279.361,356.273 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 398.997,200.95 A 174.496,174.496 0 0 0 283.289,288.309"/>
+    <polygon style="fill: #000000" points="279.821,294.94 279.413,283.767 282.928,288.114 288.514,287.91 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="279.821,294.94 279.413,283.767 282.928,288.114 288.514,287.91 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 409.12,302.96 A 260,260 0 0 0 320.433,304.768"/>
+    <polygon style="fill: #000000" points="313.092,306.265 321.633,299.05 320.381,304.498 323.989,308.768 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="313.092,306.265 321.633,299.05 320.381,304.498 323.989,308.768 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 308.746,332.681 A 260,260 0 0 0 397.255,338.568"/>
+    <polygon style="fill: #000000" points="404.699,337.713 395.565,344.161 397.284,338.841 394.06,334.275 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="404.699,337.713 395.565,344.161 397.284,338.841 394.06,334.275 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="-40" y="300" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #ffffff" x="-40" y="300" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="30" y="323.789">
+      <tspan x="30" y="323.789">DELETED</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" x1="179.993" y1="320" x2="112.871" y2="320"/>
+    <polygon style="fill: #000000" points="105.371,320 115.371,315 112.871,320 115.371,325 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="105.371,320 115.371,315 112.871,320 115.371,325 "/>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="400" y="420" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="400" y="420" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="470" y="443.789">
+      <tspan x="470" y="443.789">PROLOG_FAIL</tspan>
+    </text>
+  </g>
+  <g>
+    <rect style="fill: #ffffff" x="840" y="180" width="140" height="40"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" x="840" y="180" width="140" height="40"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="910" y="203.789">
+      <tspan x="910" y="203.789">EPILOG_FAIL</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" x1="524.076" y1="349.404" x2="673.475" y2="539.026"/>
+    <polygon style="fill: #000000" points="519.434,343.513 529.551,348.273 524.076,349.404 521.696,354.462 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="519.434,343.513 529.551,348.273 524.076,349.404 521.696,354.462 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" d="M 457.924,340.987 A 100,100 0 0 0 453.939,407.791"/>
+    <polygon style="fill: #000000" points="456.179,414.895 447.674,407.638 453.253,407.99 456.882,403.737 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="456.179,414.895 447.674,407.638 453.253,407.99 456.882,403.737 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 482.076,419.013 A 100,100 0 0 0 486.061,352.209"/>
+    <polygon style="fill: #000000" points="483.821,345.105 492.326,352.362 486.747,352.01 483.118,356.263 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="483.821,345.105 492.326,352.362 486.747,352.01 483.118,356.263 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" d="M 751.603,303.474 A 402.5,402.5 0 0 0 879.783,228.946"/>
+    <polygon style="fill: #000000" points="885.429,224.014 881.433,234.456 879.899,229.08 874.678,227.082 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="885.429,224.014 881.433,234.456 879.899,229.08 874.678,227.082 "/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" d="M 839.001,219.997 A 402.5,402.5 0 0 0 720.217,291.054"/>
+    <polygon style="fill: #000000" points="714.571,295.986 718.567,285.544 720.101,290.92 725.322,292.918 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="714.571,295.986 718.567,285.544 720.101,290.92 725.322,292.918 "/>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 763.333 420 L 856.667,420 C 869.553,420 880,428.954 880,440 C 880,451.046 869.553,460 856.667,460 L 763.333,460 C 750.447,460 740,451.046 740,440 C 740,428.954 750.447,420 763.333,420z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 763.333 420 L 856.667,420 C 869.553,420 880,428.954 880,440 C 880,451.046 869.553,460 856.667,460 L 763.333,460 C 750.447,460 740,451.046 740,440 C 740,428.954 750.447,420 763.333,420"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="810" y="443.881">
+      <tspan x="810" y="443.881">FAILING</tspan>
+    </text>
+  </g>
+  <g>
+    <path style="fill: #ffffff" d="M 963.333 420 L 1056.67,420 C 1069.55,420 1080,428.954 1080,440 C 1080,451.046 1069.55,460 1056.67,460 L 963.333,460 C 950.447,460 940,451.046 940,440 C 940,428.954 950.447,420 963.333,420z"/>
+    <path style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" d="M 963.333 420 L 1056.67,420 C 1069.55,420 1080,428.954 1080,440 C 1080,451.046 1069.55,460 1056.67,460 L 963.333,460 C 950.447,460 940,451.046 940,440 C 940,428.954 950.447,420 963.333,420"/>
+    <text font-size="12.4178" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="1010" y="443.881">
+      <tspan x="1010" y="443.881">CANCELLING</tspan>
+    </text>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke-dasharray: 8; stroke: #000000" x1="879.971" y1="440" x2="928.057" y2="440"/>
+    <polygon style="fill: #000000" points="935.557,440 925.557,445 928.057,440 925.557,435 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="935.557,440 925.557,445 928.057,440 925.557,435 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="710.991" y1="340.991" x2="780.543" y2="410.543"/>
+    <polygon style="fill: #000000" points="785.847,415.847 775.24,412.311 780.543,410.543 782.311,405.24 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="785.847,415.847 775.24,412.311 780.543,410.543 782.311,405.24 "/>
+  </g>
+  <g>
+    <line style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" x1="789.009" y1="460.991" x2="719.457" y2="530.543"/>
+    <polygon style="fill: #000000" points="714.153,535.847 717.689,525.24 719.457,530.543 724.76,532.311 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="714.153,535.847 717.689,525.24 719.457,530.543 724.76,532.311 "/>
+  </g>
+  <g>
+    <rect style="fill: #bfbfff" x="1020" y="260" width="160" height="120"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="1020" y="260" width="160" height="120"/>
+  </g>
+  <g>
+    <path style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" d="M 772.908,560.132 A 376.889,376.889 0 0 0 989.208,460.99"/>
+    <polygon style="fill: #000000" points="765.451,560.897 775.037,555.143 772.929,560.321 775.805,565.114 "/>
+    <polygon style="fill: none; fill-opacity:0; stroke-width: 4; stroke: #000000" points="765.451,560.897 775.037,555.143 772.929,560.321 775.805,565.114 "/>
+  </g>
+  <text font-size="13.5467" style="fill: #000000;text-anchor:start;font-family:sans-serif;font-style:normal;font-weight:700" x="-60" y="172.6">
+    <tspan x="-60" y="172.6">DOES NOT HAVE SUPERJOB</tspan>
+  </text>
+  <text font-size="13.5467" style="fill: #000000;text-anchor:end;font-family:sans-serif;font-style:normal;font-weight:700" x="1160" y="172.995">
+    <tspan x="1160" y="172.995">HAS SUBJOBS</tspan>
+  </text>
+</svg>
