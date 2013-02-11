@@ -30,7 +30,7 @@ class Job(Base):
         # Unique key
         UniqueConstraint('super_id', 'id'),
         # Foreign keys
-        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
@@ -57,30 +57,7 @@ class Job(Base):
                                    primaryjoin    = 'Job.super_id == Job.id',
                                    cascade        = 'all', passive_deletes = True)
     
-    def lock(self, mode):
-        job_id = self.id
-        session.expire(self)
-        job = session.query(Job).filter_by(id = job_id).with_lockmode(mode).one()
-        assert self == job
-    
-    def submit(self):
-        self.lock('update')
-        
-        if self.subjobs:
-            for subjob in self.subjobs:
-                subjob.submit()
-        elif self.status in [
-            constants.JobStatus.STASHED,
-            constants.JobStatus.FAILED,
-            constants.JobStatus.CANCELLED,
-            constants.JobStatus.PROLOG_FAIL,
-            constants.JobStatus.EPILOG_FAIL,
-        ]:
-            self.status = constants.JobStatus.QUEUED
-    
     def update_status(self):
-        self.lock('update')
-        
         if not self.subjobs:
             return
         
@@ -105,6 +82,43 @@ class Job(Base):
             self.status = constants.JobStatus.CANCELLED
         elif constants.JobStatus.DONE in substatus:
             self.status = constants.JobStatus.DONE
+    
+    def submit(self):
+        if self.subjobs:
+            for subjob in self.subjobs:
+                subjob.submit()
+            self.update_status()
+        elif self.status in [
+            constants.JobStatus.STASHED,
+            constants.JobStatus.FAILED,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.PROLOG_FAIL,
+            constants.JobStatus.EPILOG_FAIL,
+        ]:
+            self.status = constants.JobStatus.QUEUED
+    
+    def remove(self):
+        if self.subjobs:
+            for subjob in self.subjobs:
+                subjob.remove()
+            session.delete(self)
+        elif self.status in [
+            constants.JobStatus.STASHED,
+            constants.JobStatus.FAILED,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.PROLOG_FAIL,
+        ]:
+            session.delete(self)
+    
+    def cancel(self):
+        if self.subjobs:
+            for subjob in self.subjobs:
+                subjob.cancel()
+            self.update_status()
+        elif self.status == constants.JobStatus.QUEUED:
+            self.status = constants.JobStatus.CANCELLED
+        elif self.status == constants.JobStatus.PROCESSING:
+            self.status = constants.JobStatus.CANCELLING
     
     def __repr__(self):
         return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (

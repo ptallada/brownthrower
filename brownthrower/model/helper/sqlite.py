@@ -7,7 +7,7 @@ from brownthrower import model
 class Helper(BaseHelper):
     
     @staticmethod
-    def ancestors(job_id):
+    def ancestors(job_id, lockmode=False):
         job = model.session.query(model.Job).filter_by(id = job_id).one()
         ancestors = [job]
         

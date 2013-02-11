@@ -145,7 +145,7 @@ def load_dispatchers(entry_point):
 def submit(job_id, tasks):
     ancestors = model.helper.ancestors(job_id, lockmode='update')
     
-    job = ancestors[0]
+    job = ancestors.pop(0)
     
     if job.status not in [
         constants.JobStatus.STASHED,
@@ -154,7 +154,7 @@ def submit(job_id, tasks):
         constants.JobStatus.PROLOG_FAIL,
         constants.JobStatus.EPILOG_FAIL,
     ]:
-        raise InvalidStatusException("The job cannot be submitted in its current status.")
+        raise InvalidStatusException("This job cannot be submitted in its current status.")
     
     if job.status == constants.JobStatus.STASHED:
         task = tasks.get(job.task)
@@ -169,5 +169,54 @@ def submit(job_id, tasks):
     
     for ancestor in ancestors:
         ancestor.update_status()
+
+def remove(job_id):
+    job = model.session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
     
-    model.session.commit()
+    if job.super_id:
+        raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
+    
+    if job.status not in [
+        constants.JobStatus.STASHED,
+        constants.JobStatus.CANCELLED,
+        constants.JobStatus.FAILED,
+        constants.JobStatus.PROLOG_FAIL,
+    ]:
+        raise InvalidStatusException("This job cannot be removed in its current status.")
+    
+    job.remove()
+
+def reset(job_id):
+    job = model.session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
+    
+    if job.super_id:
+        raise InvalidStatusException("This job is not a top-level job and cannot be returned to the stash.")
+    
+    if job.subjobs:
+        raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
+    
+    if job.status not in [
+        constants.JobStatus.CANCELLED,
+        constants.JobStatus.FAILED,
+        constants.JobStatus.QUEUED,
+    ]:
+        raise InvalidStatusException("This job cannot be returned to the stash in its current status.")
+    
+    job.status = constants.JobStatus.STASHED
+
+def cancel(job_id):
+    ancestors = model.helper.ancestors(job_id, lockmode='update')
+    
+    job = ancestors.pop(0)
+    
+    if job.status not in [
+        constants.JobStatus.QUEUED,
+        constants.JobStatus.PROCESSING,
+        constants.JobStatus.FAILING,
+    ]:
+        raise InvalidStatusException("This job cannot be cancelled in its current status.")
+    
+    job.cancel()
+    
+    for ancestor in ancestors:
+        ancestor.update_status()

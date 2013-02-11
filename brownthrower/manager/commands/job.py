@@ -135,7 +135,7 @@ class JobShow(Command):
             ).first()
             
             if not job:
-                warn("Could not found the job with id %d." % items[0])
+                error("Could not found the job with id %d." % items[0])
                 return
             
             table = prettytable.PrettyTable(['kind', 'id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output'])
@@ -167,10 +167,6 @@ class JobShow(Command):
             model.session.rollback()
 
 class JobRemove(Command):
-    """
-    A job can be removed under this circumstances:
-     - I
-    """
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -187,25 +183,16 @@ class JobRemove(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(
-                id = items[0]
-            ).with_lockmode('update').one()
-            
-            if job.super_id:
-                error("This job is not a top-level job and cannot be removed.")
-                return
-            
-            if job.status != constants.JobStatus.STASHED:
-                error("Only jobs in the STASHED state can be removed.")
-                return
-            
-            model.session.delete(job)
+            # FIXME: This will fail if there are links :(
+            api.remove(items[0])
             model.session.commit()
-            success("The job has been successfully removed from the stash.")
+            success("The job has been successfully removed.")
         
         except BaseException as e:
             try:
                 raise
+            except api.InvalidStatusException as e:
+                error(e.message)
             except model.NoResultFound:
                 error("The specified job does not exist.")
             except model.IntegrityError:
@@ -213,14 +200,15 @@ class JobRemove(Command):
             except model.StatementError:
                 error("Could not complete the query to the database.")
             finally:
-                model.session.rollback()
                 log.debug(e)
+        finally:
+            model.session.rollback()
 
 class JobSubmit(Command):
     
     def __init__(self, tasks, *args, **kwargs):
         super(JobSubmit, self).__init__(*args, **kwargs)
-        self._tasks   = tasks
+        self._tasks = tasks
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -247,8 +235,8 @@ class JobSubmit(Command):
                 raise
             except model.NoResultFound:
                 error("The specified job does not exist.")
-            except api.InvalidStatusException:
-                error("The job cannot be submitted in its current status.")
+            except api.InvalidStatusException as e:
+                error(e.message)
             except interface.TaskUnavailableException as e:
                 error("The task '%s' is currently not available in this environment." % e.task)
             except interface.TaskValidationException:
@@ -256,183 +244,190 @@ class JobSubmit(Command):
             except model.StatementError:
                 error("Could not complete the query to the database.")
             finally:
-                model.session.rollback()
                 log.debug(e)
+        finally:
+            model.session.rollback()
 
-#class JobReset(Command):
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job reset <id>
-#        
-#        Return the specified job to the stash.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 1:
-#            return self.help(items)
-#        
-#        try:
-#            resetted = model.session.query(model.Job).filter(
-#                model.Job.id == items[0],
-#                model.Job.status.in_([
-#                    constants.JobStatus.READY,
-#                    constants.JobStatus.FAILED,
-#                ])
-#            ).update(
-#                #TODO: Shall reset all the other fields
-#                {'status' : constants.JobStatus.STASHED},
-#                synchronize_session = False \
-#            )
-#            model.session.commit()
-#            
-#            if resetted:
-#                success("The job has been successfully returned to the stash.")
-#            else: # resetted == 0
-#                error("The job could not be returned to the stash.")
-#        
-#        except model.StatementError as e:
-#            error("Could not complete the query to the database.")
-#            log.debug(e)
-#        finally:
-#            model.session.rollback()
-#
-#class JobLink(Command):
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job link <parent_id> <child_id>
-#        
-#        Establish a dependency between two jobs.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 2:
-#            return self.help(items)
-#        
-#        try:
-#            parent = model.session.query(model.Job).filter_by(
-#                id = items[0],
-#            ).with_lockmode('read').first()
-#            
-#            child = model.session.query(model.Job).filter_by(
-#                id     = items[1],
-#                status = constants.JobStatus.STASHED
-#            ).with_lockmode('read').first()
-#            
-#            if not (parent and child):
-#                warn("It is not possible to establish a parent-child dependency between these jobs.")
-#                return
-#            
-#            dependency = model.JobDependency(
-#                child_job_id  = child.id,
-#                parent_job_id = parent.id
-#            )
-#            model.session.add(dependency)
-#            model.session.commit()
-#            
-#            success("The parent-child dependency has been successfully established.")
-#            
-#        except model.StatementError as e:
-#            error("Could not complete the query to the database.")
-#            log.debug(e)
-#        finally:
-#            model.session.rollback()
-#
-#class JobUnlink(Command):
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job unlink <parent_id> <child_id>
-#        
-#        Remove the dependency between the specified jobs.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 2:
-#            return self.help(items)
-#        
-#        try:
-#            parent = model.session.query(model.Job).filter_by(
-#                id = items[0],
-#            ).with_lockmode('read').first()
-#            
-#            child = model.session.query(model.Job).filter_by(
-#                id     = items[1],
-#                status = constants.JobStatus.STASHED,
-#            ).with_lockmode('read').first()
-#            
-#            if not (parent and child):
-#                warn("It is not possible to remove the parent-child dependency.")
-#                return
-#            
-#            deleted = model.session.query(model.JobDependency).filter_by(
-#                parent_job_id = parent.id,
-#                child_job_id  = child.id
-#            ).delete(synchronize_session=False)
-#            model.session.commit()
-#            
-#            if not deleted:
-#                error("Could not remove the parent-child dependency.")
-#            else:
-#                success("The parent-child dependency has been successfully removed.")
-#        
-#        except model.StatementError as e:
-#            error("Could not complete the query to the database.")
-#            log.debug(e)
-#        finally:
-#            model.session.rollback()
-#
-#class JobCancel(Command):
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job cancel <id>
-#        
-#        Cancel the specified job as soon as possible.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 1:
-#            return self.help(items)
-#        
-#        try:
-#            cancel =  model.session.query(model.Job).filter(
-#                model.Job.id == items[0],
-#                model.Job.status.in_([
-#                    constants.JobStatus.QUEUED,
-#                    constants.JobStatus.RUNNING,
-#                ])
-#            ).update(
-#                #TODO: Shall reset all the other fields
-#                {'status' : constants.JobStatus.CANCELLING},
-#                synchronize_session = False \
-#            )
-#            model.session.commit()
-#            
-#            if cancel:
-#                success("The job has been marked to be cancelled as soon as possible.")
-#            else: # cancel == 0
-#                error("The job could not be marked to be cancelled.")
-#        
-#        except model.StatementError as e:
-#            error("Could not complete the query to the database.")
-#            log.debug(e)
-#        finally:
-#            model.session.rollback()
-#
+class JobReset(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job reset <id>
+        
+        Return the specified job to the stash.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            api.reset(items[0])
+            model.session.commit()
+            success("The job has been successfully returned to the stash.")
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("The specified job does not exist.")
+            except api.InvalidStatusException as e:
+                error(e.message)
+            except model.StatementError as e:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+        finally:
+            model.session.rollback()
+
+class JobLink(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job link <parent_id> <child_id>
+        
+        Establish a dependency between two jobs.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 2:
+            return self.help(items)
+        
+        try:
+            parent = model.session.query(model.Job).filter_by(
+                id = items[0],
+            ).with_lockmode('read').one()
+            
+            child = model.session.query(model.Job).filter_by(
+                id     = items[1],
+            ).with_lockmode('read').one()
+            
+            if child.status != constants.JobStatus.STASHED:
+                error("The child job must be in the stash.")
+                return
+            
+            if parent.super_id or child.super_id:
+                error("A parent-child dependency can only be manually established between top-level jobs.")
+                return
+            
+            dependency = model.JobDependency(
+                child_job_id  = child.id,
+                parent_job_id = parent.id
+            )
+            model.session.add(dependency)
+            model.session.commit()
+            
+            success("The parent-child dependency has been successfully established.")
+            
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("One of the specified jobs does not exist.")
+            except model.StatementError as e:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+        finally:
+            model.session.rollback()
+
+class JobUnlink(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job unlink <parent_id> <child_id>
+        
+        Remove the dependency between the specified jobs.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 2:
+            return self.help(items)
+        
+        try:
+            parent = model.session.query(model.Job).filter_by(
+                id = items[0],
+            ).with_lockmode('read').one()
+            
+            child = model.session.query(model.Job).filter_by(
+                id     = items[1],
+            ).with_lockmode('read').one()
+            
+            if child.status != constants.JobStatus.STASHED:
+                error("The child job must be in the stash.")
+                return
+            
+            if parent.super_id or child.super_id:
+                error("A parent-child dependency can only be manually established between top-level jobs.")
+                return
+            
+            deleted = model.session.query(model.JobDependency).filter_by(
+                parent_job_id = parent.id,
+                child_job_id  = child.id
+            ).delete(synchronize_session=False)
+            model.session.commit()
+            
+            if not deleted:
+                error("Could not remove the parent-child dependency.")
+            else:
+                success("The parent-child dependency has been successfully removed.")
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("One of the specified jobs does not exist.")
+            except model.StatementError as e:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+        finally:
+            model.session.rollback()
+
+class JobCancel(Command):
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job cancel <id>
+        
+        Cancel the specified job as soon as possible.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            api.cancel(items[0])
+            model.session.commit()
+            success("The job has been marked to be cancelled as soon as possible.")
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("The specified job does not exist.")
+            except api.InvalidStatusException as e:
+                error(e.message)
+            except model.StatementError as e:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+        finally:
+            model.session.rollback()
+
 class JobEdit(Command):
     
     _dataset_attr = {
@@ -476,10 +471,11 @@ class JobEdit(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(
-                id     = items[1],
-                status = constants.JobStatus.STASHED,
-            ).with_lockmode('update').one()
+            job = model.session.query(model.Job).filter_by(id = items[1]).with_lockmode('update').one()
+            
+            if job.status != constants.JobStatus.STASHED:
+                error("This job is not editable in its current status.")
+                return
             
             # TODO: Move this to api
             task = self._tasks.get(job.task)
@@ -524,47 +520,53 @@ class JobEdit(Command):
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
-                model.session.rollback()
+        finally:
+            model.session.rollback()
 
-#class JobOutput(Command):
-#    
-#    def __init__(self, viewer, *args, **kwargs):
-#        super(JobOutput, self).__init__(*args, **kwargs)
-#        self._viewer = viewer
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job output <id>
-#        
-#        Show the output of a completed job.
-#        """)
-#    
-#    def complete(self, text, items):
-#        return [text]
-#    
-#    def do(self, items):
-#        if len(items) != 1:
-#            return self.help(items)
-#        
-#        try:
-#            job = model.session.query(model.Job).filter_by(
-#                id     = items[0],
-#                status = constants.JobStatus.DONE,
-#            ).first()
-#            
-#            if not job:
-#                warn("The output from job %d cannot be shown." % items[0])
-#                return
-#            
-#            job_output = job.output
-#            
-#            model.session.commit()
-#            
-#            viewer = subprocess.Popen([self._viewer], stdin=subprocess.PIPE)
-#            viewer.communicate(input=job_output)
-#        
-#        except model.StatementError as e:
-#            error("Could not complete the query to the database.")
-#            log.debug(e)
-#        finally:
-#            model.session.rollback()
+
+class JobOutput(Command):
+    
+    def __init__(self, viewer, *args, **kwargs):
+        super(JobOutput, self).__init__(*args, **kwargs)
+        self._viewer = viewer
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job output <id>
+        
+        Show the output of a completed job.
+        """)
+    
+    def complete(self, text, items):
+        return [text]
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            
+            job = model.session.query(model.Job).filter_by(id = items[0]).one()
+            
+            if job.status != constants.JobStatus.DONE:
+                error("This job is not finished yet.")
+                return
+            
+            job_output = job.output
+            
+            model.session.commit()
+            
+            viewer = subprocess.Popen([self._viewer], stdin=subprocess.PIPE)
+            viewer.communicate(input=job_output)
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound as e:
+                error("The specified job does not exist.")
+            except model.StatementError as e:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+        finally:
+            model.session.rollback()

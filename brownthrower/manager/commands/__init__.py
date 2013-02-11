@@ -14,18 +14,18 @@ class Job(Command):
     def __init__(self, tasks, editor, viewer, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
-        #self.add_subcmd('cancel', job.JobCancel())
+        self.add_subcmd('cancel', job.JobCancel())
         self.add_subcmd('create', job.JobCreate(  tasks = tasks))
         self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
                                                   editor = editor))
-        #self.add_subcmd('link',   job.JobLink())
+        self.add_subcmd('link',   job.JobLink())
         self.add_subcmd('list',   job.JobList(    limit = limit))
-        #self.add_subcmd('output', job.JobOutput( viewer = viewer))
-        #self.add_subcmd('remove', job.JobRemove())
-        #self.add_subcmd('reset',  job.JobReset())
+        self.add_subcmd('output', job.JobOutput( viewer = viewer))
+        self.add_subcmd('remove', job.JobRemove())
+        self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow())
         self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
-        #self.add_subcmd('unlink', job.JobUnlink())
+        self.add_subcmd('unlink', job.JobUnlink())
     
     def help(self, items):
         print textwrap.dedent("""\
