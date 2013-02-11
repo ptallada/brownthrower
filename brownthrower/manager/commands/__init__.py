@@ -16,8 +16,8 @@ class Job(Command):
         
         #self.add_subcmd('cancel', job.JobCancel())
         self.add_subcmd('create', job.JobCreate(  tasks = tasks))
-        #self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
-        #                                         editor = editor))
+        self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
+                                                  editor = editor))
         #self.add_subcmd('link',   job.JobLink())
         self.add_subcmd('list',   job.JobList(    limit = limit))
         #self.add_subcmd('output', job.JobOutput( viewer = viewer))

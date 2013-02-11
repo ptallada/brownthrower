@@ -3,8 +3,8 @@
 
 import logging
 import prettytable
-#import subprocess
-#import tempfile
+import subprocess
+import tempfile
 import textwrap
 
 log = logging.getLogger('brownthrower.manager')
@@ -48,7 +48,7 @@ class JobCreate(Command):
         try:
             job = model.Job(
                 task   = items[0],
-                config = task.get_config_sample(),
+                config = api.get_config_sample(task),
                 status = constants.JobStatus.STASHED
             )
             model.session.add(job)
@@ -237,7 +237,8 @@ class JobSubmit(Command):
             return self.help(items)
         
         try:
-            api.submit(items[0])
+            # TODO: move _tasks to api
+            api.submit(items[0], self._tasks)
             model.session.commit()
             success("The job has been successfully marked as ready for execution.")
         
@@ -432,100 +433,99 @@ class JobSubmit(Command):
 #        finally:
 #            model.session.rollback()
 #
-#class JobEdit(Command):
-#    
-#    _dataset_attr = {
-#        'config' : {
-#            'field'    : model.Job.config,
-#            'sample'   : lambda task: task.get_config_sample,
-#            'validate' : lambda task: task.validate_config,
-#        },
-#        'input'  : {
-#            'field'    : model.Job.input,
-#            'sample'   : lambda task: task.get_input_sample,
-#            'validate' : lambda task: task.validate_input,
-#        }
-#    }
-#    
-#    def __init__(self, tasks, editor, *args, **kwargs):
-#        super(JobEdit, self).__init__(*args, **kwargs)
-#        self._tasks   = tasks
-#        self._editor  = editor
-#    
-#    def help(self, items):
-#        print textwrap.dedent("""\
-#        usage: job edit <dataset> <id>
-#        
-#        Edit the specified dataset of a job.
-#        Valid values for the dataset parameter are: 'input' and 'config'.
-#        """)
-#    
-#    def complete(self, text, items):
-#        if not items:
-#            matching = [attr
-#                        for attr in self._dataset_attr.keys()
-#                        if attr.startswith(text)]
-#            return matching
-#    
-#    def do(self, items):
-#        if (
-#            (len(items) != 2) or
-#            (items[0] not in self._dataset_attr)
-#        ):
-#            return self.help(items)
-#        
-#        try:
-#            job = model.session.query(model.Job).filter_by(
-#                id     = items[1],
-#                status = constants.JobStatus.STASHED,
-#            ).with_lockmode('update').first()
-#            
-#            if not job:
-#                warn("Could not find or lock the job for editing.")
-#                return
-#            
-#            task = self._tasks.get(job.task)
-#            if not task:
-#                error("The task '%s' is not currently available in this environment." % job.task)
-#                return
-#            
-#            field    = self._dataset_attr[items[0]]['field']
-#            sample   = self._dataset_attr[items[0]]['sample'](task)()
-#            validate = self._dataset_attr[items[0]]['validate'](task)
-#            
-#            current_value = getattr(job, field.key)
-#            if not current_value:
-#                current_value = sample
-#            
-#            with tempfile.NamedTemporaryFile("w+") as fh:
-#                fh.write(current_value)
-#                fh.flush()
-#                
-#                subprocess.check_call([self._editor, fh.name])
-#                
-#                fh.seek(0)
-#                new_value = fh.read()
-#            
-#            validate(new_value)
-#            
-#            setattr(job, field.key, new_value)
-#            model.session.commit()
-#            
-#            success("The job dataset has been successfully modified.")
-#        
-#        except BaseException as e:
-#            try:
-#                raise
-#            except EnvironmentError:
-#                error("Unable to open the temporary dataset buffer.")
-#            except interface.TaskValidationException:
-#                error("The new value for the %s is not valid." % items[0])
-#            except model.StatementError:
-#                error("Could not complete the query to the database.")
-#            finally:
-#                log.debug(e)
-#                model.session.rollback()
-#
+class JobEdit(Command):
+    
+    _dataset_attr = {
+        'config' : {
+            'field'    : model.Job.config,
+            'sample'   : lambda task: api.get_config_sample(task),
+            'validate' : api.validate_config,
+        },
+        'input'  : {
+            'field'    : model.Job.input,
+            'sample'   : lambda task: api.get_input_sample(task),
+            'validate' : api.validate_input,
+        }
+    }
+    
+    def __init__(self, tasks, editor, *args, **kwargs):
+        super(JobEdit, self).__init__(*args, **kwargs)
+        self._tasks   = tasks
+        self._editor  = editor
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: job edit <dataset> <id>
+        
+        Edit the specified dataset of a job.
+        Valid values for the dataset parameter are: 'input' and 'config'.
+        """)
+    
+    def complete(self, text, items):
+        if not items:
+            matching = [attr
+                        for attr in self._dataset_attr.keys()
+                        if attr.startswith(text)]
+            return matching
+    
+    def do(self, items):
+        if (
+            (len(items) != 2) or
+            (items[0] not in self._dataset_attr)
+        ):
+            return self.help(items)
+        
+        try:
+            job = model.session.query(model.Job).filter_by(
+                id     = items[1],
+                status = constants.JobStatus.STASHED,
+            ).with_lockmode('update').one()
+            
+            # TODO: Move this to api
+            task = self._tasks.get(job.task)
+            if not task:
+                error("The task '%s' is not currently available in this environment." % job.task)
+                return
+            
+            field    = self._dataset_attr[items[0]]['field']
+            sample   = self._dataset_attr[items[0]]['sample'](task)
+            validate = self._dataset_attr[items[0]]['validate']
+            
+            current_value = getattr(job, field.key)
+            if not current_value:
+                current_value = sample
+            
+            with tempfile.NamedTemporaryFile("w+") as fh:
+                fh.write(current_value)
+                fh.flush()
+                
+                subprocess.check_call([self._editor, fh.name])
+                
+                fh.seek(0)
+                new_value = fh.read()
+            
+            validate(task, new_value)
+            
+            setattr(job, field.key, new_value)
+            model.session.commit()
+            
+            success("The job dataset has been successfully modified.")
+        
+        except BaseException as e:
+            try:
+                raise
+            except model.NoResultFound:
+                error("The specified job does not exist.")
+            except EnvironmentError:
+                error("Unable to open the temporary dataset buffer.")
+            except interface.TaskValidationException:
+                error("The new value for the %s is not valid." % items[0])
+            except model.StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+                model.session.rollback()
+
 #class JobOutput(Command):
 #    
 #    def __init__(self, viewer, *args, **kwargs):

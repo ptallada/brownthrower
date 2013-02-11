@@ -5,6 +5,7 @@ import prettytable
 import textwrap
 
 from base import Command, error, warn
+from brownthrower import api
 
 class TaskList(Command):
     
@@ -33,7 +34,7 @@ class TaskList(Command):
         table = prettytable.PrettyTable(['name', 'description'], sortby='name')
         table.align = 'l'
         for name, task in self._tasks.iteritems():
-            table.add_row([name, task.get_help()[0]])
+            table.add_row([name, api.get_help(task)[0]])
         
         print table
 
@@ -64,7 +65,7 @@ class TaskShow(Command):
         
         task = self._tasks.get(items[0])
         if task:
-            desc = task.get_help()
+            desc = api.get_help(task)
             print desc[0]
             print
             print desc[1]
@@ -74,9 +75,9 @@ class TaskShow(Command):
 class TaskSchema(Command):
     
     _dataset_fn = {
-        'config' : lambda task: task.get_config_schema,
-        'input'  : lambda task: task.get_input_schema,
-        'output' : lambda task: task.get_output_schema,
+        'config' : lambda task: api.get_config_schema(task),
+        'input'  : lambda task: api.get_input_schema(task),
+        'output' : lambda task: api.get_output_schema(task),
     }
     
     def __init__(self, tasks, *args, **kwargs):
@@ -118,14 +119,14 @@ class TaskSchema(Command):
             error("The task '%s' is not currently available in this environment." % items[1])
             return
         
-        print self._dataset_fn[items[0]](task)()
+        print self._dataset_fn[items[0]](task)
 
 class TaskSample(Command):
     
     _dataset_fn = {
-        'config' : lambda task: task.get_config_sample,
-        'input'  : lambda task: task.get_input_sample,
-        'output' : lambda task: task.get_output_sample,
+        'config' : lambda task: api.get_config_sample(task),
+        'input'  : lambda task: api.get_input_sample(task),
+        'output' : lambda task: api.get_output_sample(task),
     }
         
     def __init__(self, tasks, *args, **kwargs):
@@ -167,4 +168,4 @@ class TaskSample(Command):
             error("The task '%s' is not currently available in this environment." % items[1])
             return
         
-        print self._dataset_fn[items[0]](task)()
+        print self._dataset_fn[items[0]](task)
