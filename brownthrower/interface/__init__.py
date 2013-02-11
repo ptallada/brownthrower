@@ -3,4 +3,4 @@
 
 from dispatcher import Dispatcher
 from runner import Runner
-from task import Task, TaskCancelledException, TaskValidationException
+from task import Task, TaskCancelledException, TaskValidationException, TaskUnavailableException

@@ -5,8 +5,17 @@ import logging
 import pkg_resources
 
 from brownthrower import interface
+from brownthrower import model
+from brownthrower.interface import constants
 
-log = logging.getLogger('brownthrower.common')
+log = logging.getLogger('brownthrower.api')
+
+class InvalidStatusException(Exception):
+    def __init__(self, message=None):
+        self.message = message
+        
+    def __str__(self):
+        return str(self.message)
 
 def load_tasks(entry_point):
     """
@@ -19,21 +28,21 @@ def load_tasks(entry_point):
         try:
             task = entry.load()
             
-            assert isinstance(task.get_config_schema(),   basestring)
-            assert isinstance(task.get_input_schema(),    basestring)
-            assert isinstance(task.get_output_schema(),   basestring)
+            assert isinstance(task.config_schema, basestring)
+            assert isinstance(task.input_schema,  basestring)
+            assert isinstance(task.output_schema, basestring)
             
-            assert isinstance(task.get_config_sample(), basestring)
-            assert isinstance(task.get_input_sample(),  basestring)
-            assert isinstance(task.get_output_sample(), basestring)
-            
-            task.validate_config(task.get_config_sample())
-            task.validate_input( task.get_input_sample())
-            task.validate_output(task.get_output_sample())
+            assert isinstance(task.config_sample, basestring)
+            assert isinstance(task.input_sample,  basestring)
+            assert isinstance(task.output_sample, basestring)
             
             assert len(task.get_help()[0]) > 0
             assert len(task.get_help()[1]) > 0
             assert '\n' not in task.get_help()[0]
+            
+            task.validate_config(task.config_sample)
+            task.validate_input( task.input_sample)
+            task.validate_output(task.output_sample)
             
             if entry.name in tasks:
                 log.warning("Skipping Task '%s:%s': a Task with the same name is already defined." % (entry.name, entry.module_name))
@@ -80,3 +89,31 @@ def load_dispatchers(entry_point):
             log.warning("Skipping Dispatcher '%s:%s': unable to load." % (entry.name, entry.module_name))
     
     return dispatchers
+
+def submit(job_id, tasks):
+    ancestors = model.helper.ancestors(job_id, lockmode='update')
+    
+    job = ancestors[0]
+    
+    if job.status not in [
+        constants.JobStatus.STASHED,
+        constants.JobStatus.CANCELLED,
+        constants.JobStatus.FAILED,
+        constants.JobStatus.PROLOG_FAIL,
+        constants.JobStatus.EPILOG_FAIL,
+    ]:
+        raise InvalidStatusException("The job cannot be submitted in its current status.")
+    
+    if job.status == constants.JobStatus.STASHED:
+        task = tasks.get(job.task)
+        if not task:
+            raise interface.TaskUnavailableException(job.task)
+        
+        task.validate_config(job.config)
+        if not job.parents:
+            task.validate_input(job.input)
+    
+    job.submit()
+    
+    for ancestor in ancestors:
+        ancestor.update_status()

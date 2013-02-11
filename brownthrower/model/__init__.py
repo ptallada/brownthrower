@@ -3,6 +3,9 @@
 
 import sqlalchemy
 
+from brownthrower.interface import constants
+from helper import get_helper
+
 from sqlalchemy import event
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -14,6 +17,7 @@ from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint
 from sqlalchemy.types import Integer, String, Text
 from sqlalchemy.engine import create_engine
 
+helper  = None
 session = None
 
 Base = declarative_base()
@@ -52,6 +56,55 @@ class Job(Base):
     subjobs  = relationship('Job', back_populates = 'superjob',
                                    primaryjoin    = 'Job.super_id == Job.id',
                                    cascade        = 'all', passive_deletes = True)
+    
+    def lock(self, mode):
+        job_id = self.id
+        session.expire(self)
+        job = session.query(Job).filter_by(id = job_id).with_lockmode(mode).one()
+        assert self == job
+    
+    def submit(self):
+        self.lock('update')
+        
+        if self.subjobs:
+            for subjob in self.subjobs:
+                subjob.submit()
+        elif self.status in [
+            constants.JobStatus.STASHED,
+            constants.JobStatus.FAILED,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.PROLOG_FAIL,
+            constants.JobStatus.EPILOG_FAIL,
+        ]:
+            self.status = constants.JobStatus.QUEUED
+    
+    def update_status(self):
+        self.lock('update')
+        
+        if not self.subjobs:
+            return
+        
+        substatus = set([subjob.status for subjob in self.subjobs])
+        
+        if constants.JobStatus.FAILING in substatus:
+            self.status = constants.JobStatus.FAILING
+        elif set([
+            constants.JobStatus.FAILED,
+            constants.JobStatus.PROLOG_FAIL,
+            constants.JobStatus.EPILOG_FAIL,
+        ]) & substatus:
+            self.status = constants.JobStatus.FAILED
+        elif set([
+            constants.JobStatus.QUEUED,
+            constants.JobStatus.PROCESSING,
+        ]) & substatus:
+            self.status = constants.JobStatus.PROCESSING
+        elif constants.JobStatus.CANCELLING in substatus:
+            self.status = constants.JobStatus.CANCELLING
+        elif constants.JobStatus.CANCELLED in substatus:
+            self.status = constants.JobStatus.CANCELLED
+        elif constants.JobStatus.DONE in substatus:
+            self.status = constants.JobStatus.DONE
     
     def __repr__(self):
         return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
@@ -98,9 +151,11 @@ def _sqlite_begin(conn):
     
 
 def init(url):
-    global session
+    global helper, session
     
     url = make_url(url) 
+    
+    helper = get_helper(url.drivername)
     
     if url.drivername == 'sqlite':
         # Disable automatic transaction handling to workaround faulty nested transactions
@@ -108,7 +163,7 @@ def init(url):
     else:
         engine = create_engine(url)
     
-    if engine.url.drivername == 'sqlite':
+    if url.drivername == 'sqlite':
         # As we have disabled the automatic transaction management, we must explicitly begin a transaction on connection open.
         # Also, that fixes another bug, by which SELECT statements do not start a new transaction.
         event.listen(engine, 'begin', _sqlite_begin)

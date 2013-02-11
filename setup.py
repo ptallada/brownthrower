@@ -48,22 +48,17 @@ setup(
         'console_scripts' : [
             'manager = brownthrower.manager.__init__:main',
         ],
-        'brownthrower.dispatcher' : [
-            "serial = brownthrower.dispatcher.serial:SerialDispatcher",
-        ],
+        #'brownthrower.dispatcher' : [
+        #    "serial = brownthrower.dispatcher.serial:SerialDispatcher",
+        #],
         'brownthrower.task': [
             # math
-            'math.add  = examples.math.task.add:Add',
+            'math.add  = examples.task.math.add:Add',
+            'math.sum  = examples.task.math.sum:Sum',
             # misc
-            'misc.noop             = examples.misc.task.noop:Noop',
-            'misc.hostname         = examples.misc.task.hostname:Hostname',
-            'misc.store_single_env = examples.misc.task.store_single_env:StoreSingleEnv',
-        ],
-        'brownthrower.chain': [
-            # math
-            'math.sum  = examples.math.chain.sum:Sum',
-            # misc
-            'misc.noop = examples.misc.chain.noop:Noop',
+            'misc.noop             = examples.task.misc.noop:Noop',
+            #'misc.hostname         = examples.task.misc.hostname:Hostname',
+            #'misc.store_single_env = examples.task.misc.store_single_env:StoreSingleEnv',
         ],
     },
     

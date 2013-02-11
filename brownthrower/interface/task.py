@@ -12,22 +12,38 @@ class TaskValidationException(Exception):
 class TaskCancelledException(Exception):
     pass
 
+class TaskUnavailableException(Exception):
+    def __init__(self, task=None):
+        self.task = task
+        
+    def __str__(self):
+        return "Task '%s' is not available in this environment." % self.task
+
 class Task(object):
     """\
     Expected interface for the Task objects.
     
     This class represents the interface that the brownthrower framework expects
-    when dealing with Tasks. A Task can be of two kinds, depending on the subset
-    of the interface that it implements
+    when dealing with Tasks. When the Task is executed, the 'prolog' method is
+    called to deploy the subjobs.
     
-    Si genera fills, el run no es cridarà.
+    If the 'prolog' method returns a set of subjobs, this Task will enter the
+    PROCESSING state. When all its subjobs have finished successfully, its
+    'epilog' method will be called to generate the final output or a new set of
+    child jobs.
     
+    If the 'prolog' is not implemented or it returns None, this Task will enter
+    the PROCESSING state and its 'run' method will be called. The output of this
+    Task will be the output of the 'run' method. Please, note that if the
+    'prolog' method is not implemented of it returns None, the 'epilog' method
+    will not be called.
     
-    The following line MUST be a more detailed description of this Task, what
+    The doctring of every Task class is used as the internal help for the
+    manager interface. The first line MUST be a short description of the Task.
+    The following lines MUST be a more detailed description of the Task, what
     parameters does it take, what are its configuration values and what kind of
     output it generates.
     """
-    # TODO: review documentation
     
     def __init__(self, config):
         """
@@ -48,31 +64,43 @@ class Task(object):
         
         Return a list of tuples. Each one of this tuples contains two Task
         instances '(parent_task, child_task)' and represents the parent-child
-        dependency between them.
-        Initial tasks, which do not have any parent, MUST have its input
-        instead of a parent.
+        dependency between them. Initial tasks, which do not have any parent,
+        MUST have its input instead of a parent. Do not implement this method or
+        return None if this Task shall not have any subjobs.
         
         @param tasks: mapping with all the registered Tasks available
         @type tasks: dict
         @param inp:  mapping with the output of the parent chains
         @type inp: dict
-        @return: a list of tuples representing the dependency between Tasks or Chains
+        @return: a list of tuples representing the dependency between Tasks
         @rtype: list
         """
         raise NotImplementedError
     
     def epilog(self, tasks, out):
         """
-        Generate the final output of this Job. When this method is called,
-        it can safely assume that the 'config' and 'out' parameters have been
-        checked previously and that they are both valid.
+        Wraps up this Task for the end of its processing. When this method is
+        called, it can safely assume that the 'config' and 'out' parameters have
+        been checked previously and that they are both valid.
+        
+        Return a list of tuples, analogous as the 'prolog' method, that can be
+        used to create a new set of child jobs which shall execute after this
+        one. Each one of this tuples contains two Task instances '(parent_task,
+        child_task)' and represents the parent-child dependency between them.
+        Initial tasks, which do not have any parent, MUST have its input instead
+        of a parent.
+        
+        In any case, the final output of this Task MUST be given with a pair
+        '(output, None)'. If more than one tuple has None as its second element,
+        the true value of the final ouput is unclear and an error will be
+        raised.
         
         @param config: mapping with the required configuration values
         @type config: dict
         @param out:  mapping with the output of the leaf Jobs
         @type out: dict
-        @return: mapping to be delivered as output for child chains
-        @rtype: dict
+        @return: a list of tuples representing the dependency between Tasks
+        @rtype: list
         """
         raise NotImplementedError
     

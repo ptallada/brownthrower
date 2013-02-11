@@ -10,6 +10,7 @@ import textwrap
 log = logging.getLogger('brownthrower.manager')
 
 from base import Command, error, warn, success
+from brownthrower import api
 from brownthrower import interface
 from brownthrower import model
 from brownthrower.interface import constants
@@ -150,7 +151,7 @@ class JobShow(Command):
             
             table.clear_rows()
             if job.superjob:
-                table.add_row(['SUPER',  job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                table.add_row(['SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status, job.superjob.config != None, job.superjob.input != None, job.superjob.output != None])
             table.add_row(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
             for subjob in job.subjobs:
                 table.add_row(['SUB', subjob.id, subjob.super_id, subjob.task, subjob.status, subjob.config != None, subjob.input != None, subjob.output != None])
@@ -236,29 +237,8 @@ class JobSubmit(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(
-                id = items[0]
-            ).options(
-                model.joinedload(model.Job.subjobs)
-            ).with_lockmode('update').one()
-            
-            if job.status != constants.JobStatus.STASHED:
-                error("For the moment, only jobs in status STASHED can be submitted.")
-                return
-            
-            task = self._tasks.get(job.task)
-            if not task:
-                error("The task '%s' is not currently available in this environment." % job.task)
-                return
-            
-            task.validate_config(job.config)
-            if not job.parents:
-                task.validate_input(job.input)
-            
-            # TODO: Shall reset all the other fields
-            job.status = constants.JobStatus.QUEUED
+            api.submit(items[0])
             model.session.commit()
-            
             success("The job has been successfully marked as ready for execution.")
         
         except BaseException as e:
@@ -266,6 +246,10 @@ class JobSubmit(Command):
                 raise
             except model.NoResultFound:
                 error("The specified job does not exist.")
+            except api.InvalidStatusException:
+                error("The job cannot be submitted in its current status.")
+            except interface.TaskUnavailableException as e:
+                error("The task '%s' is currently not available in this environment." % e.task)
             except interface.TaskValidationException:
                 error("The job has an invalid config or input.")
             except model.StatementError:

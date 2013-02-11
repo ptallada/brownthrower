@@ -7,7 +7,7 @@ import textwrap
 import signal
 import sys
 
-from brownthrower import common
+from brownthrower import api
 from brownthrower import model
 
 # TODO: read and create a global or local configuration file
@@ -36,8 +36,8 @@ class Manager(cmd.Cmd):
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def preloop(self):
-        self._dispatchers = common.load_dispatchers(_CONFIG['entry_points.dispatcher'])
-        self._tasks       = common.load_tasks(      _CONFIG['entry_points.task'])
+        self._dispatchers = api.load_dispatchers(_CONFIG['entry_points.dispatcher'])
+        self._tasks       = api.load_tasks(      _CONFIG['entry_points.task'])
         
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
@@ -120,7 +120,7 @@ def main():
     
     model.init(_CONFIG['database.url'])
     #model.init('sqlite:////tmp/manager.db')
-    #model.Base.metadata.create_all()
+    model.Base.metadata.create_all()
     
     manager = Manager()
     manager.cmdloop()
