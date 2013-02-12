@@ -4,20 +4,18 @@
 import sqlalchemy
 
 from brownthrower.interface import constants
-from helper import get_helper
 
-from sqlalchemy import event
+from sqlalchemy import event, literal_column
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, scoped_session, joinedload, subqueryload
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+from sqlalchemy.orm import relationship, object_session, scoped_session, joinedload, subqueryload
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound, ObjectDeletedError
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.types import Integer, String, Text
 from sqlalchemy.engine import create_engine
 
-helper  = None
 session = None
 
 Base = declarative_base()
@@ -35,7 +33,6 @@ class Job(Base):
     
     # Columns
     id         = Column(Integer,    nullable=False)
-    # TODO: reenable nullable
     super_id   = Column(Integer,    nullable=True)
     task       = Column(String(30), nullable=False)
     status     = Column(String(20), nullable=False)
@@ -56,6 +53,47 @@ class Job(Base):
     subjobs  = relationship('Job', back_populates = 'superjob',
                                    primaryjoin    = 'Job.super_id == Job.id',
                                    cascade        = 'all', passive_deletes = True)
+    
+    def ancestors(self, lockmode=False):
+        cls = self.__class__
+        session = object_session(self)
+        
+        ancestors = []
+        job = self
+        
+        if session.bind.url.drivername == 'sqlite':
+            ancestors.append(job)
+            while job.superjob:
+                ancestors.append(job.superjob)
+                job = job.superjob
+            return ancestors
+        
+        elif session.bind.url.drivername == 'postgresql':
+            l0 = literal_column('0').label('level')
+            q_base = session.query(cls, l0).filter_by(
+                         id = self.id
+                     ).cte(recursive = True)
+            l1 = literal_column('level + 1').label('level')
+            q_rec = session.query(cls, l1).filter(
+                        q_base.c.super_id == cls.id
+                    )
+            q_cte = q_base.union_all(q_rec)
+            
+            pending = session.query(cls).select_from(q_cte).order_by(q_cte.c.level).all()
+        
+        else: # Fallback for any other backend
+            pending = [job]
+            while job.superjob:
+                pending.append(job.superjob)
+                job = job.superjob
+        
+        session.expire(self)
+        while len(pending):
+            ancestors.insert(0, session.query(cls).filter_by(
+                id = pending.pop().id
+            ).with_lockmode(lockmode).one())
+        
+        return ancestors
     
     def update_status(self):
         if not self.subjobs:
@@ -136,14 +174,13 @@ class JobDependency(Base):
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
-    # TODO: re-enable nullable
     super_id      = Column(Integer, nullable=True)
     parent_job_id = Column(Integer, nullable=False)
     child_job_id  = Column(Integer, nullable=False)
@@ -165,11 +202,9 @@ def _sqlite_begin(conn):
     
 
 def init(url):
-    global helper, session
+    global session
     
     url = make_url(url) 
-    
-    helper = get_helper(url.drivername)
     
     if url.drivername == 'sqlite':
         # Disable automatic transaction handling to workaround faulty nested transactions

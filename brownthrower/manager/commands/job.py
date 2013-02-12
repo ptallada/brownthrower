@@ -183,7 +183,6 @@ class JobRemove(Command):
             return self.help(items)
         
         try:
-            # FIXME: This will fail if there are links :(
             api.remove(items[0])
             model.session.commit()
             success("The job has been successfully removed.")
@@ -367,7 +366,7 @@ class JobUnlink(Command):
                 return
             
             if parent.super_id or child.super_id:
-                error("A parent-child dependency can only be manually established between top-level jobs.")
+                error("A parent-child dependency can only be manually removed between top-level jobs.")
                 return
             
             deleted = model.session.query(model.JobDependency).filter_by(

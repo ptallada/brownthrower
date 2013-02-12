@@ -8,6 +8,7 @@ import signal
 import sys
 
 from brownthrower import api
+from brownthrower import interface
 from brownthrower import model
 
 # TODO: read and create a global or local configuration file
@@ -35,9 +36,28 @@ class Manager(cmd.Cmd):
         
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
+    def load_tasks(self, entry_point):
+        
+        available_tasks = api.available_tasks(entry_point)
+        
+        try:
+            while True:
+                try:
+                    (name, module, task) = available_tasks.next()
+                    if task in self._tasks:
+                        log.warning("Skipping duplicate Task '%s:%s'." % (name, module))
+                    self._tasks[name] = task
+                
+                except api.InvalidTaskException as e:
+                    log.warning(e.message)
+                    log.debug(e.exception)
+        
+        except StopIteration:
+            pass
+    
     def preloop(self):
         self._dispatchers = api.load_dispatchers(_CONFIG['entry_points.dispatcher'])
-        self._tasks       = api.load_tasks(      _CONFIG['entry_points.task'])
+        self.load_tasks(_CONFIG['entry_points.task'])
         
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
@@ -118,9 +138,9 @@ def main():
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    #model.init(_CONFIG['database.url'])
-    model.init('sqlite:////tmp/manager.db')
-    model.Base.metadata.create_all()
+    model.init(_CONFIG['database.url'])
+    #model.init('sqlite:////tmp/manager.db')
+    #model.Base.metadata.create_all()
     
     manager = Manager()
     manager.cmdloop()

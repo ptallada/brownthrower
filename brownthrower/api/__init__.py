@@ -21,6 +21,14 @@ class InvalidStatusException(Exception):
     def __str__(self):
         return str(self.message)
 
+class InvalidTaskException(Exception):
+    def __init__(self, message=None, exception=None):
+        self.message = message
+        self.exception = exception
+        
+    def __str__(self):
+        return str(self.message)
+
 def validate_config(task, config):
     try:
         config = yaml.safe_load(config)
@@ -70,12 +78,10 @@ def get_help(task):
     
     return (short, detail)
 
-def load_tasks(entry_point):
+def available_tasks(entry_point):
     """
     Build a list with all the Tasks available in the current environment.
     """
-    
-    tasks = {}
     
     for entry in pkg_resources.iter_entry_points(entry_point):
         try:
@@ -96,22 +102,16 @@ def load_tasks(entry_point):
             validate_input( task, task.input_sample)
             validate_output(task, task.output_sample)
             
-            if entry.name in tasks:
-                log.warning("Skipping Task '%s:%s': a Task with the same name is already defined." % (entry.name, entry.module_name))
-                continue
-            
-            tasks[entry.name] = task
-        
-        except (AttributeError, AssertionError) as e:
-            log.warning("Skipping Task '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-            log.debug("Task '%s:%s': %s" % (entry.name, entry.module_name, e))
-        except interface.TaskValidationException as e:
-            log.warning("Skipping Task '%s:%s': their own samples fail to validate." % (entry.name, entry.module_name))
-            log.debug("Task '%s:%s': %s" % (entry.name, entry.module_name, e))
-        except ImportError:
-            log.warning("Skipping Task '%s:%s': unable to load." % (entry.name, entry.module_name))
-    
-    return tasks
+            yield (entry.name, entry.module_name, task)
+        except BaseException as e:
+            try:
+                raise
+            except (AttributeError, AssertionError) as e:
+                raise InvalidTaskException("Task '%s:%s' does not properly implement the interface." % (entry.name, entry.module_name), exception=e)
+            except interface.TaskValidationException as e:
+                raise InvalidTaskException("Samples from Task '%s:%s' are not valid." % (entry.name, entry.module_name), exception=e)
+            except ImportError:
+                raise InvalidTaskException("Unable to load Task '%s:%s'." % (entry.name, entry.module_name))
 
 def load_dispatchers(entry_point):
     """
@@ -143,9 +143,9 @@ def load_dispatchers(entry_point):
     return dispatchers
 
 def submit(job_id, tasks):
-    ancestors = model.helper.ancestors(job_id, lockmode='update')
+    job = model.session.query(model.Job).filter_by(id = job_id).one()
     
-    job = ancestors.pop(0)
+    ancestors = job.ancestors(lockmode='update')[1:]
     
     if job.status not in [
         constants.JobStatus.STASHED,
@@ -184,6 +184,9 @@ def remove(job_id):
     ]:
         raise InvalidStatusException("This job cannot be removed in its current status.")
     
+    if job.parents or job.children:
+        raise InvalidStatusException("Cannot remove a linked job.")
+    
     job.remove()
 
 def reset(job_id):
@@ -205,9 +208,9 @@ def reset(job_id):
     job.status = constants.JobStatus.STASHED
 
 def cancel(job_id):
-    ancestors = model.helper.ancestors(job_id, lockmode='update')
+    job = model.session.query(model.Job).filter_by(id = job_id).one()
     
-    job = ancestors.pop(0)
+    ancestors = job.ancestors(lockmode='update')[1:]
     
     if job.status not in [
         constants.JobStatus.QUEUED,
