@@ -79,4 +79,6 @@ class Sum(interface.Task):
         }
         
     def epilog(self, tasks, out):
-        return out[0]
+        return {
+            'output' : out[0],
+        }

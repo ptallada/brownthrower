@@ -161,7 +161,11 @@ class SerialDispatcher(interface.Dispatcher):
             'output' : <output>
         }
         """
-        out = [subjob.output for subjob in job.subjobs]
+        leaf_subjobs = model.session.query(model.Job).filter(
+            model.Job.superjob == job,
+            ~model.Job.children.any(), #@UndefinedVariable
+        ).all()
+        out = [yaml.safe_load(subjob.output) for subjob in leaf_subjobs]
         epilog = tasks[job.task](config = yaml.safe_load(job.config)).epilog(tasks=tasks, out=out)
         
         children = {}
@@ -231,13 +235,11 @@ class SerialDispatcher(interface.Dispatcher):
                         else:
                             log.info("Executing epilog of job %d." % job.id)
                             
-                            children, out = self._run_epilog(job, self._tasks)
-                            # epilog =
-                            # epilog.get('children')
+                            (children, out) = self._run_epilog(job, self._tasks)
                             
                             with self._locked(job):
                                 if children:
-                                    job.children.append(children)
+                                    job.children.append(children.itervalues())
                                 
                                 job.output = yaml.dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
