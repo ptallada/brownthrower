@@ -10,5 +10,3 @@ class JobStatus(object):
     DONE        = 'DONE'        # The job has finished successfully.
     FAILING     = 'FAILING'     # The job is still being processed and some inner job has failed.
     FAILED      = 'FAILED'      # The job did not finish succesfully.
-    PROLOG_FAIL = 'PROLOG_FAIL' # The prolog has failed to finish successfully.
-    EPILOG_FAIL = 'EPILOG_FAIL' # The epilog has failed to finish successfully.

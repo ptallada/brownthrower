@@ -137,10 +137,45 @@ def load_dispatchers(entry_point):
         except (AttributeError, AssertionError) as e:
             log.warning("Skipping Dispatcher '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
             log.debug("Dispatcher '%s:%s': %s" % (entry.name, entry.module_name, e))
-        except ImportError:
+        except ImportError as e:
             log.warning("Skipping Dispatcher '%s:%s': unable to load." % (entry.name, entry.module_name))
     
     return dispatchers
+
+def create(name, tasks):
+    task = tasks[name]
+    
+    job =  model.Job(
+        task   = name,
+        config = get_config_sample(task),
+        status = constants.JobStatus.STASHED
+    )
+    
+    model.session.add(job)
+    model.session.flush()
+    
+    return job.id
+
+def link(parent_id, child_id):
+    parent = model.session.query(model.Job).filter_by(
+        id = parent_id,
+    ).with_lockmode('read').one()
+    
+    child = model.session.query(model.Job).filter_by(
+        id     = child_id,
+    ).with_lockmode('read').one()
+    
+    if child.status != constants.JobStatus.STASHED:
+        raise InvalidStatusException("The child job must be in the stash.")
+        
+    if parent.super_id or child.super_id:
+        raise InvalidStatusException("A parent-child dependency can only be manually established between top-level jobs.")
+        
+    dependency = model.JobDependency(
+        child_job_id  = child.id,
+        parent_job_id = parent.id
+    )
+    model.session.add(dependency)
 
 def submit(job_id, tasks):
     job = model.session.query(model.Job).filter_by(id = job_id).one()
@@ -151,8 +186,6 @@ def submit(job_id, tasks):
         constants.JobStatus.STASHED,
         constants.JobStatus.CANCELLED,
         constants.JobStatus.FAILED,
-        constants.JobStatus.PROLOG_FAIL,
-        constants.JobStatus.EPILOG_FAIL,
     ]:
         raise InvalidStatusException("This job cannot be submitted in its current status.")
     
@@ -180,7 +213,6 @@ def remove(job_id):
         constants.JobStatus.STASHED,
         constants.JobStatus.CANCELLED,
         constants.JobStatus.FAILED,
-        constants.JobStatus.PROLOG_FAIL,
     ]:
         raise InvalidStatusException("This job cannot be removed in its current status.")
     

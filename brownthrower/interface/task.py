@@ -29,14 +29,14 @@ class Task(object):
     
     If the 'prolog' method returns a set of subjobs, this Task will enter the
     PROCESSING state. When all its subjobs have finished successfully, its
-    'epilog' method will be called to generate the final output or a new set of
-    child jobs.
+    'epilog' method will be called to generate the final output and, optionally,
+    a new set of child jobs.
     
-    If the 'prolog' is not implemented or it returns None, this Task will enter
-    the PROCESSING state and its 'run' method will be called. The output of this
-    Task will be the output of the 'run' method. Please, note that if the
-    'prolog' method is not implemented of it returns None, the 'epilog' method
-    will not be called.
+    If the 'prolog' is not implemented or it does not return any subjob, this
+    Task will enter the PROCESSING state and its 'run' method will be called.
+    The output of this Task will be the output of the 'run' method. Please, note
+    that if the 'prolog' method is not implemented of it does not return any
+    subjob, the 'epilog' method will not be called.
     
     The doctring of every Task class is used as the internal help for the
     manager interface. The first line MUST be a short description of the Task.
@@ -62,18 +62,41 @@ class Task(object):
         safely assume that the 'inp' parameter has been checked previously and
         that it is valid.
         
-        Return a list of tuples. Each one of this tuples contains two Task
-        instances '(parent_task, child_task)' and represents the parent-child
-        dependency between them. Initial tasks, which do not have any parent,
-        MUST have its input instead of a parent. Do not implement this method or
-        return None if this Task shall not have any subjobs.
+        Return a mapping with the following structure, or None if no subjobs are
+        required:
+        
+            {
+                'subjobs' : {
+                    Task_A(config) : task_a_name,
+                    Task_B(config) : task_b_name,
+                    Task_B(config) : task_c_name,
+                },
+                'input' : {
+                    task_M : <input>,
+                    task_N : <input>,
+                }
+                'links' : [
+                    ( task_X, task_Y ),
+                ]
+            }
+        
+        The 'subjobs' entry is a mapping, with each key being a Task instance
+        with its associated config, and the value is the name of that Task.
+        
+        The 'input' entry is also a mapping, indexed by any of the keys present
+        in the 'subjobs' dictionary, and its value is the input of that Task.
+        
+        Finally, the 'links' entry contains a list of tuples. Each tuple
+        contains two Task instances (which must be present in the 'subjobs'
+        mapping) representing the parent and the child sides, respectively, of a
+        parent-child dependency.
         
         @param tasks: mapping with all the registered Tasks available
         @type tasks: dict
-        @param inp:  mapping with the output of the parent chains
+        @param inp:  list with the output of the parent jobs
         @type inp: dict
-        @return: a list of tuples representing the dependency between Tasks
-        @rtype: list
+        @return: a mapping representing the structure of the subjobs
+        @rtype: mapping
         """
         raise NotImplementedError
     
@@ -83,24 +106,36 @@ class Task(object):
         called, it can safely assume that the 'config' and 'out' parameters have
         been checked previously and that they are both valid.
         
-        Return a list of tuples, analogous as the 'prolog' method, that can be
-        used to create a new set of child jobs which shall execute after this
-        one. Each one of this tuples contains two Task instances '(parent_task,
-        child_task)' and represents the parent-child dependency between them.
-        Initial tasks, which do not have any parent, MUST have its input instead
-        of a parent.
+        Return a mapping with the following structure:
         
-        In any case, the final output of this Task MUST be given with a pair
-        '(output, None)'. If more than one tuple has None as its second element,
-        the true value of the final ouput is unclear and an error will be
-        raised.
+            {
+                'children' : {
+                    Task_A(config) : task_a_name,
+                    Task_B(config) : task_b_name,
+                    Task_B(config) : task_c_name,
+                },
+                'links' : [
+                    ( task_X, task_Y ),
+                ]
+                'output' : <output>
+            }
+        
+        The 'children' entry is a mapping, with each key being a Task instance
+        with its associated config, and the value is the name of that Task.
+        
+        The 'links' entry contains a list of tuples. Each tuple contains two
+        Task instances (which must be present in the 'children' mapping)
+        representing the parent and the child sides, respectively, of a parent-
+        child dependency.
+        
+        Finally, the 'output' entry contains the final output of this Job.
         
         @param config: mapping with the required configuration values
         @type config: dict
         @param out:  mapping with the output of the leaf Jobs
         @type out: dict
-        @return: a list of tuples representing the dependency between Tasks
-        @rtype: list
+        @return: a mapping with the output and the structure of the child jobs
+        @rtype: dict
         """
         raise NotImplementedError
     

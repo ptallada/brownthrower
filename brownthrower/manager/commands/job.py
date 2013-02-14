@@ -40,28 +40,20 @@ class JobCreate(Command):
         if len(items) != 1:
             return self.help(items)
         
-        task = self._tasks.get(items[0])
-        if not task:
-            error("The task '%s' is not currently available in this environment." % items[0])
-            return
-        
         try:
-            job = model.Job(
-                task   = items[0],
-                config = api.get_config_sample(task),
-                status = constants.JobStatus.STASHED
-            )
-            model.session.add(job)
-            model.session.flush()
-            # Prefetch job.id
-            job_id = job.id
-            
+            job_id = api.create(items[0], self._tasks)
             model.session.commit()
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
-        except model.StatementError as e:
-            error("The job could not be created.")
-            log.debug(e)
+        except BaseException as e:
+            try:
+                raise
+            except KeyError:
+                error("Task '%s' is not available in this environment" % items[0])
+            except model.StatementError as e:
+                error("The job could not be created.")
+            finally:
+                log.debug(e)
         finally:
             model.session.rollback()
 
@@ -299,34 +291,15 @@ class JobLink(Command):
             return self.help(items)
         
         try:
-            parent = model.session.query(model.Job).filter_by(
-                id = items[0],
-            ).with_lockmode('read').one()
-            
-            child = model.session.query(model.Job).filter_by(
-                id     = items[1],
-            ).with_lockmode('read').one()
-            
-            if child.status != constants.JobStatus.STASHED:
-                error("The child job must be in the stash.")
-                return
-            
-            if parent.super_id or child.super_id:
-                error("A parent-child dependency can only be manually established between top-level jobs.")
-                return
-            
-            dependency = model.JobDependency(
-                child_job_id  = child.id,
-                parent_job_id = parent.id
-            )
-            model.session.add(dependency)
+            api.link(items[0], items[1])
             model.session.commit()
-            
             success("The parent-child dependency has been successfully established.")
             
         except BaseException as e:
             try:
                 raise
+            except api.InvalidStatusException as e:
+                error(e.message)
             except model.NoResultFound:
                 error("One of the specified jobs does not exist.")
             except model.StatementError as e:

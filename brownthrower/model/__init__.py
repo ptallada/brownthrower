@@ -101,25 +101,42 @@ class Job(Base):
         
         substatus = set([subjob.status for subjob in self.subjobs])
         
-        if constants.JobStatus.FAILING in substatus:
-            self.status = constants.JobStatus.FAILING
+        if set([constants.JobStatus.DONE]) >= substatus:
+            # Need to run the epilog
+            self.status = constants.JobStatus.QUEUED
+        
         elif set([
-            constants.JobStatus.FAILED,
-            constants.JobStatus.PROLOG_FAIL,
-            constants.JobStatus.EPILOG_FAIL,
-        ]) & substatus:
-            self.status = constants.JobStatus.FAILED
-        elif set([
-            constants.JobStatus.QUEUED,
-            constants.JobStatus.PROCESSING,
-        ]) & substatus:
-            self.status = constants.JobStatus.PROCESSING
-        elif constants.JobStatus.CANCELLING in substatus:
-            self.status = constants.JobStatus.CANCELLING
-        elif constants.JobStatus.CANCELLED in substatus:
+            constants.JobStatus.DONE,
+            constants.JobStatus.CANCELLED,
+        ]) >= substatus:
             self.status = constants.JobStatus.CANCELLED
-        elif constants.JobStatus.DONE in substatus:
-            self.status = constants.JobStatus.DONE
+        
+        elif set([
+            constants.JobStatus.DONE,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.FAILED,
+        ]) >= substatus:
+            self.status = constants.JobStatus.FAILED
+        
+        elif set([
+            constants.JobStatus.DONE,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.FAILED,
+            constants.JobStatus.CANCELLING,
+        ]) >= substatus:
+            self.status = constants.JobStatus.CANCELLING
+        
+        elif set([
+            constants.JobStatus.DONE,
+            constants.JobStatus.CANCELLED,
+            constants.JobStatus.CANCELLING,
+            constants.JobStatus.PROCESSING,
+            constants.JobStatus.QUEUED,
+        ]) >= substatus:
+            self.status = constants.JobStatus.PROCESSING
+        
+        else:
+            self.status = constants.JobStatus.FAILING
     
     def submit(self):
         if self.subjobs:
@@ -130,8 +147,6 @@ class Job(Base):
             constants.JobStatus.STASHED,
             constants.JobStatus.FAILED,
             constants.JobStatus.CANCELLED,
-            constants.JobStatus.PROLOG_FAIL,
-            constants.JobStatus.EPILOG_FAIL,
         ]:
             self.status = constants.JobStatus.QUEUED
     
@@ -144,7 +159,6 @@ class Job(Base):
             constants.JobStatus.STASHED,
             constants.JobStatus.FAILED,
             constants.JobStatus.CANCELLED,
-            constants.JobStatus.PROLOG_FAIL,
         ]:
             session.delete(self)
     
