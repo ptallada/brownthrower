@@ -14,7 +14,7 @@ class Noop(interface.Task):
     config_schema = """\
     {
         "type"     : "null",
-        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
         "required" : true
     }
     """
@@ -22,7 +22,7 @@ class Noop(interface.Task):
     input_schema = """\
     {
         "type"     : "any",
-        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
         "required" : true
     }
     """
@@ -30,7 +30,7 @@ class Noop(interface.Task):
     output_schema = """\
     {
         "type"     : "any",
-        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
         "required" : true
     }
     """

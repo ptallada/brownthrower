@@ -14,7 +14,7 @@ class Sum(interface.Task):
     config_schema = """\
     {
         "type"     : "null",
-        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
         "required" : true
     }
     """
@@ -22,7 +22,7 @@ class Sum(interface.Task):
     input_schema = """\
     {
         "type"     : "array",
-        "$schema"  : "http://json-schema.org/draft-03/schema",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
         "required" : true,
         "minItems" : 4,
         "maxItems" : 4,
@@ -35,9 +35,9 @@ class Sum(interface.Task):
     
     output_schema = """\
     {
-        "type"                 : "integer",
-        "$schema"              : "http://json-schema.org/draft-03/schema",
-        "required"             : true
+        "type"     : "integer",
+        "$schema"  : "http://json-schema.org/draft-03/schema#",
+        "required" : true
     }
     """
     
