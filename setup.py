@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#import os
+import os
 from setuptools import setup, find_packages
 
 # Read README file for the long description
-#here = os.path.abspath(os.path.dirname(__file__))
+here = os.path.abspath(os.path.dirname(__file__))
 #README = open(os.path.join(here, 'README')).read()
+
+# Read the version information
+execfile(os.path.join(here, 'brownthrower', 'version.py'))
 
 setup(
     name = 'brownthrower',
-    version = '0.1dev',
+    version = __version__, # @UndefinedVariable
     packages = find_packages(),
     
     install_requires = [

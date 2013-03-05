@@ -8,8 +8,10 @@ from brownthrower.interface import constants
 from sqlalchemy import event, literal_column
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, object_session, scoped_session, joinedload, subqueryload
+from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound, ObjectDeletedError
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
@@ -28,7 +30,7 @@ class Job(Base):
         # Unique key
         UniqueConstraint('super_id', 'id'),
         # Foreign keys
-        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id'], ['Job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
@@ -41,18 +43,23 @@ class Job(Base):
     output     = Column(Text,       nullable=True)
     
     # Relationships
-    parents  = relationship('Job', back_populates = 'children', secondary = 'job_dependency',
-                                   primaryjoin    = 'JobDependency.child_job_id == Job.id',
-                                   secondaryjoin  = 'Job.id == JobDependency.parent_job_id')
-    children = relationship('Job', back_populates = 'parents',  secondary = 'job_dependency',
-                                   primaryjoin    = 'JobDependency.parent_job_id == Job.id',
-                                   secondaryjoin  = 'Job.id == JobDependency.child_job_id')
+    parents  = relationship('Job', back_populates = 'children', secondary = 'Dependency',
+                                   primaryjoin    = 'Dependency.child_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == Dependency.parent_job_id')
+    children = relationship('Job', back_populates = 'parents',  secondary = 'Dependency',
+                                   primaryjoin    = 'Dependency.parent_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == Dependency.child_job_id')
     superjob = relationship('Job', back_populates = 'subjobs',
                                    primaryjoin    = 'Job.super_id == Job.id',
                                    remote_side    = 'Job.id')
     subjobs  = relationship('Job', back_populates = 'superjob',
                                    primaryjoin    = 'Job.super_id == Job.id',
-                                   cascade        = 'all', passive_deletes = True)
+                                   cascade        = 'all, delete-orphan', passive_deletes = True)
+    _tag     = relationship('Tag', back_populates = 'job', collection_class=attribute_mapped_collection('tag'),
+                                   cascade        = 'all, delete-orphan', passive_deletes = True)
+    
+    # Proxies
+    tag = association_proxy('_tag', 'value', creator=lambda tag, value: Tag(tag=tag, value=value))
     
     def ancestors(self, lockmode=False):
         cls = self.__class__
@@ -183,15 +190,15 @@ class Job(Base):
     
 
 class JobDependency(Base):
-    __tablename__ = 'job_dependency'
+    __tablename__ = 'dependency'
     __table_args__ = (
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['parent_job_id'],                 ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['child_job_id'],                  ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['Job.super_id', 'Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['Job.super_id', 'Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
@@ -205,6 +212,31 @@ class JobDependency(Base):
             repr(self.super_id),
             repr(self.parent_job_id),
             repr(self.child_job_id),
+        )
+
+class Tag(Base):
+    __tablename__ = 'tag'
+    __table_args__ = (
+        # Primary key
+        PrimaryKeyConstraint('job_id', 'tag'),
+        # Foreign keys
+        ForeignKeyConstraint(['job_id'], ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+    )
+    
+    # Columns
+    job_id = Column(Integer,    nullable=False)
+    tag    = Column(String(20), nullable=False)
+    value  = Column(Text,       nullable=True)
+    
+    # Relationships
+    job = relationship('Job', back_populates = '_tags')
+    
+    def __repr__(self):
+        return u"%s(job_id=%s, tag=%s, value=%s)" % (
+            self.__class__.__name__,
+            repr(self.job_id),
+            repr(self.tag),
+            repr(self.value),
         )
 
 def _sqlite_begin(conn):

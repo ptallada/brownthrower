@@ -82,8 +82,6 @@ class Manager(cmd.Cmd):
         usage: <command> [options]
         
         Available commands:
-            chain         show information about the available chains
-            cluster       create, configure, submit and remove clusters
             dispatcher    show information about the available dispatchers
             job           create, configure, submit and remove jobs
             quit          exit this program
@@ -132,15 +130,15 @@ def main():
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
     
-    from pysrc import pydevd
-    pydevd.settrace(suspend=False)
+    #from pysrc import pydevd
+    #pydevd.settrace(suspend=False)
     
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
     #model.init(_CONFIG['database.url'])
     model.init('sqlite:////tmp/manager.db')
-    model.Base.metadata.create_all()
+    model.Base.metadata.create_all() #@UndefinedVariable
     
     manager = Manager()
     manager.cmdloop()
