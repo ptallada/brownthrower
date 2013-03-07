@@ -44,16 +44,16 @@ class Job(Base):
     
     # Relationships
     parents  = relationship('Job', back_populates = 'children', secondary = 'dependency',
-                                   primaryjoin    = 'dependency.child_job_id == job.id',
-                                   secondaryjoin  = 'job.id == dependency.parent_job_id')
+                                   primaryjoin    = 'Dependency.child_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == Dependency.parent_job_id')
     children = relationship('Job', back_populates = 'parents',  secondary = 'dependency',
-                                   primaryjoin    = 'dependency.parent_job_id == job.id',
-                                   secondaryjoin  = 'job.id == dependency.child_job_id')
+                                   primaryjoin    = 'Dependency.parent_job_id == Job.id',
+                                   secondaryjoin  = 'Job.id == Dependency.child_job_id')
     superjob = relationship('Job', back_populates = 'subjobs',
-                                   primaryjoin    = 'job.super_id == job.id',
-                                   remote_side    = 'job.id')
+                                   primaryjoin    = 'Job.super_id == Job.id',
+                                   remote_side    = 'Job.id')
     subjobs  = relationship('Job', back_populates = 'superjob',
-                                   primaryjoin    = 'job.super_id == job.id',
+                                   primaryjoin    = 'Job.super_id == Job.id',
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
     _tag     = relationship('Tag', back_populates = 'job', collection_class=attribute_mapped_collection('tag'),
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
@@ -189,7 +189,7 @@ class Job(Base):
         )
     
 
-class JobDependency(Base):
+class Dependency(Base):
     __tablename__ = 'dependency'
     __table_args__ = (
         # Primary key
@@ -229,7 +229,7 @@ class Tag(Base):
     value  = Column(Text,       nullable=True)
     
     # Relationships
-    job = relationship('Job', back_populates = '_tags')
+    job = relationship('Job', back_populates = '_tag')
     
     def __repr__(self):
         return u"%s(job_id=%s, tag=%s, value=%s)" % (
