@@ -30,7 +30,7 @@ class Job(Base):
         # Unique key
         UniqueConstraint('super_id', 'id'),
         # Foreign keys
-        ForeignKeyConstraint(['super_id'], ['Job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
     )
     
     # Columns
@@ -43,17 +43,17 @@ class Job(Base):
     output     = Column(Text,       nullable=True)
     
     # Relationships
-    parents  = relationship('Job', back_populates = 'children', secondary = 'Dependency',
-                                   primaryjoin    = 'Dependency.child_job_id == Job.id',
-                                   secondaryjoin  = 'Job.id == Dependency.parent_job_id')
-    children = relationship('Job', back_populates = 'parents',  secondary = 'Dependency',
-                                   primaryjoin    = 'Dependency.parent_job_id == Job.id',
-                                   secondaryjoin  = 'Job.id == Dependency.child_job_id')
+    parents  = relationship('Job', back_populates = 'children', secondary = 'dependency',
+                                   primaryjoin    = 'dependency.child_job_id == job.id',
+                                   secondaryjoin  = 'job.id == dependency.parent_job_id')
+    children = relationship('Job', back_populates = 'parents',  secondary = 'dependency',
+                                   primaryjoin    = 'dependency.parent_job_id == job.id',
+                                   secondaryjoin  = 'job.id == dependency.child_job_id')
     superjob = relationship('Job', back_populates = 'subjobs',
-                                   primaryjoin    = 'Job.super_id == Job.id',
-                                   remote_side    = 'Job.id')
+                                   primaryjoin    = 'job.super_id == job.id',
+                                   remote_side    = 'job.id')
     subjobs  = relationship('Job', back_populates = 'superjob',
-                                   primaryjoin    = 'Job.super_id == Job.id',
+                                   primaryjoin    = 'job.super_id == job.id',
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
     _tag     = relationship('Tag', back_populates = 'job', collection_class=attribute_mapped_collection('tag'),
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
@@ -195,10 +195,10 @@ class JobDependency(Base):
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
         # Foreign keys
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['Job.super_id', 'Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['Job.super_id', 'Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
@@ -220,7 +220,7 @@ class Tag(Base):
         # Primary key
         PrimaryKeyConstraint('job_id', 'tag'),
         # Foreign keys
-        ForeignKeyConstraint(['job_id'], ['Job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
