@@ -7,7 +7,7 @@ class Noop(interface.Task):
     """\
     No-operation Task. Pipe the input as the output.
     
-    This Task allows Chains to provide additional input to Tasks that already
+    This task allows jobs to provide additional input to other jobs that already
     have some parents defined. Returns the input as the output.
     """
     

@@ -14,7 +14,6 @@ from brownthrower import model
 # TODO: read and create a global or local configuration file
 _CONFIG = {
     'entry_points.dispatcher' : 'brownthrower.dispatcher',
-    'entry_points.chain'      : 'brownthrower.chain',
     'entry_points.task'       : 'brownthrower.task',
     'manager.editor'          : 'nano',
     'manager.viewer'          : 'less',
@@ -30,7 +29,6 @@ class Manager(cmd.Cmd):
         cmd.Cmd.__init__(self, *args, **kwargs)
         
         self._dispatchers = {}
-        self._chains      = {}
         self._subcmds     = {}
         self._tasks       = {}
         

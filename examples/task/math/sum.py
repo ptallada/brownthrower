@@ -7,8 +7,8 @@ class Sum(interface.Task):
     """\
     Calculate the sum of the input.
     
-    Return the sum of all the inputs. This Chain generates its output building
-    a chain of 'add' Tasks.
+    Return the sum of all the inputs. This Job generates its output building
+    a set of of 'add' subjobs.
     """
     
     config_schema = """\

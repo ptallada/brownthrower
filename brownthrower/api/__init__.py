@@ -171,7 +171,7 @@ def link(parent_id, child_id):
     if parent.super_id or child.super_id:
         raise InvalidStatusException("A parent-child dependency can only be manually established between top-level jobs.")
         
-    dependency = model.JobDependency(
+    dependency = model.Dependency(
         child_job_id  = child.id,
         parent_job_id = parent.id
     )

@@ -342,7 +342,7 @@ class JobUnlink(Command):
                 error("A parent-child dependency can only be manually removed between top-level jobs.")
                 return
             
-            deleted = model.session.query(model.JobDependency).filter_by(
+            deleted = model.session.query(model.Dependency).filter_by(
                 parent_job_id = parent.id,
                 child_job_id  = child.id
             ).delete(synchronize_session=False)
