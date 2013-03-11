@@ -12,6 +12,9 @@ def warn(msg):
 def success(msg):
     termcolor.cprint("SUCCESS: %s" % msg, color='green')
 
+def strong(msg):
+    return termcolor.colored(msg, attrs=['bold'])
+
 class Command(object):
     
     def __init__(self, *args, **kwargs):

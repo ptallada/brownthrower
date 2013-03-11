@@ -9,7 +9,7 @@ import textwrap
 
 log = logging.getLogger('brownthrower.manager')
 
-from base import Command, error, warn, success
+from base import Command, error, warn, success, strong
 from brownthrower import api
 from brownthrower import interface
 from brownthrower import model
@@ -139,6 +139,7 @@ class JobShow(Command):
             for child in job.children:
                 table.add_row(['CHILD', child.id, child.super_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
             
+            print strong("PARENT/CHILD JOBS:")
             print table
             
             table.clear_rows()
@@ -150,6 +151,7 @@ class JobShow(Command):
             
             model.session.commit()
             
+            print strong("SUPER/SUB JOBS:")
             print table
         
         except model.StatementError as e:
