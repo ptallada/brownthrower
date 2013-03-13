@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
-<svg width="44cm" height="17cm" viewBox="140 178 880 322" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="44cm" height="18cm" viewBox="140 140 880 360" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g>
+    <rect style="fill: #bfbfff" x="580" y="140" width="220" height="120"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="580" y="140" width="220" height="120"/>
+  </g>
   <g>
     <rect style="fill: #ffc0c0" x="140" y="240" width="220" height="260"/>
     <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #ffc0c0" x="140" y="240" width="220" height="260"/>
@@ -9,8 +13,8 @@
     <tspan x="160" y="272.6">NO SUPERJOB</tspan>
   </text>
   <g>
-    <rect style="fill: #bfbfff" x="360" y="360" width="660" height="140"/>
-    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="360" y="360" width="660" height="140"/>
+    <rect style="fill: #bfbfff" x="580" y="360" width="440" height="140"/>
+    <rect style="fill: none; fill-opacity:0; stroke-width: 2.35099e-37; stroke: #bfbfff" x="580" y="360" width="440" height="140"/>
   </g>
   <g>
     <rect style="fill: #ffffff" x="400" y="180" width="140" height="40"/>

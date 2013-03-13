@@ -8,8 +8,7 @@ import pkg_resources
 import textwrap
 import yaml
 
-from brownthrower import interface
-from brownthrower import model
+from brownthrower import interface, model
 from brownthrower.interface import constants
 
 log = logging.getLogger('brownthrower.api')
@@ -146,9 +145,9 @@ def create(name, tasks):
     task = tasks[name]
     
     job =  model.Job(
-        task   = name,
-        config = get_config_sample(task),
-        status = constants.JobStatus.STASHED
+        task    = name,
+        config  = get_config_sample(task),
+        status  = constants.JobStatus.STASHED
     )
     
     model.session.add(job)
@@ -237,7 +236,10 @@ def reset(job_id):
     ]:
         raise InvalidStatusException("This job cannot be returned to the stash in its current status.")
     
-    job.status = constants.JobStatus.STASHED
+    job.status     = constants.JobStatus.STASHED
+    job.ts_queued  = None
+    job.ts_started = None
+    job.ts_ended   = None
 
 def cancel(job_id):
     job = model.session.query(model.Job).filter_by(id = job_id).one()

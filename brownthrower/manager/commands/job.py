@@ -42,7 +42,7 @@ class JobCreate(Command):
         
         try:
             job_id = api.create(items[0], self._tasks)
-            model.session.commit()
+            model.session.commit() #
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
         except BaseException as e:

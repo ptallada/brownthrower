@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
 import logging
 import yaml
 
@@ -19,6 +20,7 @@ _CONFIG = {
 
 log = logging.getLogger('brownthrower.dispatcher.serial')
 
+# TODO: use created, queued, started and finished dates.
 class SerialDispatcher(interface.Dispatcher):
     """\
     Basic serial dispatcher for testing and development.
@@ -205,6 +207,7 @@ class SerialDispatcher(interface.Dispatcher):
                         task = self._validate_task(job)
                         
                         job.status = constants.JobStatus.PROCESSING
+                        job.ts_started = datetime.datetime.now()
                         
                         for ancestor in ancestors:
                             ancestor.update_status()
@@ -231,6 +234,7 @@ class SerialDispatcher(interface.Dispatcher):
                                 job.output = yaml.safe_dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
                                 job.status = constants.JobStatus.DONE
+                                job.ts_ended = datetime.datetime.now()
                             
                         else:
                             log.info("Executing epilog of job %d." % job.id)
@@ -244,6 +248,7 @@ class SerialDispatcher(interface.Dispatcher):
                                 job.output = yaml.dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
                                 job.status = constants.JobStatus.DONE
+                                job.ts_ended = datetime.datetime.now()
                 
                 except BaseException as e:
                     try:
@@ -262,7 +267,9 @@ class SerialDispatcher(interface.Dispatcher):
                         
                         for ancestor in ancestors:
                             ancestor.update_status()
-                            
+                        
+                        job.ts_ended = datetime.datetime.now()
+                        
                         log.error("Execution of job %d ended with status '%s'." % (job.id, job.status))
                         log.debug(e)
                 

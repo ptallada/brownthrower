@@ -134,8 +134,9 @@ def main():
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    #model.init(_CONFIG['database.url'])
-    model.init('sqlite:////tmp/manager.db')
+    url = _CONFIG['database.url']
+    #url = 'sqlite:////tmp/manager.db'
+    model.init(url)
     model.Base.metadata.create_all() #@UndefinedVariable
     
     manager = Manager()

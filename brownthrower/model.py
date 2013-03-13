@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sqlalchemy
-
 from brownthrower.interface import constants
-
-from sqlalchemy import event, literal_column
+from sqlalchemy import event, literal_column, orm
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.exc import IntegrityError, StatementError # @UnusedImport
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, object_session, scoped_session, joinedload, subqueryload
+from sqlalchemy.orm import relationship, scoped_session, session, joinedload # @UnusedImport
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound, ObjectDeletedError
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound, ObjectDeletedError # @UnusedImport
+from sqlalchemy.orm.session import object_session, sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
-from sqlalchemy.types import Integer, String, Text
+from sqlalchemy.sql import functions
+from sqlalchemy.types import DateTime, Integer, String, Text
 from sqlalchemy.engine import create_engine
+import datetime
 
-session = None
+session = orm.session.Session()
 
 Base = declarative_base()
 
@@ -41,6 +41,10 @@ class Job(Base):
     config     = Column(Text,       nullable=True)
     input      = Column(Text,       nullable=True)
     output     = Column(Text,       nullable=True)
+    ts_created = Column(DateTime,   nullable=False, default=functions.now())
+    ts_queued  = Column(DateTime,   nullable=True)
+    ts_started = Column(DateTime,   nullable=True)
+    ts_ended   = Column(DateTime,   nullable=True)
     
     # Relationships
     parents  = relationship('Job', back_populates = 'children', secondary = 'dependency',
@@ -55,11 +59,11 @@ class Job(Base):
     subjobs  = relationship('Job', back_populates = 'superjob',
                                    primaryjoin    = 'Job.super_id == Job.id',
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
-    _tag     = relationship('Tag', back_populates = 'job', collection_class=attribute_mapped_collection('tag'),
+    tags     = relationship('Tag', back_populates = 'job', collection_class=attribute_mapped_collection('name'),
                                    cascade        = 'all, delete-orphan', passive_deletes = True)
     
     # Proxies
-    tag = association_proxy('_tag', 'value', creator=lambda tag, value: Tag(tag=tag, value=value))
+    tag = association_proxy('tags', 'value', creator=lambda name, value: Tag(name=name, value=value))
     
     def ancestors(self, lockmode=False):
         cls = self.__class__
@@ -155,9 +159,11 @@ class Job(Base):
             constants.JobStatus.FAILED,
             constants.JobStatus.CANCELLED,
         ]:
-            self.status = constants.JobStatus.QUEUED
+            self.status  = constants.JobStatus.QUEUED
+            self.ts_queued  = datetime.datetime.now()
     
     def remove(self):
+        session = object_session(self)
         if self.subjobs:
             for subjob in self.subjobs:
                 subjob.remove()
@@ -175,9 +181,10 @@ class Job(Base):
                 subjob.cancel()
             self.update_status()
         elif self.status == constants.JobStatus.QUEUED:
-            self.status = constants.JobStatus.CANCELLED
+            self.status   = constants.JobStatus.CANCELLED
+            self.ts_ended = datetime.datetime.now()
         elif self.status == constants.JobStatus.PROCESSING:
-            self.status = constants.JobStatus.CANCELLING
+            self.status   = constants.JobStatus.CANCELLING
     
     def __repr__(self):
         return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
@@ -218,34 +225,35 @@ class Tag(Base):
     __tablename__ = 'tag'
     __table_args__ = (
         # Primary key
-        PrimaryKeyConstraint('job_id', 'tag'),
+        PrimaryKeyConstraint('job_id', 'name'),
         # Foreign keys
         ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
     )
     
     # Columns
     job_id = Column(Integer,    nullable=False)
-    tag    = Column(String(20), nullable=False)
+    name   = Column(String(20), nullable=False)
     value  = Column(Text,       nullable=True)
     
     # Relationships
-    job = relationship('Job', back_populates = '_tag')
+    job = relationship('Job', back_populates = 'tags')
     
     def __repr__(self):
-        return u"%s(job_id=%s, tag=%s, value=%s)" % (
+        return u"%s(job_id=%s, name=%s, value=%s)" % (
             self.__class__.__name__,
             repr(self.job_id),
-            repr(self.tag),
+            repr(self.name),
             repr(self.value),
         )
-
+        
+@event.listens_for(Engine, "begin")
 def _sqlite_begin(conn):
-    # Foreign keys are NOT enabled by default... WTF!
-    conn.execute("PRAGMA foreign_keys = ON")
-    # Force a single active transaction on a sqlite database.
-    # This is needed to emulate FOR UPDATE locks :(
-    conn.execute("BEGIN EXCLUSIVE")
-    
+    if conn.engine.name == 'sqlite':
+        # Foreign keys are NOT enabled by default... WTF!
+        conn.execute("PRAGMA foreign_keys = ON")
+        # Force a single active transaction on a sqlite database.
+        # This is needed to emulate FOR UPDATE locks :(
+        conn.execute("BEGIN EXCLUSIVE")
 
 def init(url):
     global session
@@ -257,11 +265,6 @@ def init(url):
         engine = create_engine(url, connect_args={'isolation_level':None})
     else:
         engine = create_engine(url)
-    
-    if url.drivername == 'sqlite':
-        # As we have disabled the automatic transaction management, we must explicitly begin a transaction on connection open.
-        # Also, that fixes another bug, by which SELECT statements do not start a new transaction.
-        event.listen(engine, 'begin', _sqlite_begin)
     
     Base.metadata.bind = engine
     session = scoped_session(sessionmaker(bind=engine))()
