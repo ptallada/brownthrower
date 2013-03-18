@@ -11,6 +11,8 @@ class Sum(interface.Task):
     a set of of 'add' subjobs.
     """
     
+    name = 'math.sum'
+    
     config_schema = """\
     {
         "type"     : "null",

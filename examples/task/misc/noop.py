@@ -11,6 +11,8 @@ class Noop(interface.Task):
     have some parents defined. Returns the input as the output.
     """
     
+    name = 'misc.noop'
+    
     config_schema = """\
     {
         "type"     : "null",

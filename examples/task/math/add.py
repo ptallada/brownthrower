@@ -11,6 +11,8 @@ class Add(interface.Task):
     It does not require any configuration.
     """
     
+    name = 'math.add'
+    
     config_schema = """\
     {
         "type"     : "null",

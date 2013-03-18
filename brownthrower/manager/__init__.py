@@ -17,7 +17,7 @@ _CONFIG = {
     'entry_points.task'       : 'brownthrower.task',
     'manager.editor'          : 'nano',
     'manager.viewer'          : 'less',
-    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
+    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogues',
     'listing.limit'           : 50,
 }
 
@@ -42,9 +42,9 @@ class Manager(cmd.Cmd):
             while True:
                 try:
                     (name, module, task) = available_tasks.next()
-                    if task in self._tasks:
-                        log.warning("Skipping duplicate Task '%s:%s'." % (name, module))
-                    self._tasks[name] = task
+                    if task.name in self._tasks:
+                        log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, name, module))
+                    self._tasks[task.name] = task
                 
                 except api.InvalidTaskException as e:
                     log.warning(e.message)

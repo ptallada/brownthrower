@@ -24,13 +24,17 @@ class Task(object):
     Expected interface for the Task objects.
     
     This class represents the interface that the brownthrower framework expects
-    when dealing with Tasks. When the Task is executed, the 'prolog' method is
-    called to deploy the subjobs.
+    when dealing with Tasks.
     
-    If the 'prolog' method returns a set of subjobs, this Task will enter the
-    PROCESSING state. When all its subjobs have finished successfully, its
-    'epilog' method will be called to generate the final output and, optionally,
-    a new set of child jobs.
+    Each Task has a 'name' attribute which must return a globally unique
+    identifier for this task. All available tasks in a specific brownthrower
+    environment will have to be distinguished by this name.
+    
+    When the Task is executed, the 'prolog' method is called to deploy the
+    subjobs. If the 'prolog' method returns a set of subjobs, this Task will
+    enter the PROCESSING state. When all its subjobs have finished successfully,
+    its 'epilog' method will be called to generate the final output and,
+    optionally, a new set of child jobs.
     
     If the 'prolog' is not implemented or it does not return any subjob, this
     Task will enter the PROCESSING state and its 'run' method will be called.
@@ -44,6 +48,9 @@ class Task(object):
     parameters does it take, what are its configuration values and what kind of
     output it generates.
     """
+    
+    # Global unique identifying name for this task
+    name = "task.name"
     
     def __init__(self, config):
         """

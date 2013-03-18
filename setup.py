@@ -4,9 +4,10 @@
 import os
 from setuptools import setup, find_packages
 
-# Read README file for the long description
+# Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
-#README = open(os.path.join(here, 'README')).read()
+#README  = open(os.path.join(here, 'README.txt')).read()
+CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 # Read the version information
 execfile(os.path.join(here, 'brownthrower', 'version.py'))
@@ -20,18 +21,19 @@ setup(
         'Python >= 2.7',
         'PyYAML',
         'jsonschema',
-        'SQLAlchemy < 0.7.999',
+        'SQLAlchemy',
         'PrettyTable',
         'termcolor',
     ],
     
     #description = "",
-    #long_description = README,
+    #long_description = README + '\n\n' + CHANGES,
+    long_description = CHANGES,
     author = 'Pau Tallada Crespí',
     author_email = 'pau.tallada@gmail.com',
     maintainer = 'Pau Tallada Crespí',
     maintainer_email = 'pau.tallada@gmail.com',
-    #url = "http://packages.python.org/multivac",
+    url = "http://packages.python.org/brownthrower",
     
     #license = 'AGPLv3+',
     #keywords = "",
@@ -56,10 +58,10 @@ setup(
         ],
         'brownthrower.task': [
             # math
-            'math.add  = examples.task.math.add:Add',
-            'math.sum  = examples.task.math.sum:Sum',
+            'task01 = examples.task.math.add:Add',
+            'task02 = examples.task.math.sum:Sum',
             # misc
-            'misc.noop             = examples.task.misc.noop:Noop',
+            'task03 = examples.task.misc.noop:Noop',
             #'misc.hostname         = examples.task.misc.hostname:Hostname',
             #'misc.store_single_env = examples.task.misc.store_single_env:StoreSingleEnv',
         ],

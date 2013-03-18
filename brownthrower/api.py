@@ -86,6 +86,8 @@ def available_tasks(entry_point):
         try:
             task = entry.load()
             
+            assert isinstance(task.name,          basestring)
+            
             assert isinstance(task.config_schema, basestring)
             assert isinstance(task.input_schema,  basestring)
             assert isinstance(task.output_schema, basestring)
