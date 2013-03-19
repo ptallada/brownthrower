@@ -35,9 +35,9 @@ class Manager(cmd.Cmd):
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
     def load_tasks(self, entry_point):
-        
         available_tasks = api.available_tasks(entry_point)
         
+        # Moure a la API
         try:
             while True:
                 try:

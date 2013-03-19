@@ -43,9 +43,9 @@ class SerialDispatcher(interface.Dispatcher):
             while True:
                 try:
                     (name, module, task) = available_tasks.next()
-                    if task in self._tasks:
-                        log.warning("Skipping duplicate Task '%s:%s'." % (name, module))
-                    self._tasks[name] = task
+                    if task.name in self._tasks:
+                        log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, name, module))
+                    self._tasks[task.name] = task
                 
                 except api.InvalidTaskException as e:
                     log.warning(e.message)

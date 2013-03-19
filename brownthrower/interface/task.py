@@ -193,7 +193,10 @@ class Task(object):
     @property
     def config_sample(self):
         """
-        Return a working configuration sample.
+        Return a working configuration sample, that may be used as default.
+        
+        Users are expected to use these settings and only override those that do
+        not fit their needs.
         
         @return: A YAML string containing the requested sample
         @rtype: basestring

@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+
 from setuptools import setup, find_packages
 
 # Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
-#README  = open(os.path.join(here, 'README.txt')).read()
-CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
+README  = open(os.path.join(here, 'README.txt')).read()
 
 # Read the version information
 execfile(os.path.join(here, 'brownthrower', 'version.py'))
@@ -27,8 +27,7 @@ setup(
     ],
     
     #description = "",
-    #long_description = README + '\n\n' + CHANGES,
-    long_description = CHANGES,
+    long_description = README,
     author = 'Pau Tallada Crespí',
     author_email = 'pau.tallada@gmail.com',
     maintainer = 'Pau Tallada Crespí',
