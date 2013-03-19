@@ -8,11 +8,6 @@ from base import Command, error, warn
 from brownthrower import api
 
 class TaskList(Command):
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(TaskList, self).__init__(*args, **kwargs)
-        self._tasks = tasks
-    
     def help(self, items):
         print textwrap.dedent("""\
         usage: task list
@@ -27,23 +22,18 @@ class TaskList(Command):
         if len(items) > 0:
             return self.help(items)
         
-        if len(self._tasks) == 0:
+        if len(api.get_tasks()) == 0:
             warn("There are no tasks currently registered in this environment.")
             return
         
         table = prettytable.PrettyTable(['name', 'description'], sortby='name')
         table.align = 'l'
-        for name, task in self._tasks.iteritems():
+        for name, task in api.get_tasks().iteritems():
             table.add_row([name, api.get_help(task)[0]])
         
         print table
 
 class TaskShow(Command):
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(TaskShow, self).__init__(*args, **kwargs)
-        self._tasks = tasks
-    
     def help(self, items):
         print textwrap.dedent("""\
         usage: task show <name>
@@ -54,7 +44,7 @@ class TaskShow(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in self._tasks.iterkeys()
+                        for key in api.get_tasks().iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -63,7 +53,7 @@ class TaskShow(Command):
         if len(items) != 1:
             return self.help(items)
         
-        task = self._tasks.get(items[0])
+        task = api.get_task(items[0])
         if task:
             desc = api.get_help(task)
             print desc[0]
@@ -79,10 +69,6 @@ class TaskSchema(Command):
         'input'  : lambda task: api.get_input_schema(task),
         'output' : lambda task: api.get_output_schema(task),
     }
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(TaskSchema, self).__init__(*args, **kwargs)
-        self._tasks = tasks
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -101,7 +87,7 @@ class TaskSchema(Command):
         
         if (len(items) == 1) and (items[0] in self._dataset_fn):
             matching = [key
-                        for key in self._tasks.iterkeys()
+                        for key in api.get_tasks().iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -110,11 +96,11 @@ class TaskSchema(Command):
         if (
             (len(items) != 2) or
             (items[0] not in self._dataset_fn) or
-            (items[1] not in self._tasks.keys())
+            (items[1] not in api.get_tasks().keys())
         ):
             return self.help(items)
         
-        task = self._tasks.get(items[1])
+        task = api.get_task(items[1])
         if not task:
             error("The task '%s' is not currently available in this environment." % items[1])
             return
@@ -128,10 +114,6 @@ class TaskSample(Command):
         'input'  : lambda task: api.get_input_sample(task),
         'output' : lambda task: api.get_output_sample(task),
     }
-        
-    def __init__(self, tasks, *args, **kwargs):
-        super(TaskSample, self).__init__(*args, **kwargs)
-        self._tasks = tasks
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -150,7 +132,7 @@ class TaskSample(Command):
         
         if (len(items) == 1) and (items[0] in self._dataset_fn):
             matching = [key
-                        for key in self._tasks.iterkeys()
+                        for key in api.get_tasks().iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -159,11 +141,11 @@ class TaskSample(Command):
         if (
             (len(items) != 2) or
             (items[0] not in self._dataset_fn.keys()) or
-            (items[1] not in self._tasks.keys())
+            (items[1] not in api.get_tasks().keys())
         ):
             return self.help(items)
         
-        task = self._tasks.get(items[1])
+        task = api.get_task(items[1])
         if not task:
             error("The task '%s' is not currently available in this environment." % items[1])
             return

@@ -1,6 +1,11 @@
 Changes
 =======
 
+(unreleased)
+----------------
+
+* Move Task loading to the api.
+
 0.4 (2012-03-18)
 ----------------
 

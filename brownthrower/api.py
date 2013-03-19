@@ -11,19 +11,13 @@ import yaml
 from brownthrower import interface, model
 from brownthrower.interface import constants
 
+_tasks = {}
+
 log = logging.getLogger('brownthrower.api')
 
 class InvalidStatusException(Exception):
     def __init__(self, message=None):
         self.message = message
-        
-    def __str__(self):
-        return str(self.message)
-
-class InvalidTaskException(Exception):
-    def __init__(self, message=None, exception=None):
-        self.message = message
-        self.exception = exception
         
     def __str__(self):
         return str(self.message)
@@ -77,10 +71,11 @@ def get_help(task):
     
     return (short, detail)
 
-def available_tasks(entry_point):
-    """
+def init(entry_point):
+    """\
     Build a list with all the Tasks available in the current environment.
     """
+    global _tasks
     
     for entry in pkg_resources.iter_entry_points(entry_point):
         try:
@@ -103,16 +98,31 @@ def available_tasks(entry_point):
             validate_input( task, task.input_sample)
             validate_output(task, task.output_sample)
             
-            yield (entry.name, entry.module_name, task)
-        except BaseException as e:
+            if task.name in _tasks:
+                log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, entry.name, entry.module_name))
+                continue
+            
+            _tasks[task.name] = task
+            
+        except Exception as e:
             try:
                 raise
-            except (AttributeError, AssertionError) as e:
-                raise InvalidTaskException("Task '%s:%s' does not properly implement the interface." % (entry.name, entry.module_name), exception=e)
-            except interface.TaskValidationException as e:
-                raise InvalidTaskException("Samples from Task '%s:%s' are not valid." % (entry.name, entry.module_name), exception=e)
+            except (AttributeError, AssertionError):
+                log.warning("Task '%s:%s' does not properly implement the interface." % (entry.name, entry.module_name))
+            except interface.TaskValidationException:
+                log.warning("Samples from Task '%s:%s' are not valid." % (entry.name, entry.module_name))
             except ImportError:
-                raise InvalidTaskException("Unable to load Task '%s:%s'." % (entry.name, entry.module_name))
+                log.warning("Unable to load Task '%s:%s'." % (entry.name, entry.module_name))
+            finally:
+                log.debug(e)
+
+def get_tasks():
+    global _tasks
+    return _tasks
+
+def get_task(name):
+    global _tasks
+    return _tasks[name]
 
 def load_dispatchers(entry_point):
     """
@@ -143,8 +153,8 @@ def load_dispatchers(entry_point):
     
     return dispatchers
 
-def create(name, tasks):
-    task = tasks[name]
+def create(name):
+    task = get_task(name)
     
     job =  model.Job(
         task    = name,
@@ -178,7 +188,7 @@ def link(parent_id, child_id):
     )
     model.session.add(dependency)
 
-def submit(job_id, tasks):
+def submit(job_id):
     job = model.session.query(model.Job).filter_by(id = job_id).one()
     
     ancestors = job.ancestors(lockmode='update')[1:]
@@ -191,7 +201,7 @@ def submit(job_id, tasks):
         raise InvalidStatusException("This job cannot be submitted in its current status.")
     
     if job.status == constants.JobStatus.STASHED:
-        task = tasks.get(job.task)
+        task = get_task(job.task)
         if not task:
             raise interface.TaskUnavailableException(job.task)
         

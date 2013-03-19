@@ -16,11 +16,6 @@ from brownthrower import model
 from brownthrower.interface import constants
 
 class JobCreate(Command):
-    
-    def __init__(self, tasks, *args, **kwargs):
-        super(JobCreate, self).__init__(*args, **kwargs)
-        self._tasks   = tasks
-    
     def help(self, items):
         print textwrap.dedent("""\
         usage: job create <task>
@@ -31,7 +26,7 @@ class JobCreate(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in self._tasks.iterkeys()
+                        for key in api.get_tasks().iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -41,7 +36,7 @@ class JobCreate(Command):
             return self.help(items)
         
         try:
-            job_id = api.create(items[0], self._tasks)
+            job_id = api.create(items[0])
             model.session.commit() #
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
@@ -199,10 +194,6 @@ class JobRemove(Command):
 
 class JobSubmit(Command):
     
-    def __init__(self, tasks, *args, **kwargs):
-        super(JobSubmit, self).__init__(*args, **kwargs)
-        self._tasks = tasks
-    
     def help(self, items):
         print textwrap.dedent("""\
         usage: job submit <id>
@@ -218,8 +209,7 @@ class JobSubmit(Command):
             return self.help(items)
         
         try:
-            # TODO: move _tasks to api
-            api.submit(items[0], self._tasks)
+            api.submit(items[0])
             model.session.commit()
             success("The job has been successfully marked as ready for execution.")
         
@@ -417,9 +407,8 @@ class JobEdit(Command):
         }
     }
     
-    def __init__(self, tasks, editor, *args, **kwargs):
+    def __init__(self, editor, *args, **kwargs):
         super(JobEdit, self).__init__(*args, **kwargs)
-        self._tasks   = tasks
         self._editor  = editor
     
     def help(self, items):
@@ -452,7 +441,7 @@ class JobEdit(Command):
                 return
             
             # TODO: Move this to api
-            task = self._tasks.get(job.task)
+            task = api.get_task(job.task)
             if not task:
                 error("The task '%s' is not currently available in this environment." % job.task)
                 return

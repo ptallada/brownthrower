@@ -18,7 +18,6 @@ setup(
     packages = find_packages(),
     
     install_requires = [
-        'Python >= 2.7',
         'PyYAML',
         'jsonschema',
         'SQLAlchemy',

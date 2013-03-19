@@ -30,43 +30,22 @@ class Manager(cmd.Cmd):
         
         self._dispatchers = {}
         self._subcmds     = {}
-        self._tasks       = {}
         
         self.intro = "\nPAU DM Manager v0.1 is ready"
     
-    def load_tasks(self, entry_point):
-        available_tasks = api.available_tasks(entry_point)
-        
-        # Moure a la API
-        try:
-            while True:
-                try:
-                    (name, module, task) = available_tasks.next()
-                    if task.name in self._tasks:
-                        log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, name, module))
-                    self._tasks[task.name] = task
-                
-                except api.InvalidTaskException as e:
-                    log.warning(e.message)
-                    log.debug(e.exception)
-        
-        except StopIteration:
-            pass
-    
     def preloop(self):
         self._dispatchers = api.load_dispatchers(_CONFIG['entry_points.dispatcher'])
-        self.load_tasks(_CONFIG['entry_points.task'])
+        api.init(_CONFIG['entry_points.task'])
         
         from commands import Dispatcher #@UnresolvedImport
         from commands import Job  #@UnresolvedImport
         from commands import Task #@UnresolvedImport
         
         self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
-        self._subcmds['job']        = Job(             tasks = self._tasks,
-                                                      editor = _CONFIG['manager.editor'],
+        self._subcmds['job']        = Job(            editor = _CONFIG['manager.editor'],
                                                       viewer = _CONFIG['manager.viewer'],
                                                        limit = _CONFIG['listing.limit'])
-        self._subcmds['task']       = Task(            tasks = self._tasks)
+        self._subcmds['task']       = Task()
         
     
     def do_help(self, line):

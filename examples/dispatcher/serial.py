@@ -29,30 +29,8 @@ class SerialDispatcher(interface.Dispatcher):
     It supports both SQLite and PostgreSQL.
     """
     
-    _tasks = {}
-    
     def __init__(self, *args, **kwargs):
-        # TODO: Fallar si no hi ha tasks
-        self.load_tasks(_CONFIG['entry_points.task'])
-    
-    def load_tasks(self, entry_point):
-        
-        available_tasks = api.available_tasks(entry_point)
-        
-        try:
-            while True:
-                try:
-                    (name, module, task) = available_tasks.next()
-                    if task.name in self._tasks:
-                        log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, name, module))
-                    self._tasks[task.name] = task
-                
-                except api.InvalidTaskException as e:
-                    log.warning(e.message)
-                    log.debug(e.exception)
-        
-        except StopIteration:
-            pass
+        api.init(_CONFIG['entry_points.task'])
     
     def _queued_jobs(self):
         while True:
@@ -60,7 +38,7 @@ class SerialDispatcher(interface.Dispatcher):
                 # Fetch first job which WAS suitable to be executed
                 job = model.session.query(model.Job).filter(
                     model.Job.status == constants.JobStatus.QUEUED,
-                    model.Job.task.in_(self._tasks.keys()),
+                    model.Job.task.in_(api.get_tasks().keys()),
                     ~ model.Job.parents.any( #@UndefinedVariable
                         model.Job.status != constants.JobStatus.DONE,
                     )
@@ -101,7 +79,7 @@ class SerialDispatcher(interface.Dispatcher):
                 default_flow_style = False
             )
         
-        task = self._tasks[job.task]
+        task = api.get_task(job.task)
         api.validate_config(task, job.config)
         api.validate_input(task, job.input)
         
@@ -125,11 +103,11 @@ class SerialDispatcher(interface.Dispatcher):
         }
         """
         subjobs = {}
-        task = self._tasks[job.task](config = yaml.safe_load(job.config))
+        task = api.get_task(job.task)(config = yaml.safe_load(job.config))
         
         if hasattr(task, 'prolog'):
             try:
-                prolog = task.prolog(tasks=self._tasks, inp=yaml.safe_load(job.input))
+                prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(job.input))
                 
                 for (subjob, task_name) in prolog.get('subjobs', {}).iteritems():
                     subjobs[subjob]  = model.Job(
@@ -239,7 +217,7 @@ class SerialDispatcher(interface.Dispatcher):
                         else:
                             log.info("Executing epilog of job %d." % job.id)
                             
-                            (children, out) = self._run_epilog(job, self._tasks)
+                            (children, out) = self._run_epilog(job, api.get_tasks())
                             
                             with self._locked(job):
                                 if children:

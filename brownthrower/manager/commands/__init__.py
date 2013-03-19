@@ -11,20 +11,19 @@ from base import Command
 
 class Job(Command):
     
-    def __init__(self, tasks, editor, viewer, limit, *args, **kwargs):
+    def __init__(self, editor, viewer, limit, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
         self.add_subcmd('cancel', job.JobCancel())
-        self.add_subcmd('create', job.JobCreate(  tasks = tasks))
-        self.add_subcmd('edit',   job.JobEdit(    tasks = tasks,
-                                                  editor = editor))
+        self.add_subcmd('create', job.JobCreate())
+        self.add_subcmd('edit',   job.JobEdit(  editor = editor))
         self.add_subcmd('link',   job.JobLink())
-        self.add_subcmd('list',   job.JobList(    limit = limit))
-        self.add_subcmd('output', job.JobOutput( viewer = viewer))
+        self.add_subcmd('list',   job.JobList(   limit = limit))
+        self.add_subcmd('output', job.JobOutput(viewer = viewer))
         self.add_subcmd('remove', job.JobRemove())
         self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow())
-        self.add_subcmd('submit', job.JobSubmit(  tasks = tasks))
+        self.add_subcmd('submit', job.JobSubmit())
         self.add_subcmd('unlink', job.JobUnlink())
     
     def help(self, items):
@@ -57,13 +56,13 @@ class Job(Command):
 
 class Task(Command):
     
-    def __init__(self, tasks, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('list',   task.TaskList(  tasks = tasks))
-        self.add_subcmd('schema', task.TaskSchema(tasks = tasks))
-        self.add_subcmd('show',   task.TaskShow(  tasks = tasks))
-        self.add_subcmd('sample', task.TaskSample(tasks = tasks))
+        self.add_subcmd('list',   task.TaskList())
+        self.add_subcmd('schema', task.TaskSchema())
+        self.add_subcmd('show',   task.TaskShow())
+        self.add_subcmd('sample', task.TaskSample())
     
     def help(self, items):
         print textwrap.dedent("""\
