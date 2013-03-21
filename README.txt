@@ -2,7 +2,7 @@ Changes
 =======
 
 (unreleased)
-----------------
+------------
 
 * Move Task loading to the api.
 
