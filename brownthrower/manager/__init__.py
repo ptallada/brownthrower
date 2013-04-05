@@ -17,7 +17,7 @@ _CONFIG = {
     'entry_points.task'       : 'brownthrower.task',
     'manager.editor'          : 'nano',
     'manager.viewer'          : 'less',
-    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogues',
+    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogs',
     'listing.limit'           : 50,
 }
 

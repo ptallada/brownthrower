@@ -15,12 +15,11 @@ from contextlib import contextmanager
 _CONFIG = {
     'entry_points.task'  : 'brownthrower.task',
     'manager.editor'     : 'nano',
-    'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/test_tallada',
+    'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogues',
 }
 
 log = logging.getLogger('brownthrower.dispatcher.serial')
 
-# TODO: use created, queued, started and finished dates.
 class SerialDispatcher(interface.Dispatcher):
     """\
     Basic serial dispatcher for testing and development.
@@ -258,3 +257,36 @@ class SerialDispatcher(interface.Dispatcher):
         
         finally:
             model.session.rollback()
+
+def main():
+    import time
+    import signal
+    import sys
+    
+    def system_exit(*args, **kwargs):
+        sys.exit(1)
+    
+    signal.signal(signal.SIGTERM, system_exit)
+    
+    # TODO: Remove
+    #logging.basicConfig(level=logging.DEBUG)
+    #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    
+    #from pysrc import pydevd
+    #pydevd.settrace(suspend=False)
+    
+    #import rpdb
+    #rpdb.Rpdb().set_trace()
+    
+    url = _CONFIG['database.url']
+    #url = 'sqlite:////tmp/manager.db'
+    model.init(url)
+    model.Base.metadata.create_all() #@UndefinedVariable
+    
+    dispatcher = SerialDispatcher()
+    while True:
+        dispatcher.run()
+        time.sleep(60)
+    
+if __name__ == '__main__':
+    main()
