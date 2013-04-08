@@ -246,6 +246,9 @@ class SerialDispatcher(interface.Dispatcher):
                             ancestor.update_status()
                         
                         job.ts_ended = datetime.datetime.now()
+                        # Set start time in case the job fail to validate
+                        if not job.ts_started:
+                            job.ts_started = job.ts_ended
                         
                         log.error("Execution of job %d ended with status '%s'." % (job.id, job.status))
                         log.debug(e)
