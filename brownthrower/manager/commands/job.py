@@ -73,16 +73,32 @@ class JobList(Command):
             return self.help(items)
         
         try:
-            table = prettytable.PrettyTable(['id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output', '# parents', '# children', '# subjobs'])
+            # FIXME: clean up
+            table = prettytable.PrettyTable([
+                'id', 'super_id',
+                'task', 'status',
+                'created', 'queued', 'started', 'ended',
+            #    'has config', 'has input', 'has output',
+            #    '# parents', '# children', '# subjobs'
+            ])
             table.align = 'l'
             
             jobs = model.session.query(model.Job).options(
-                model.joinedload(model.Job.parents),
-                model.joinedload(model.Job.children),
-                model.joinedload(model.Job.subjobs),
+            #    model.joinedload(model.Job.parents),
+            #    model.joinedload(model.Job.children),
+            #    model.joinedload(model.Job.subjobs),
             ).limit(self._limit).all()
             for job in jobs:
-                table.add_row([job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None, len(job.parents), len(job.children), len(job.subjobs)])
+                table.add_row([
+                    job.id, job.super_id,
+                    job.task, job.status,
+                    job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
+                    job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued else None,
+                    job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
+                    job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended else None,
+                #    job.config != None, job.input != None, job.output != None,
+                #    len(job.parents), len(job.children), len(job.subjobs)
+                ])
             
             if not jobs:
                 warn("No jobs found were found.")
@@ -125,6 +141,19 @@ class JobShow(Command):
                 error("Could not found the job with id %d." % items[0])
                 return
             
+            print strong("JOB DETAILS:")
+            for field in ['id', 'super_id', 'task', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
+                print field.ljust(10) + ' : ' + str(getattr(job, field))
+            
+            print strong("\nJOB CONFIG:")
+            print job.config.strip() if job.config else ''
+            
+            print strong("\nJOB INPUT:")
+            print job.input.strip()  if job.input  else ''
+            
+            print strong("\nJOB OUTPUT:")
+            print job.output.strip() if job.output else ''
+            
             table = prettytable.PrettyTable(['kind', 'id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output'])
             table.align = 'l'
             
@@ -134,7 +163,7 @@ class JobShow(Command):
             for child in job.children:
                 table.add_row(['CHILD', child.id, child.super_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
             
-            print strong("PARENT/CHILD JOBS:")
+            print strong("\nPARENT/CHILD JOBS:")
             print table
             
             table.clear_rows()
@@ -146,7 +175,7 @@ class JobShow(Command):
             
             model.session.commit()
             
-            print strong("SUPER/SUB JOBS:")
+            print strong("\nSUPER/SUB JOBS:")
             print table
         
         except model.StatementError as e:
