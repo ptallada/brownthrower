@@ -52,7 +52,7 @@ setup(
             'manager = brownthrower.manager.__init__:main',
         ],
         'brownthrower.dispatcher' : [
-            "serial = examples.dispatcher.serial:SerialDispatcher",
+            "serial = brownthrower.dispatcher.serial:SerialDispatcher",
         ],
         'brownthrower.task': [
             # math

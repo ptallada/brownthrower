@@ -1,29 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import shutil
-import tempfile
-
 class Runner(object):
     
-    def __init__(self, tmp_dir, tmp_prefix):
-        self.tmp_dir = tmp_dir
-        self.tmp_prefix = tmp_prefix
-        
-        self.old_cwd = None
-        self.cwd = None
+    def __init__(self, job_id):
+        self.job_id = None
+        self.commitable_sessions = []
     
     def prolog(self):
-        self.cwd = tempfile.mkdtemp(prefix=self.tmp_template, dir=self.tmp_dir)
-        self.old_cwd = os.getcwd()
-        os.chdir(self.cwd)
+        pass
     
-    def run(self, task, config):
+    def run(self, task, inp):
         self.prolog()
-        task(config, runner=self)
+        out = task.run(runner=self, inp=inp)
         self.epilog()
+        return out
     
     def epilog(self):
-        os.chdir(self.old_cwd)
-        shutil.rmtree(self.cwd)
+        # TODO: Move into a transaction module
+        for session in self.commitable_sessions:
+            session.commit()

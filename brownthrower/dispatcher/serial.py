@@ -87,11 +87,11 @@ class SerialDispatcher(interface.Dispatcher):
     def _run_prolog(self, job):
         """
         {
-            'subjobs' : {
-                Task_A(config) : task_a_name,
-                Task_B(config) : task_b_name,
-                Task_B(config) : task_c_name,
-            },
+            'subjobs' : [
+                Task_A(config),
+                Task_B(config),
+                Task_B(config),
+            ],
             'input' : {
                 task_M : <input>,
                 task_N : <input>,
@@ -108,11 +108,11 @@ class SerialDispatcher(interface.Dispatcher):
             try:
                 prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(job.input))
                 
-                for (subjob, task_name) in prolog.get('subjobs', {}).iteritems():
+                for subjob in prolog.get('subjobs', []):
                     subjobs[subjob]  = model.Job(
                             status   = constants.JobStatus.QUEUED,
                             config   = yaml.dump(subjob.config, default_flow_style=False),
-                            task     = task_name,
+                            task     = subjob.name,
                     )
                 
                 for (subjob, inp) in prolog.get('input', {}).iteritems():
@@ -129,11 +129,11 @@ class SerialDispatcher(interface.Dispatcher):
     def _run_epilog(self, job, tasks):
         """
         {
-            'children' : {
-                Task_A(config) : task_a_name,
-                Task_B(config) : task_b_name,
-                Task_B(config) : task_c_name,
-            },
+            'children' : [
+                Task_A(config),
+                Task_B(config),
+                Task_B(config),
+            ],
             'links' : [
                 ( task_X, task_Y ),
             ]
@@ -148,11 +148,11 @@ class SerialDispatcher(interface.Dispatcher):
         epilog = tasks[job.task](config = yaml.safe_load(job.config)).epilog(tasks=tasks, out=out)
         
         children = {}
-        for child, task_name in epilog.get('children', {}):
+        for child in epilog.get('children', []):
             children[child] = model.Job(
                     status  = constants.JobStatus.QUEUED,
                     config  = yaml.dump(child.config, default_flow_style=False),
-                    task    = task_name,
+                    task    = child.name,
             )
         
         for link in epilog.get('links', []):
@@ -205,7 +205,8 @@ class SerialDispatcher(interface.Dispatcher):
                             
                             log.info("Executing job %d." % job.id)
                             
-                            out = task(config=yaml.safe_load(job.config)).run(runner=None, inp=yaml.safe_load(job.input))
+                            runner = interface.Runner(job_id = job.id)
+                            out = runner.run(task(config=yaml.safe_load(job.config)), inp=yaml.safe_load(job.input))
                             
                             with self._locked(job):
                                 job.output = yaml.safe_dump(out, default_flow_style=False)
