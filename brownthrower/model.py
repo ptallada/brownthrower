@@ -36,7 +36,7 @@ class Job(Base):
     # Columns
     id         = Column(Integer,    nullable=False)
     super_id   = Column(Integer,    nullable=True)
-    task       = Column(String(30), nullable=False)
+    task       = Column(String(50), nullable=False)
     status     = Column(String(20), nullable=False)
     config     = Column(Text,       nullable=True)
     input      = Column(Text,       nullable=True)
