@@ -161,18 +161,17 @@ class SerialDispatcher(interface.Dispatcher):
         return (children, epilog['output'])
     
     @contextmanager
-    def _locked(self, job):
-        job = model.session.query(model.Job).filter_by(id = job.id).one()
+    def _locked(self, job_id):
+        job = model.session.query(model.Job).filter_by(id = job_id).one()
         ancestors = job.ancestors(lockmode='update')[1:]
         
         if job.status == constants.JobStatus.CANCELLING:
             raise interface.TaskCancelledException()
         
-        yield
+        yield job
         
         for ancestor in ancestors:
             ancestor.update_status()
-        
     
     def run(self):
         try:
@@ -189,7 +188,12 @@ class SerialDispatcher(interface.Dispatcher):
                         for ancestor in ancestors:
                             ancestor.update_status()
                     
+                    # Preload subjobs for the next step
+                    assert len(job.subjobs) >= 0
+                    
                     # Job is now PROCESSING
+                    model.session.flush()
+                    model.session.expunge(job)
                     model.session.commit()
                     
                     with model.session.begin_nested():
@@ -198,7 +202,7 @@ class SerialDispatcher(interface.Dispatcher):
                             
                             subjobs = self._run_prolog(job)
                             if subjobs:
-                                with self._locked(job):
+                                with self._locked(job.id) as job:
                                     job.subjobs.extend(subjobs.itervalues())
                                 
                                 continue
@@ -208,7 +212,7 @@ class SerialDispatcher(interface.Dispatcher):
                             runner = interface.Runner(job_id = job.id)
                             out = runner.run(task(config=yaml.safe_load(job.config)), inp=yaml.safe_load(job.input))
                             
-                            with self._locked(job):
+                            with self._locked(job.id) as job:
                                 job.output = yaml.safe_dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
                                 job.status = constants.JobStatus.DONE
@@ -219,7 +223,7 @@ class SerialDispatcher(interface.Dispatcher):
                             
                             (children, out) = self._run_epilog(job, api.get_tasks())
                             
-                            with self._locked(job):
+                            with self._locked(job.id) as job:
                                 if children:
                                     job.children.append(children.itervalues())
                                 
@@ -230,6 +234,8 @@ class SerialDispatcher(interface.Dispatcher):
                 
                 except BaseException as e:
                     try:
+                        job = model.session.query(model.Job).filter_by(id = job.id).one()
+                        ancestors = job.ancestors(lockmode='update')[1:]
                         raise
                     except interface.TaskCancelledException:
                         job.status = constants.JobStatus.CANCELLED
@@ -239,10 +245,6 @@ class SerialDispatcher(interface.Dispatcher):
                         job.status = constants.JobStatus.CANCELLED
                         raise
                     finally:
-                        job = model.session.query(model.Job).filter_by(id = job.id).one()
-                        
-                        ancestors = job.ancestors(lockmode='update')[1:]
-                        
                         for ancestor in ancestors:
                             ancestor.update_status()
                         
