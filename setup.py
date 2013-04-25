@@ -10,7 +10,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 README  = open(os.path.join(here, 'README.txt')).read()
 
 # Read the version information
-execfile(os.path.join(here, 'brownthrower', 'version.py'))
+execfile(os.path.join(here, 'brownthrower', 'release.py'))
 
 setup(
     name = 'brownthrower',

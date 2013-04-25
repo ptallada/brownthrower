@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import brownthrower.release
 import cmd
 import logging
 import textwrap
@@ -31,7 +32,9 @@ class Manager(cmd.Cmd):
         self._dispatchers = {}
         self._subcmds     = {}
         
-        self.intro = "\nPAU DM Manager v0.1 is ready"
+        self.intro = "\nbrownthrower manager v{version} is ready".format(
+            version = brownthrower.release.__version__
+        )
     
     def preloop(self):
         self._dispatchers = api.load_dispatchers(_CONFIG['entry_points.dispatcher'])
