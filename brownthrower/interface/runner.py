@@ -4,7 +4,7 @@
 class Runner(object):
     
     def __init__(self, job_id):
-        self.job_id = None
+        self.job_id = job_id
         self.commitable_sessions = []
     
     def prolog(self):
@@ -17,6 +17,4 @@ class Runner(object):
         return out
     
     def epilog(self):
-        # TODO: Move into a transaction module
-        for session in self.commitable_sessions:
-            session.commit()
+        pass

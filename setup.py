@@ -18,11 +18,15 @@ setup(
     packages = find_packages(),
     
     install_requires = [
-        'PyYAML',
+        'argparse',
         'jsonschema',
-        'SQLAlchemy',
         'PrettyTable',
+        'Python >= 2.6',
+        'PyYAML',
+        'SQLAlchemy',
         'termcolor',
+        'transaction',
+        'zope.sqlalchemy',
     ],
     
     #description = "",
@@ -65,6 +69,6 @@ setup(
         ],
     },
     
-    include_package_data=True,
+    #include_package_data=True,
     #zip_safe=True,
 )

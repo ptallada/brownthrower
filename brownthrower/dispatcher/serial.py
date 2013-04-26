@@ -3,19 +3,19 @@
 
 import datetime
 import logging
+import transaction
 import yaml
 
-from brownthrower import api
-from brownthrower import interface
-from brownthrower import model
+from brownthrower import api, interface, model
+from brownthrower import constants as CONSTANTS
+from brownthrower.config import config as CONFIG
 from brownthrower.interface import constants
 from contextlib import contextmanager
+from sqlalchemy.orm.exc import NoResultFound
 
 # TODO: read and create a global or local configuration file
 _CONFIG = {
     'entry_points.task'  : 'brownthrower.task',
-    'manager.editor'     : 'nano',
-    'database.url'       : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogues',
 }
 
 log = logging.getLogger('brownthrower.dispatcher.serial')
@@ -29,13 +29,15 @@ class SerialDispatcher(interface.Dispatcher):
     """
     
     def __init__(self, *args, **kwargs):
-        api.init(_CONFIG['entry_points.task'])
+        api.init(CONSTANTS.entry_points['task'])
     
     def _queued_jobs(self):
         while True:
             try:
+                session = model.session_maker()
+                
                 # Fetch first job which WAS suitable to be executed
-                job = model.session.query(model.Job).filter(
+                job = session.query(model.Job).filter(
                     model.Job.status == constants.JobStatus.QUEUED,
                     model.Job.task.in_(api.get_tasks().keys()),
                     ~ model.Job.parents.any( #@UndefinedVariable
@@ -55,7 +57,7 @@ class SerialDispatcher(interface.Dispatcher):
                     continue
                 
                 # Check parents to see if it is still runnable
-                parents = model.session.query(model.Job).filter(
+                parents = session.query(model.Job).filter(
                     model.Job.children.contains(job) #@UndefinedVariable
                 ).with_lockmode('read').all()
                 if filter(lambda parent: parent.status != constants.JobStatus.DONE, parents):
@@ -64,12 +66,12 @@ class SerialDispatcher(interface.Dispatcher):
                 
                 yield (job, ancestors)
             
-            except model.NoResultFound:
+            except NoResultFound:
                 log.debug("Skipping this job as it has been removed before being locked.")
             
             finally:
                 # Unlock the job if it was skipped
-                model.session.rollback()
+                transaction.abort()
     
     def _validate_task(self, job):
         if job.parents:
@@ -140,11 +142,7 @@ class SerialDispatcher(interface.Dispatcher):
             'output' : <output>
         }
         """
-        leaf_subjobs = model.session.query(model.Job).filter(
-            model.Job.superjob == job,
-            ~model.Job.children.any(), #@UndefinedVariable
-        ).all()
-        out = [yaml.safe_load(subjob.output) for subjob in leaf_subjobs]
+        out = [yaml.safe_load(subjob.output) for subjob in job.leaf_subjobs]
         epilog = tasks[job.task](config = yaml.safe_load(job.config)).epilog(tasks=tasks, out=out)
         
         children = {}
@@ -162,7 +160,9 @@ class SerialDispatcher(interface.Dispatcher):
     
     @contextmanager
     def _locked(self, job_id):
-        job = model.session.query(model.Job).filter_by(id = job_id).one()
+        session = model.session_maker()
+        
+        job = session.query(model.Job).filter_by(id = job_id).one()
         ancestors = job.ancestors(lockmode='update')[1:]
         
         if job.status == constants.JobStatus.CANCELLING:
@@ -177,7 +177,8 @@ class SerialDispatcher(interface.Dispatcher):
         try:
             for (job, ancestors) in self._queued_jobs():
                 try:
-                    with model.session.begin_nested():
+                    session = model.session_maker()
+                    with session.begin_nested():
                         log.info("Validating queued job %d of task '%s'." % (job.id, job.task))
                         
                         task = self._validate_task(job)
@@ -188,15 +189,20 @@ class SerialDispatcher(interface.Dispatcher):
                         for ancestor in ancestors:
                             ancestor.update_status()
                     
-                    # Preload subjobs for the next step
+                    # Preload subjobs for the next steps
                     assert len(job.subjobs) >= 0
+                    job.leaf_subjobs = session.query(model.Job).filter(
+                        model.Job.superjob == job,
+                        ~model.Job.children.any(),
+                    ).all()
                     
                     # Job is now PROCESSING
-                    model.session.flush()
-                    model.session.expunge(job)
-                    model.session.commit()
+                    session.flush()
+                    session.expunge(job)
+                    transaction.commit()
                     
-                    with model.session.begin_nested():
+                    session = model.session_maker()
+                    with transaction.manager:
                         if not job.subjobs:
                             log.info("Executing prolog of job %d." % job.id)
                             
@@ -233,8 +239,9 @@ class SerialDispatcher(interface.Dispatcher):
                                 job.ts_ended = datetime.datetime.now()
                 
                 except BaseException as e:
+                    session = model.session_maker()
                     try:
-                        job = model.session.query(model.Job).filter_by(id = job.id).one()
+                        job = session.query(model.Job).filter_by(id = job.id).one()
                         ancestors = job.ancestors(lockmode='update')[1:]
                         raise
                     except interface.TaskCancelledException:
@@ -257,12 +264,12 @@ class SerialDispatcher(interface.Dispatcher):
                         log.debug(e)
                 
                 finally:
-                    model.session.commit()
+                    transaction.commit()
             
             log.info("No more jobs to run.")
         
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 def main():
     import time
@@ -284,7 +291,7 @@ def main():
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    url = _CONFIG['database.url']
+    url = CONFIG['database_url']
     #url = 'sqlite:////tmp/manager.db'
     model.init(url)
     model.Base.metadata.create_all() #@UndefinedVariable

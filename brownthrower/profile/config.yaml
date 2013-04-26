@@ -1,0 +1,9 @@
+###############################################################################
+# Brownthrower configuration template                                         #
+#                                                                             #
+# Each setting has a comment above explaining its function.                   #
+# Uncomment any setting you want to override and provide a suitable value.    #
+###############################################################################
+
+### Database connection settings
+# database_url : sqlite:///

@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import textwrap
-
 import dispatcher
 import job
+import profile
 import task
+import textwrap
 
 from base import Command
+from brownthrower.profile import settings
 
 class Job(Command):
     
-    def __init__(self, editor, viewer, limit, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
         self.add_subcmd('cancel', job.JobCancel())
         self.add_subcmd('create', job.JobCreate())
-        self.add_subcmd('edit',   job.JobEdit(  editor = editor))
+        self.add_subcmd('edit',   job.JobEdit())
         self.add_subcmd('link',   job.JobLink())
-        self.add_subcmd('list',   job.JobList(   limit = limit))
-        self.add_subcmd('output', job.JobOutput(viewer = viewer))
+        self.add_subcmd('list',   job.JobList())
+        self.add_subcmd('output', job.JobOutput())
         self.add_subcmd('remove', job.JobRemove())
         self.add_subcmd('reset',  job.JobReset())
         self.add_subcmd('show',   job.JobShow())
@@ -102,6 +103,43 @@ class Dispatcher(Command):
             list        show detailed information for a dispatcher
             run         run a dispatcher to execute jobs
             show        list available dispatchers
+        """)
+    
+    def complete(self, text, items):
+        available = self._subcmds.keys()
+        
+        return [command
+                for command in available
+                if command.startswith(text)]
+    
+    def do(self, items):
+        self.help(items)
+
+class Profile(Command):
+    
+    def __init__(self, *args, **kwargs):
+        super(Profile, self).__init__(*args, **kwargs)
+        
+        self.add_subcmd('create',  profile.ProfileCreate())
+        self.add_subcmd('default', profile.ProfileDefault())
+        self.add_subcmd('edit',    profile.ProfileEdit())
+        self.add_subcmd('list',    profile.ProfileList())
+        self.add_subcmd('remove',  profile.ProfileRemove())
+        self.add_subcmd('show',    profile.ProfileShow())
+        self.add_subcmd('switch',  profile.ProfileSwitch())
+    
+    def help(self, items):
+        print textwrap.dedent("""\
+        usage: profile <command> [options]
+        
+        Available commands:
+            create     create a new configuration profile
+            default    set a configuration profile as the default
+            edit       edit a configuration profile
+            list       show available configuration profiles
+            remove     delete a configuration profile
+            show       display the settings of a configuration profile
+            switch     apply the settings of a configuration profile
         """)
     
     def complete(self, text, items):

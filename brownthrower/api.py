@@ -154,6 +154,8 @@ def load_dispatchers(entry_point):
     return dispatchers
 
 def create(name):
+    session = model.session_maker()
+    
     task = get_task(name)
     
     job =  model.Job(
@@ -162,17 +164,19 @@ def create(name):
         status  = constants.JobStatus.STASHED
     )
     
-    model.session.add(job)
-    model.session.flush()
+    session.add(job)
+    session.flush()
     
     return job.id
 
 def link(parent_id, child_id):
-    parent = model.session.query(model.Job).filter_by(
+    session = model.session_maker()
+    
+    parent = session.query(model.Job).filter_by(
         id = parent_id,
     ).with_lockmode('read').one()
     
-    child = model.session.query(model.Job).filter_by(
+    child = session.query(model.Job).filter_by(
         id     = child_id,
     ).with_lockmode('read').one()
     
@@ -186,10 +190,12 @@ def link(parent_id, child_id):
         child_job_id  = child.id,
         parent_job_id = parent.id
     )
-    model.session.add(dependency)
+    session.add(dependency)
 
 def submit(job_id):
-    job = model.session.query(model.Job).filter_by(id = job_id).one()
+    session = model.session_maker()
+    
+    job = session.query(model.Job).filter_by(id = job_id).one()
     
     ancestors = job.ancestors(lockmode='update')[1:]
     
@@ -215,7 +221,9 @@ def submit(job_id):
         ancestor.update_status()
 
 def remove(job_id):
-    job = model.session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
+    session = model.session_maker()
+    
+    job = session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
     
     if job.super_id:
         raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
@@ -233,7 +241,9 @@ def remove(job_id):
     job.remove()
 
 def reset(job_id):
-    job = model.session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
+    session = model.session_maker()
+    
+    job = session.query(model.Job).filter_by(id = job_id).with_lockmode('update').one()
     
     if job.super_id:
         raise InvalidStatusException("This job is not a top-level job and cannot be returned to the stash.")
@@ -254,7 +264,9 @@ def reset(job_id):
     job.ts_ended   = None
 
 def cancel(job_id):
-    job = model.session.query(model.Job).filter_by(id = job_id).one()
+    session = model.session_maker()
+    
+    job = session.query(model.Job).filter_by(id = job_id).one()
     
     ancestors = job.ancestors(lockmode='update')[1:]
     

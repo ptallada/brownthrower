@@ -6,16 +6,20 @@ import prettytable
 import subprocess
 import tempfile
 import textwrap
+import transaction
 
 log = logging.getLogger('brownthrower.manager')
 
 from base import Command, error, warn, success, strong
-from brownthrower import api
-from brownthrower import interface
-from brownthrower import model
+from brownthrower import api, interface, model
+from brownthrower.profile import settings
 from brownthrower.interface import constants
+from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.orm import joinedload
+from sqlalchemy.orm.exc import NoResultFound
 
 class JobCreate(Command):
+    
     def help(self, items):
         print textwrap.dedent("""\
         usage: job create <task>
@@ -37,7 +41,7 @@ class JobCreate(Command):
         
         try:
             job_id = api.create(items[0])
-            model.session.commit() #
+            transaction.commit() #
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
         except BaseException as e:
@@ -45,18 +49,14 @@ class JobCreate(Command):
                 raise
             except KeyError:
                 error("Task '%s' is not available in this environment" % items[0])
-            except model.StatementError as e:
+            except StatementError as e:
                 error("The job could not be created.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobList(Command):
-    
-    def __init__(self, limit, *args, **kwargs):
-        super(JobList, self).__init__(*args, **kwargs)
-        self._limit = limit
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -73,6 +73,8 @@ class JobList(Command):
             return self.help(items)
         
         try:
+            session = model.session_maker()
+            
             # FIXME: clean up
             table = prettytable.PrettyTable([
                 'id', 'super_id',
@@ -83,11 +85,11 @@ class JobList(Command):
             ])
             table.align = 'l'
             
-            jobs = model.session.query(model.Job).options(
+            jobs = session.query(model.Job).options(
             #    model.joinedload(model.Job.parents),
             #    model.joinedload(model.Job.children),
             #    model.joinedload(model.Job.subjobs),
-            ).limit(self._limit).all()
+            ).all()
             for job in jobs:
                 table.add_row([
                     job.id, job.super_id,
@@ -104,15 +106,15 @@ class JobList(Command):
                 warn("No jobs found were found.")
                 return
             
-            model.session.commit()
+            transaction.commit()
             
             print table
         
-        except model.StatementError as e:
+        except StatementError as e:
             error("Could not complete the query to the database.")
             log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobShow(Command):
     
@@ -131,10 +133,12 @@ class JobShow(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(id = items[0]).options(
-                model.joinedload(model.Job.parents),
-                model.joinedload(model.Job.children),
-                model.joinedload(model.Job.subjobs),
+            session = model.session_maker()
+            
+            job = session.query(model.Job).filter_by(id = items[0]).options(
+                joinedload(model.Job.parents),
+                joinedload(model.Job.children),
+                joinedload(model.Job.subjobs),
             ).first()
             
             if not job:
@@ -173,16 +177,16 @@ class JobShow(Command):
             for subjob in job.subjobs:
                 table.add_row(['SUB', subjob.id, subjob.super_id, subjob.task, subjob.status, subjob.config != None, subjob.input != None, subjob.output != None])
             
-            model.session.commit()
+            transaction.commit()
             
             print strong("\nSUPER/SUB JOBS:")
             print table
         
-        except model.StatementError as e:
+        except StatementError as e:
             error("Could not complete the query to the database.")
             log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobRemove(Command):
     
@@ -202,7 +206,7 @@ class JobRemove(Command):
         
         try:
             api.remove(items[0])
-            model.session.commit()
+            transaction.commit()
             success("The job has been successfully removed.")
         
         except BaseException as e:
@@ -210,16 +214,16 @@ class JobRemove(Command):
                 raise
             except api.InvalidStatusException as e:
                 error(e.message)
-            except model.NoResultFound:
+            except NoResultFound:
                 error("The specified job does not exist.")
-            except model.IntegrityError:
+            except IntegrityError:
                 error("Some dependencies prevent this job from being deleted.")
-            except model.StatementError:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobSubmit(Command):
     
@@ -239,13 +243,13 @@ class JobSubmit(Command):
         
         try:
             api.submit(items[0])
-            model.session.commit()
+            transaction.commit()
             success("The job has been successfully marked as ready for execution.")
         
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound:
+            except NoResultFound:
                 error("The specified job does not exist.")
             except api.InvalidStatusException as e:
                 error(e.message)
@@ -253,12 +257,12 @@ class JobSubmit(Command):
                 error("The task '%s' is currently not available in this environment." % e.task)
             except interface.TaskValidationException:
                 error("The job has an invalid config or input.")
-            except model.StatementError:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobReset(Command):
     
@@ -278,22 +282,22 @@ class JobReset(Command):
         
         try:
             api.reset(items[0])
-            model.session.commit()
+            transaction.commit()
             success("The job has been successfully returned to the stash.")
         
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound:
+            except NoResultFound:
                 error("The specified job does not exist.")
             except api.InvalidStatusException as e:
                 error(e.message)
-            except model.StatementError as e:
+            except StatementError as e:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobLink(Command):
     
@@ -313,7 +317,7 @@ class JobLink(Command):
         
         try:
             api.link(items[0], items[1])
-            model.session.commit()
+            transaction.commit()
             success("The parent-child dependency has been successfully established.")
             
         except BaseException as e:
@@ -321,14 +325,14 @@ class JobLink(Command):
                 raise
             except api.InvalidStatusException as e:
                 error(e.message)
-            except model.NoResultFound:
+            except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except model.StatementError as e:
+            except StatementError as e:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobUnlink(Command):
     
@@ -347,11 +351,13 @@ class JobUnlink(Command):
             return self.help(items)
         
         try:
-            parent = model.session.query(model.Job).filter_by(
+            session = model.session_maker()
+            
+            parent = session.query(model.Job).filter_by(
                 id = items[0],
             ).with_lockmode('read').one()
             
-            child = model.session.query(model.Job).filter_by(
+            child = session.query(model.Job).filter_by(
                 id     = items[1],
             ).with_lockmode('read').one()
             
@@ -363,11 +369,11 @@ class JobUnlink(Command):
                 error("A parent-child dependency can only be manually removed between top-level jobs.")
                 return
             
-            deleted = model.session.query(model.Dependency).filter_by(
+            deleted = session.query(model.Dependency).filter_by(
                 parent_job_id = parent.id,
                 child_job_id  = child.id
             ).delete(synchronize_session=False)
-            model.session.commit()
+            transaction.commit()
             
             if not deleted:
                 error("Could not remove the parent-child dependency.")
@@ -377,14 +383,14 @@ class JobUnlink(Command):
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound:
+            except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except model.StatementError as e:
+            except StatementError as e:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobCancel(Command):
     
@@ -404,22 +410,22 @@ class JobCancel(Command):
         
         try:
             api.cancel(items[0])
-            model.session.commit()
+            transaction.commit()
             success("The job has been marked to be cancelled as soon as possible.")
         
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound:
+            except NoResultFound:
                 error("The specified job does not exist.")
             except api.InvalidStatusException as e:
                 error(e.message)
-            except model.StatementError as e:
+            except StatementError as e:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 class JobEdit(Command):
     
@@ -435,10 +441,6 @@ class JobEdit(Command):
             'validate' : api.validate_input,
         }
     }
-    
-    def __init__(self, editor, *args, **kwargs):
-        super(JobEdit, self).__init__(*args, **kwargs)
-        self._editor  = editor
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -463,7 +465,9 @@ class JobEdit(Command):
             return self.help(items)
         
         try:
-            job = model.session.query(model.Job).filter_by(id = items[1]).with_lockmode('update').one()
+            session = model.session_maker()
+            
+            job = session.query(model.Job).filter_by(id = items[1]).with_lockmode('update').one()
             
             if job.status != constants.JobStatus.STASHED:
                 error("This job is not editable in its current status.")
@@ -487,7 +491,7 @@ class JobEdit(Command):
                 fh.write(current_value)
                 fh.flush()
                 
-                subprocess.check_call([self._editor, fh.name])
+                subprocess.check_call(['editor', fh.name])
                 
                 fh.seek(0)
                 new_value = fh.read()
@@ -495,32 +499,28 @@ class JobEdit(Command):
             validate(task, new_value)
             
             setattr(job, field.key, new_value)
-            model.session.commit()
+            transaction.commit()
             
             success("The job dataset has been successfully modified.")
         
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound:
+            except NoResultFound:
                 error("The specified job does not exist.")
             except EnvironmentError:
                 error("Unable to open the temporary dataset buffer.")
             except interface.TaskValidationException:
                 error("The new value for the %s is not valid." % items[0])
-            except model.StatementError:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()
 
 
 class JobOutput(Command):
-    
-    def __init__(self, viewer, *args, **kwargs):
-        super(JobOutput, self).__init__(*args, **kwargs)
-        self._viewer = viewer
     
     def help(self, items):
         print textwrap.dedent("""\
@@ -537,8 +537,9 @@ class JobOutput(Command):
             return self.help(items)
         
         try:
+            session = model.session_maker()
             
-            job = model.session.query(model.Job).filter_by(id = items[0]).one()
+            job = session.query(model.Job).filter_by(id = items[0]).one()
             
             if job.status != constants.JobStatus.DONE:
                 error("This job is not finished yet.")
@@ -546,19 +547,19 @@ class JobOutput(Command):
             
             job_output = job.output
             
-            model.session.commit()
+            transaction.commit()
             
-            viewer = subprocess.Popen([self._viewer], stdin=subprocess.PIPE)
+            viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
             viewer.communicate(input=job_output)
         
         except BaseException as e:
             try:
                 raise
-            except model.NoResultFound as e:
+            except NoResultFound as e:
                 error("The specified job does not exist.")
-            except model.StatementError as e:
+            except StatementError as e:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
         finally:
-            model.session.rollback()
+            transaction.abort()

@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import datetime
+
 from brownthrower.interface import constants
-from sqlalchemy import event, literal_column, orm
-from sqlalchemy.engine.base import Engine
+from sqlalchemy import literal_column, event
+from sqlalchemy.engine import create_engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.exc import IntegrityError, StatementError # @UnusedImport
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, scoped_session, session, joinedload # @UnusedImport
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound, ObjectDeletedError # @UnusedImport
+from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy.orm.session import object_session, sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
-from sqlalchemy.engine import create_engine
-import datetime
+from zope.sqlalchemy import ZopeTransactionExtension
 
-session = orm.session.Session()
+session_maker = None
 
 Base = declarative_base()
 
@@ -245,9 +245,8 @@ class Tag(Base):
             repr(self.name),
             repr(self.value),
         )
-        
-@event.listens_for(Engine, "begin")
-def _sqlite_begin(conn):
+
+def sqlite_connection_begin_listener(conn):
     if conn.engine.name == 'sqlite':
         # Foreign keys are NOT enabled by default... WTF!
         conn.execute("PRAGMA foreign_keys = ON")
@@ -255,16 +254,20 @@ def _sqlite_begin(conn):
         # This is needed to emulate FOR UPDATE locks :(
         conn.execute("BEGIN EXCLUSIVE")
 
-def init(url):
-    global session
+def init(db_url):
+    global session_maker
     
-    url = make_url(url) 
+    url = make_url(db_url) 
     
     if url.drivername == 'sqlite':
         # Disable automatic transaction handling to workaround faulty nested transactions
         engine = create_engine(url, connect_args={'isolation_level':None})
+        event.listen(engine, 'begin', sqlite_connection_begin_listener)
     else:
         engine = create_engine(url)
     
-    Base.metadata.bind = engine
-    session = scoped_session(sessionmaker(bind=engine))()
+    Base.metadata.create_all(bind=engine)
+    session_maker = scoped_session(sessionmaker(
+        bind = engine,
+        extension = ZopeTransactionExtension()
+    ))

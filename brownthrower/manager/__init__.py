@@ -7,20 +7,10 @@ import logging
 import textwrap
 import signal
 import sys
+import transaction
 
-from brownthrower import api
-from brownthrower import interface
-from brownthrower import model
-
-# TODO: read and create a global or local configuration file
-_CONFIG = {
-    'entry_points.dispatcher' : 'brownthrower.dispatcher',
-    'entry_points.task'       : 'brownthrower.task',
-    'manager.editor'          : 'nano',
-    'manager.viewer'          : 'less',
-    'database.url'            : 'postgresql://tallada:secret,@db01.pau.pic.es/catalogs',
-    'listing.limit'           : 50,
-}
+from brownthrower import api, interface, model, profile
+from brownthrower.profile import settings
 
 log = logging.getLogger('brownthrower.manager')
 
@@ -37,19 +27,17 @@ class Manager(cmd.Cmd):
         )
     
     def preloop(self):
-        self._dispatchers = api.load_dispatchers(_CONFIG['entry_points.dispatcher'])
-        api.init(_CONFIG['entry_points.task'])
+        model.init(settings['database_url'])
+        self._dispatchers = api.load_dispatchers(settings['entry_points']['dispatcher'])
+        api.init(settings['entry_points']['task'])
         
-        from commands import Dispatcher #@UnresolvedImport
-        from commands import Job  #@UnresolvedImport
-        from commands import Task #@UnresolvedImport
+        from .commands import Dispatcher, Job, Profile, Task
         
         self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
-        self._subcmds['job']        = Job(            editor = _CONFIG['manager.editor'],
-                                                      viewer = _CONFIG['manager.viewer'],
-                                                       limit = _CONFIG['listing.limit'])
+        self._subcmds['job']        = Job()
+        self._subcmds['profile']    = Profile()
         self._subcmds['task']       = Task()
-        
+
     
     def do_help(self, line):
         items = line.strip().split()
@@ -64,6 +52,7 @@ class Manager(cmd.Cmd):
         Available commands:
             dispatcher    show information about the available dispatchers
             job           create, configure, submit and remove jobs
+            profile       create, edit and remove configuration profiles
             quit          exit this program
             task          show information about the available tasks
         """)
@@ -83,6 +72,10 @@ class Manager(cmd.Cmd):
         items = line.strip().split()
         self._subcmds['job']._do(items)
     
+    def do_profile(self, line):
+        items = line.strip().split()
+        self._subcmds['profile']._do(items)
+    
     def do_task(self, line):
         items = line.strip().split()
         self._subcmds['task']._do(items)
@@ -94,7 +87,7 @@ class Manager(cmd.Cmd):
         return True
     
     def postcmd(self, stop, line):
-        model.session.rollback()
+        transaction.abort()
         return cmd.Cmd.postcmd(self, stop, line)
     
     def postloop(self):
@@ -108,18 +101,15 @@ def main():
     
     # TODO: Remove
     logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     
-    #from pysrc import pydevd
-    #pydevd.settrace(suspend=False)
+    from pysrc import pydevd
+    pydevd.settrace(suspend=False)
     
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    url = _CONFIG['database.url']
-    #url = 'sqlite:////tmp/manager.db'
-    model.init(url)
-    model.Base.metadata.create_all() #@UndefinedVariable
+    profile.init_settings()
     
     manager = Manager()
     manager.cmdloop()
