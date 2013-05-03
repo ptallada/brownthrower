@@ -10,9 +10,8 @@ import transaction
 
 log = logging.getLogger('brownthrower.manager')
 
-from base import Command, error, warn, success, strong
+from .base import Command, error, warn, success, strong
 from brownthrower import api, interface, model
-from brownthrower.profile import settings
 from brownthrower.interface import constants
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import joinedload
@@ -35,13 +34,14 @@ class JobCreate(Command):
             
             return matching
     
+    # FIXME: crear amb input i config per defecte
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
         
         try:
             job_id = api.create(items[0])
-            transaction.commit() #
+            transaction.commit()
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
         except BaseException as e:
@@ -142,7 +142,7 @@ class JobShow(Command):
             ).first()
             
             if not job:
-                error("Could not found the job with id %d." % items[0])
+                error("Could not found the job with id %s." % items[0])
                 return
             
             print strong("JOB DETAILS:")
@@ -253,9 +253,9 @@ class JobSubmit(Command):
                 error("The specified job does not exist.")
             except api.InvalidStatusException as e:
                 error(e.message)
-            except interface.TaskUnavailableException as e:
+            except interface.task.UnavailableException as e:
                 error("The task '%s' is currently not available in this environment." % e.task)
-            except interface.TaskValidationException:
+            except interface.task.ValidationException:
                 error("The job has an invalid config or input.")
             except StatementError:
                 error("Could not complete the query to the database.")
@@ -510,7 +510,7 @@ class JobEdit(Command):
                 error("The specified job does not exist.")
             except EnvironmentError:
                 error("Unable to open the temporary dataset buffer.")
-            except interface.TaskValidationException:
+            except interface.task.ValidationException:
                 error("The new value for the %s is not valid." % items[0])
             except StatementError:
                 error("Could not complete the query to the database.")

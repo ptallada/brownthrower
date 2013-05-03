@@ -5,7 +5,6 @@ class Runner(object):
     
     def __init__(self, job_id):
         self.job_id = job_id
-        self.commitable_sessions = []
     
     def prolog(self):
         pass

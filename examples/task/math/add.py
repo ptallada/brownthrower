@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from brownthrower import interface
+from brownthrower.interface import task
 
-class Add(interface.Task):
+class Add(task.Task):
     """\
     Add the two of its inputs.
     
@@ -11,7 +11,8 @@ class Add(interface.Task):
     It does not require any configuration.
     """
     
-    name = 'math.add'
+    __brownthrower_name__   = 'math.add'
+    __brownthrower_runner__ = None
     
     config_schema = """\
     {

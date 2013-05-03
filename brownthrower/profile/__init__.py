@@ -29,18 +29,19 @@ _defaults = {
     'database_url' : 'sqlite:///',
 }
 
-class InexistentProfile(Exception):
+class DoesNotExistError(Exception):
     pass
 
-class ReservedProfileName(Exception):
+class ReservedNameError(Exception):
     pass
 
-class ProfileInUse(Exception):
+class InUseError(Exception):
+    pass
+
+class AlreadyExistsError(Exception):
     pass
 
 def init_settings():
-    global settings
-    
     settings.clear()
     settings.update(_defaults)
     _update_profile_list()
@@ -51,8 +52,8 @@ def init_settings():
     switch(profile)
 
 def _update_profile_list():
-    global _profile_list, _default_profile
-    _profile_list = os.walk(settings['paths']['profile']).next()[1]
+    global _default_profile
+    _profile_list[:] = os.walk(settings['paths']['profile']).next()[1]
     
     _default_profile = None
     if 'default' in _profile_list:
@@ -75,14 +76,14 @@ def _parse_args():
     return _options['profile']
 
 def switch(name):
-    global settings, _current_profile
+    global _current_profile
     
     if not name in ['default'] + get_available():
-        raise InexistentProfile
+        raise DoesNotExistError
     
     profile = {}
     try:
-        profile = yaml.safe_load(open(get_config_path(name), 'r').read())
+        profile = yaml.safe_load(open(get_settings_path(name), 'r').read())
     except IOError as e:
         if e.errno != errno.ENOENT:
             raise
@@ -99,6 +100,9 @@ def switch(name):
     if _current_profile == 'default':
         _current_profile = os.readlink(get_path('default'))
     
+    from brownthrower.profile import input
+    input._update_input_list()
+    
     model.init(settings['database_url'])
 
 def get_available():
@@ -109,28 +113,32 @@ def get_default():
 
 def create(name):
     if name == 'default':
-        raise ReservedProfileName
+        raise ReservedNameError
     
     profile_path = get_path(name)
     if not os.path.exists(profile_path):
         os.makedirs(profile_path, 0750)
     
-    config_path = get_config_path(name)
-    if not os.access(config_path, os.R_OK):
-        config_template = pkg_resources.resource_filename(__name__, 'config.yaml') # @UndefinedVariable
-        shutil.copyfile(config_template, config_path)
+    settings_path = get_settings_path(name)
+    if os.path.exists(settings_path):
+        raise AlreadyExistsError
+    else:
+        settings_template = pkg_resources.resource_filename(__name__, 'settings.yaml') # @UndefinedVariable
+        shutil.copyfile(settings_template, settings_path)
     
     _update_profile_list()
     
+    # FIXME: Do not have any profile or input or config as default unless asked.
+    # Allow having no defaults. 'reset_default' command.
     if not get_default():
         set_default(name)
 
 def remove(name):
     if not name in get_available():
-        raise InexistentProfile
+        raise DoesNotExistError
     
     if name == get_current():
-        raise ProfileInUse
+        raise InUseError
     
     profile_path = get_path(name)
     shutil.rmtree(profile_path)
@@ -144,8 +152,8 @@ def remove(name):
 def get_path(name):
     return os.path.join(settings['paths']['profile'], name)
 
-def get_config_path(name):
-    return os.path.join(get_path(name), 'config.yaml')
+def get_settings_path(name):
+    return os.path.join(get_path(name), 'settings.yaml')
 
 def get_current():
     return _current_profile
@@ -154,7 +162,7 @@ def set_default(name):
     global _default_profile
     
     if not name in get_available():
-        raise InexistentProfile
+        raise DoesNotExistError
     
     path = get_path('default')
     try:

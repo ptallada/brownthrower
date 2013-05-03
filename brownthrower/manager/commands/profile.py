@@ -7,9 +7,8 @@ import prettytable
 import subprocess
 import textwrap
 
-from base import Command, error, success, strong, warn
+from .base import Command, error, success, strong, warn
 from brownthrower import profile
-from brownthrower.profile import settings
 
 log = logging.getLogger('brownthrower.manager')
 
@@ -36,8 +35,10 @@ class ProfileCreate(Command):
         except BaseException as e:
             try:
                 raise
-            except profile.ReservedProfileName:
+            except profile.ReservedNameError:
                 error('You cannot use this name for a profile. Please, specify another name.')
+            except profile.AlreadyExistsError:
+                error('There is already a profile with this name. Please, specify another name.')
             finally:
                 log.debug(e)
 
@@ -69,7 +70,7 @@ class ProfileDefault(Command):
         except BaseException as e:
             try:
                 raise
-            except profile.InexistentProfile:
+            except profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
             finally:
                 log.debug(e)
@@ -96,7 +97,7 @@ class ProfileEdit(Command):
             return self.help(items)
         
         try:
-            path = profile.get_config_path(items[0])
+            path = profile.get_settings_path(items[0])
             assert os.access(path, os.W_OK)
             subprocess.check_call(['editor', path])
             if items[0] == profile.get_current():
@@ -125,31 +126,25 @@ class ProfileList(Command):
     def do(self, items):
         if len(items) > 0:
             return self.help(items)
-        try:
-            profiles = profile.get_available()
-            default  = profile.get_default()
-            current  = profile.get_current()
-            
-            if len(profiles) == 0:
-                warn("There are no profiles currently available.")
-                return
-            
-            table = prettytable.PrettyTable(['name', ''], sortby='name')
-            table.align = 'l'
-            for name in profiles:
-                tag =        'C' if name == current else ''
-                tag = tag + ('D' if name == default else '')
-                table.add_row([name, tag])
-            
-            print table
-            if profiles:
-                print strong("'C' or 'D' in the second column designate the Current and Default profiles.")
         
-        except BaseException as e:
-            try:
-                raise
-            finally:
-                log.debug(e)
+        profiles = profile.get_available()
+        default  = profile.get_default()
+        current  = profile.get_current()
+        
+        if len(profiles) == 0:
+            warn("There are no profiles currently available.")
+            return
+        
+        table = prettytable.PrettyTable(['name', ''], sortby='name')
+        table.align = 'l'
+        for name in profiles:
+            tag =        'C' if name == current else ''
+            tag = tag + ('D' if name == default else '')
+            table.add_row([name, tag])
+        
+        print table
+        if profiles:
+            print strong("'C' or 'D' in the second column designate the Current and Default profiles.")
 
 class ProfileShow(Command):
     
@@ -173,7 +168,7 @@ class ProfileShow(Command):
             return self.help(items)
         
         try:
-            path = profile.get_config_path(items[0])
+            path = profile.get_settings_path(items[0])
             subprocess.check_call(['pager', path])
         
         except BaseException as e:
@@ -212,9 +207,9 @@ class ProfileRemove(Command):
         except BaseException as e:
             try:
                 raise
-            except profile.InexistentProfile:
+            except profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
-            except profile.ProfileInUse:
+            except profile.InUseError:
                 error("Cannot remove current configuration profile.")
             finally:
                 log.debug(e)
@@ -247,7 +242,7 @@ class ProfileSwitch(Command):
         except BaseException as e:
             try:
                 raise
-            except profile.InexistentProfile:
+            except profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
             finally:
                 log.debug(e)

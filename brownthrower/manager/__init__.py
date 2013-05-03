@@ -31,7 +31,7 @@ class Manager(cmd.Cmd):
         self._dispatchers = api.load_dispatchers(settings['entry_points']['dispatcher'])
         api.init(settings['entry_points']['task'])
         
-        from .commands import Dispatcher, Job, Profile, Task
+        from brownthrower.manager.commands import Dispatcher, Job, Profile, Task
         
         self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
         self._subcmds['job']        = Job()
@@ -102,6 +102,7 @@ def main():
     # TODO: Remove
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('txn').setLevel(logging.INFO)
     
     from pysrc import pydevd
     pydevd.settrace(suspend=False)

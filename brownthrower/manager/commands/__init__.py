@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import dispatcher
-import job
-import profile
-import task
 import textwrap
 
-from base import Command
+from . import dispatcher, job, profile, task
+from .base import Command
 from brownthrower.profile import settings
 
 class Job(Command):
@@ -60,20 +57,22 @@ class Task(Command):
     def __init__(self, *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
         
+        self.add_subcmd('config', task.TaskConfig())
+        self.add_subcmd('input',  task.TaskInput())
         self.add_subcmd('list',   task.TaskList())
-        self.add_subcmd('schema', task.TaskSchema())
+        self.add_subcmd('output', task.TaskOutput())
         self.add_subcmd('show',   task.TaskShow())
-        self.add_subcmd('sample', task.TaskSample())
     
     def help(self, items):
         print textwrap.dedent("""\
         usage: task <command> [options]
         
         Available commands:
+            config    create, edit and remove config datasets
+            input     create, edit and remove input datasets
             list      list all available tasks
-            schema    show the formal schema of a task dataset
+            output    display output dataset details
             show      show detailed information for a task
-            sample    show a sample of a task dataset
         """)
     
     def complete(self, text, items):

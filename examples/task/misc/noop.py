@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from brownthrower import interface
+from brownthrower.interface import task
 
-class Noop(interface.Task):
+class Noop(task.Task):
     """\
     No-operation Task. Pipe the input as the output.
     
@@ -11,7 +11,8 @@ class Noop(interface.Task):
     have some parents defined. Returns the input as the output.
     """
     
-    name = 'misc.noop'
+    __brownthrower_name__   = 'misc.noop'
+    __brownthrower_runner__ = None
     
     config_schema = """\
     {

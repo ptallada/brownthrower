@@ -4,7 +4,7 @@
 import prettytable
 import textwrap
 
-from base import Command, error, warn
+from .base import Command, error, warn
 
 class DispatcherList(Command):
     

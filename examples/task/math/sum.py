@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from brownthrower import interface
+from brownthrower.interface import task
 
-class Sum(interface.Task):
+class Sum(task.Task):
     """\
     Calculate the sum of the input.
     
@@ -11,7 +11,8 @@ class Sum(interface.Task):
     a set of of 'add' subjobs.
     """
     
-    name = 'math.sum'
+    __brownthrower_name__   = 'math.sum'
+    __brownthrower_runner__ = None
     
     config_schema = """\
     {
@@ -65,11 +66,11 @@ class Sum(interface.Task):
         t3 = task(self.config)
         
         return {
-            'subjobs' : {
-                t1 : 'math.add',
-                t2 : 'math.add',
-                t3 : 'math.add',
-            },
+            'subjobs' : set([
+                t1,
+                t2,
+                t3,
+            ]),
             'input' : {
                 t1 : inp[0:2],
                 t2 : inp[2:4],

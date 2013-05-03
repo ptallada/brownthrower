@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-class TaskValidationException(Exception):
+class ValidationException(Exception):
     def __init__(self, message=None, exception=None):
         self.exception = exception
         self.message   = message
@@ -9,10 +9,10 @@ class TaskValidationException(Exception):
     def __str__(self):
         return "%s: %s" % (self.message, repr(self.exception))
 
-class TaskCancelledException(Exception):
+class CancelledException(Exception):
     pass
 
-class TaskUnavailableException(Exception):
+class UnavailableException(Exception):
     def __init__(self, task=None):
         self.task = task
         
@@ -50,7 +50,10 @@ class Task(object):
     """
     
     # Global unique identifying name for this task
-    name = "task.name"
+    __brownthrower_name__   = "task.name"
+    
+    # Name of the runner required to run this Task. None if not needed.
+    __brownthrower_runner__ = "runner.name"
     
     def __init__(self, config):
         """
@@ -74,9 +77,9 @@ class Task(object):
         
             {
                 'subjobs' : {
-                    Task_A(config) : task_a_name,
-                    Task_B(config) : task_b_name,
-                    Task_B(config) : task_c_name,
+                    Task_A(config),
+                    Task_B(config),
+                    Task_B(config),
                 },
                 'input' : {
                     task_M : <input>,
@@ -87,8 +90,8 @@ class Task(object):
                 ]
             }
         
-        The 'subjobs' entry is a mapping, with each key being a Task instance
-        with its associated config, and the value is the name of that Task.
+        The 'subjobs' entry is a set, with each element being a Task instance
+        with its associated config.
         
         The 'input' entry is also a mapping, indexed by any of the keys present
         in the 'subjobs' dictionary, and its value is the input of that Task.
@@ -117,9 +120,9 @@ class Task(object):
         
             {
                 'children' : {
-                    Task_A(config) : task_a_name,
-                    Task_B(config) : task_b_name,
-                    Task_B(config) : task_c_name,
+                    Task_A(config),
+                    Task_B(config),
+                    Task_B(config),
                 },
                 'links' : [
                     ( task_X, task_Y ),
@@ -127,8 +130,8 @@ class Task(object):
                 'output' : <output>
             }
         
-        The 'children' entry is a mapping, with each key being a Task instance
-        with its associated config, and the value is the name of that Task.
+        The 'children' entry is a set, with each key being a Task instance
+        with its associated config.
         
         The 'links' entry contains a list of tuples. Each tuple contains two
         Task instances (which must be present in the 'children' mapping)

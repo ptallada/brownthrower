@@ -28,7 +28,7 @@ def validate_config(task, config):
         jsonschema.validate(config, json.loads(task.config_schema))
         task.check_config(config)
     except Exception as e:
-        raise interface.TaskValidationException('Config is not valid', e)
+        raise interface.task.ValidationException('Config is not valid', e)
 
 def validate_input(task, inp):
     try:
@@ -36,7 +36,7 @@ def validate_input(task, inp):
         jsonschema.validate(inp, json.loads(task.input_schema))
         task.check_input(inp)
     except Exception as e:
-        raise interface.TaskValidationException('Input is not valid', e)
+        raise interface.task.ValidationException('Input is not valid', e)
 
 def validate_output(task, out):
     try:
@@ -44,25 +44,28 @@ def validate_output(task, out):
         jsonschema.validate(out, json.loads(task.output_schema))
         task.check_output(out)
     except Exception as e:
-        raise interface.TaskValidationException('Output is not valid', e)
+        raise interface.task.ValidationException('Output is not valid', e)
 
 def get_config_schema(task):
-    return textwrap.dedent(task.config_schema).strip()
+    return textwrap.dedent(task.config_schema).strip() + '\n'
 
 def get_input_schema(task):
-    return textwrap.dedent(task.input_schema).strip()
+    return textwrap.dedent(task.input_schema).strip()  + '\n'
 
 def get_output_schema(task):
-    return textwrap.dedent(task.output_schema).strip()
+    return textwrap.dedent(task.output_schema).strip() + '\n'
 
 def get_config_sample(task):
-    return textwrap.dedent(task.config_sample).strip()
+    return textwrap.dedent(task.config_sample).strip() + '\n'
 
 def get_input_sample(task):
-    return textwrap.dedent(task.input_sample).strip()
+    return textwrap.dedent(task.input_sample).strip()  + '\n'
 
 def get_output_sample(task):
-    return textwrap.dedent(task.output_sample).strip()
+    return textwrap.dedent(task.output_sample).strip() + '\n'
+
+def get_name(task):
+    return task.__brownthrower_name__
 
 def get_help(task):
     doc = task.__doc__.strip().split('\n')
@@ -81,7 +84,7 @@ def init(entry_point):
         try:
             task = entry.load()
             
-            assert isinstance(task.name,          basestring)
+            assert isinstance(task.__brownthrower_name__, basestring)
             
             assert isinstance(task.config_schema, basestring)
             assert isinstance(task.input_schema,  basestring)
@@ -98,32 +101,31 @@ def init(entry_point):
             validate_input( task, task.input_sample)
             validate_output(task, task.output_sample)
             
-            if task.name in _tasks:
-                log.warning("Skipping duplicate Task '%s' from '%s:%s'." % (task.name, entry.name, entry.module_name))
+            if task.__brownthrower_name__ in _tasks:
+                log.warning("Skipping duplicate Task '%s' from '%s'." % (task.__brownthrower_name__, entry.module_name))
                 continue
             
-            _tasks[task.name] = task
+            _tasks[task.__brownthrower_name__] = task
             
         except Exception as e:
             try:
                 raise
             except (AttributeError, AssertionError):
-                log.warning("Task '%s:%s' does not properly implement the interface." % (entry.name, entry.module_name))
-            except interface.TaskValidationException:
-                log.warning("Samples from Task '%s:%s' are not valid." % (entry.name, entry.module_name))
+                log.warning("Task '%s' does not properly implement the interface." % entry.module_name)
+            except interface.task.ValidationException:
+                log.warning("Samples from Task '%s' are not valid." % entry.module_name)
             except ImportError:
-                log.warning("Unable to load Task '%s:%s'." % (entry.name, entry.module_name))
+                log.warning("Unable to load Task '%s'." % entry.module_name)
             finally:
                 log.debug(e)
 
 def get_tasks():
-    global _tasks
     return _tasks
 
 def get_task(name):
-    global _tasks
     return _tasks[name]
 
+# FIXME: Load in init
 def load_dispatchers(entry_point):
     """
     Build a list with all the Dispatchers available in the current environment.
@@ -139,17 +141,21 @@ def load_dispatchers(entry_point):
             assert len(dispatcher.get_help()[1]) > 0
             assert '\n' not in dispatcher.get_help()[0]
             
-            if entry.name in dispatchers:
-                log.warning("Skipping Dispatcher '%s:%s': a Dispatcher with the same name is already defined." % (entry.name, entry.module_name))
+            if dispatcher.__brownthrower_name__ in dispatchers:
+                log.warning("Skipping duplicate Dispatcher '%s' from '%s'." % (dispatcher.__brownthrower_name__, entry.module_name))
                 continue
             
-            dispatchers[entry.name] = dispatcher
+            dispatchers[dispatcher.__brownthrower_name__] = dispatcher
         
-        except (AttributeError, AssertionError) as e:
-            log.warning("Skipping Dispatcher '%s:%s': it does not properly implement the interface." % (entry.name, entry.module_name))
-            log.debug("Dispatcher '%s:%s': %s" % (entry.name, entry.module_name, e))
-        except ImportError as e:
-            log.warning("Skipping Dispatcher '%s:%s': unable to load." % (entry.name, entry.module_name))
+        except Exception as e:
+            try:
+                raise
+            except (AttributeError, AssertionError) as e:
+                log.warning("Dispatcher '%s' does not properly implement the interface." % entry.module_name)
+            except ImportError as e:
+                log.warning("Unable to load Dispatcher '%s'." % entry.module_name)
+            finally:
+                log.debug(e)
     
     return dispatchers
 
@@ -209,7 +215,7 @@ def submit(job_id):
     if job.status == constants.JobStatus.STASHED:
         task = get_task(job.task)
         if not task:
-            raise interface.TaskUnavailableException(job.task)
+            raise interface.task.UnavailableException(job.task)
         
         validate_config(task, job.config)
         if not job.parents:

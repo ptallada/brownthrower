@@ -1,26 +1,23 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import brownthrower.interface.constants # @UnusedImport
+import brownthrower.interface.dispatcher # @UnusedImport
+import brownthrower.interface.runner # @UnusedImport
+import brownthrower.interface.task # @UnusedImport
 import datetime
 import logging
 import transaction
 import yaml
 
 from brownthrower import api, interface, model
-from brownthrower import constants as CONSTANTS
-from brownthrower.config import config as CONFIG
-from brownthrower.interface import constants
+from brownthrower.profile import settings
 from contextlib import contextmanager
 from sqlalchemy.orm.exc import NoResultFound
 
-# TODO: read and create a global or local configuration file
-_CONFIG = {
-    'entry_points.task'  : 'brownthrower.task',
-}
-
 log = logging.getLogger('brownthrower.dispatcher.serial')
 
-class SerialDispatcher(interface.Dispatcher):
+class SerialDispatcher(interface.dispatcher.Dispatcher):
     """\
     Basic serial dispatcher for testing and development.
     
@@ -28,8 +25,10 @@ class SerialDispatcher(interface.Dispatcher):
     It supports both SQLite and PostgreSQL.
     """
     
+    __brownthrower_name__ = 'serial'
+    
     def __init__(self, *args, **kwargs):
-        api.init(CONSTANTS.entry_points['task'])
+        api.init(settings['entry_points']['task'])
     
     def _queued_jobs(self):
         while True:
@@ -38,10 +37,10 @@ class SerialDispatcher(interface.Dispatcher):
                 
                 # Fetch first job which WAS suitable to be executed
                 job = session.query(model.Job).filter(
-                    model.Job.status == constants.JobStatus.QUEUED,
+                    model.Job.status == interface.constants.JobStatus.QUEUED,
                     model.Job.task.in_(api.get_tasks().keys()),
                     ~ model.Job.parents.any( #@UndefinedVariable
-                        model.Job.status != constants.JobStatus.DONE,
+                        model.Job.status != interface.constants.JobStatus.DONE,
                     )
                 ).first()
                 
@@ -52,7 +51,7 @@ class SerialDispatcher(interface.Dispatcher):
                 ancestors = job.ancestors(lockmode='update')[1:]
                 
                 # Check again after locking if it is still runnable
-                if job.status != constants.JobStatus.QUEUED:
+                if job.status != interface.constants.JobStatus.QUEUED:
                     log.debug("Skipping this job as it has changed its status before being locked.")
                     continue
                 
@@ -60,7 +59,7 @@ class SerialDispatcher(interface.Dispatcher):
                 parents = session.query(model.Job).filter(
                     model.Job.children.contains(job) #@UndefinedVariable
                 ).with_lockmode('read').all()
-                if filter(lambda parent: parent.status != constants.JobStatus.DONE, parents):
+                if filter(lambda parent: parent.status != interface.constants.JobStatus.DONE, parents):
                     log.debug("Skipping this job as some of its parents have changed its status before being locked.")
                     continue
                 
@@ -75,7 +74,7 @@ class SerialDispatcher(interface.Dispatcher):
     
     def _validate_task(self, job):
         if job.parents:
-            job.input = yaml.dump(
+            job.input = yaml.safe_dump(
                 [ yaml.safe_load(parent.output) for parent in job.parents ],
                 default_flow_style = False
             )
@@ -84,9 +83,9 @@ class SerialDispatcher(interface.Dispatcher):
         api.validate_config(task, job.config)
         api.validate_input(task, job.input)
         
-        return task
+        return task(config = yaml.safe_load(job.config))
     
-    def _run_prolog(self, job):
+    def _run_prolog(self, task, inp):
         """
         {
             'subjobs' : [
@@ -104,21 +103,20 @@ class SerialDispatcher(interface.Dispatcher):
         }
         """
         subjobs = {}
-        task = api.get_task(job.task)(config = yaml.safe_load(job.config))
         
         if hasattr(task, 'prolog'):
             try:
-                prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(job.input))
+                prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(inp))
                 
                 for subjob in prolog.get('subjobs', []):
                     subjobs[subjob]  = model.Job(
-                            status   = constants.JobStatus.QUEUED,
-                            config   = yaml.dump(subjob.config, default_flow_style=False),
-                            task     = subjob.name,
+                            status   = interface.constants.JobStatus.QUEUED,
+                            config   = yaml.safe_dump(subjob.config, default_flow_style=False),
+                            task     = api.get_name(subjob),
                     )
                 
                 for (subjob, inp) in prolog.get('input', {}).iteritems():
-                    subjobs[subjob].input = yaml.dump(inp, default_flow_style=False)
+                    subjobs[subjob].input = yaml.safe_dump(inp, default_flow_style=False)
                 
                 for link in prolog.get('links', []):
                     subjobs[link[0]].children.append(subjobs[link[1]])
@@ -128,7 +126,7 @@ class SerialDispatcher(interface.Dispatcher):
         
         return subjobs
     
-    def _run_epilog(self, job, tasks):
+    def _run_epilog(self, task, job):
         """
         {
             'children' : [
@@ -143,14 +141,14 @@ class SerialDispatcher(interface.Dispatcher):
         }
         """
         out = [yaml.safe_load(subjob.output) for subjob in job.leaf_subjobs]
-        epilog = tasks[job.task](config = yaml.safe_load(job.config)).epilog(tasks=tasks, out=out)
+        epilog = task.epilog(tasks=api.get_tasks(), out=out)
         
         children = {}
         for child in epilog.get('children', []):
             children[child] = model.Job(
-                    status  = constants.JobStatus.QUEUED,
-                    config  = yaml.dump(child.config, default_flow_style=False),
-                    task    = child.name,
+                    status  = interface.constants.JobStatus.QUEUED,
+                    config  = yaml.safe_dump(child.config, default_flow_style=False),
+                    task    = api.get_name(child),
             )
         
         for link in epilog.get('links', []):
@@ -165,8 +163,8 @@ class SerialDispatcher(interface.Dispatcher):
         job = session.query(model.Job).filter_by(id = job_id).one()
         ancestors = job.ancestors(lockmode='update')[1:]
         
-        if job.status == constants.JobStatus.CANCELLING:
-            raise interface.TaskCancelledException()
+        if job.status == interface.constants.JobStatus.CANCELLING:
+            raise interface.task.CancelledException()
         
         yield job
         
@@ -178,16 +176,24 @@ class SerialDispatcher(interface.Dispatcher):
             for (job, ancestors) in self._queued_jobs():
                 try:
                     session = model.session_maker()
-                    with session.begin_nested():
+                    sp = transaction.savepoint()
+                    try:
                         log.info("Validating queued job %d of task '%s'." % (job.id, job.task))
                         
                         task = self._validate_task(job)
                         
-                        job.status = constants.JobStatus.PROCESSING
+                        job.status = interface.constants.JobStatus.PROCESSING
                         job.ts_started = datetime.datetime.now()
                         
                         for ancestor in ancestors:
                             ancestor.update_status()
+                        session.flush()
+                    
+                    except BaseException as e:
+                        try:
+                            raise
+                        finally:
+                            sp.rollback()
                     
                     # Preload subjobs for the next steps
                     assert len(job.subjobs) >= 0
@@ -206,7 +212,7 @@ class SerialDispatcher(interface.Dispatcher):
                         if not job.subjobs:
                             log.info("Executing prolog of job %d." % job.id)
                             
-                            subjobs = self._run_prolog(job)
+                            subjobs = self._run_prolog(task, job.input)
                             if subjobs:
                                 with self._locked(job.id) as job:
                                     job.subjobs.extend(subjobs.itervalues())
@@ -215,27 +221,27 @@ class SerialDispatcher(interface.Dispatcher):
                             
                             log.info("Executing job %d." % job.id)
                             
-                            runner = interface.Runner(job_id = job.id)
-                            out = runner.run(task(config=yaml.safe_load(job.config)), inp=yaml.safe_load(job.input))
+                            runner = interface.runner.Runner(job_id = job.id)
+                            out = runner.run(task, inp=yaml.safe_load(job.input))
                             
                             with self._locked(job.id) as job:
                                 job.output = yaml.safe_dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
-                                job.status = constants.JobStatus.DONE
+                                job.status = interface.constants.JobStatus.DONE
                                 job.ts_ended = datetime.datetime.now()
                             
                         else:
                             log.info("Executing epilog of job %d." % job.id)
                             
-                            (children, out) = self._run_epilog(job, api.get_tasks())
+                            (children, out) = self._run_epilog(task, job)
                             
                             with self._locked(job.id) as job:
                                 if children:
                                     job.children.append(children.itervalues())
                                 
-                                job.output = yaml.dump(out, default_flow_style=False)
+                                job.output = yaml.safe_dump(out, default_flow_style=False)
                                 api.validate_output(task, job.output)
-                                job.status = constants.JobStatus.DONE
+                                job.status = interface.constants.JobStatus.DONE
                                 job.ts_ended = datetime.datetime.now()
                 
                 except BaseException as e:
@@ -244,12 +250,12 @@ class SerialDispatcher(interface.Dispatcher):
                         job = session.query(model.Job).filter_by(id = job.id).one()
                         ancestors = job.ancestors(lockmode='update')[1:]
                         raise
-                    except interface.TaskCancelledException:
-                        job.status = constants.JobStatus.CANCELLED
+                    except interface.task.CancelledException:
+                        job.status = interface.constants.JobStatus.CANCELLED
                     except Exception:
-                        job.status = constants.JobStatus.FAILED
+                        job.status = interface.constants.JobStatus.FAILED
                     except BaseException:
-                        job.status = constants.JobStatus.CANCELLED
+                        job.status = interface.constants.JobStatus.CANCELLED
                         raise
                     finally:
                         for ancestor in ancestors:
@@ -291,7 +297,7 @@ def main():
     #import rpdb
     #rpdb.Rpdb().set_trace()
     
-    url = CONFIG['database_url']
+    url = settings['database_url']
     #url = 'sqlite:////tmp/manager.db'
     model.init(url)
     model.Base.metadata.create_all() #@UndefinedVariable

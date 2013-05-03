@@ -21,6 +21,8 @@ class Dispatcher(BaseDispatcher):
     working environment.
     """
     
+    __brownthrower_name__ = 'dispatcher.name'
+    
     def run(self):
         """
         Run the dispatcher until it is interrupted or there are no more jobs
