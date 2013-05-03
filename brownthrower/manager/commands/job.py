@@ -5,7 +5,6 @@ import logging
 import prettytable
 import subprocess
 import tempfile
-import textwrap
 import transaction
 
 log = logging.getLogger('brownthrower.manager')
@@ -18,13 +17,11 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
 class JobCreate(Command):
+    """\
+    usage: job create <task>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job create <task>
-        
-        Create a new job of the given task.
-        """)
+    Create a new job of the given task.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -57,16 +54,11 @@ class JobCreate(Command):
             transaction.abort()
 
 class JobList(Command):
+    """\
+    usage: job list
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job list
-        
-        Show a list of all the jobs registered in the database.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Show a list of all the jobs registered in the database.
+    """
     
     def do(self, items):
         if len(items) != 0:
@@ -117,16 +109,11 @@ class JobList(Command):
             transaction.abort()
 
 class JobShow(Command):
+    """\
+    usage: job show <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job show <id>
-        
-        Show detailed information about the specified job.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Show detailed information about the job with the given id.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -189,16 +176,11 @@ class JobShow(Command):
             transaction.abort()
 
 class JobRemove(Command):
+    """\
+    usage: job remove <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job remove <id>
-        
-        Remove the job with the supplied id from the stash.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Remove the job with the given id from the stash.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -226,16 +208,11 @@ class JobRemove(Command):
             transaction.abort()
 
 class JobSubmit(Command):
+    """\
+    usage: job submit <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job submit <id>
-        
-        Mark the specified job as ready to be executed whenever there are resources available.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Mark the job with the given id as ready to be executed whenever there are resources available.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -265,16 +242,11 @@ class JobSubmit(Command):
             transaction.abort()
 
 class JobReset(Command):
+    """\
+    usage: job reset <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job reset <id>
-        
-        Return the specified job to the stash.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Return the job with the given id to the stash.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -300,16 +272,11 @@ class JobReset(Command):
             transaction.abort()
 
 class JobLink(Command):
+    """\
+    usage: job link <parent_id> <child_id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job link <parent_id> <child_id>
-        
-        Establish a dependency between two jobs.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Establish a dependency between two jobs.
+    """
     
     def do(self, items):
         if len(items) != 2:
@@ -335,16 +302,11 @@ class JobLink(Command):
             transaction.abort()
 
 class JobUnlink(Command):
+    """\
+    usage: job unlink <parent_id> <child_id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job unlink <parent_id> <child_id>
-        
-        Remove the dependency between the specified jobs.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Remove the dependency between the specified jobs.
+    """
     
     def do(self, items):
         if len(items) != 2:
@@ -393,16 +355,11 @@ class JobUnlink(Command):
             transaction.abort()
 
 class JobCancel(Command):
+    """\
+    usage: job cancel <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job cancel <id>
-        
-        Cancel the specified job as soon as possible.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Cancel the job with the given id as soon as possible.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -428,6 +385,11 @@ class JobCancel(Command):
             transaction.abort()
 
 class JobEdit(Command):
+    """\
+    usage: job edit { 'input' | 'config' } <id>
+    
+    Edit the specified dataset of the job with the given id.
+    """
     
     _dataset_attr = {
         'config' : {
@@ -441,14 +403,6 @@ class JobEdit(Command):
             'validate' : api.validate_input,
         }
     }
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job edit <dataset> <id>
-        
-        Edit the specified dataset of a job.
-        Valid values for the dataset parameter are: 'input' and 'config'.
-        """)
     
     def complete(self, text, items):
         if not items:
@@ -521,16 +475,11 @@ class JobEdit(Command):
 
 
 class JobOutput(Command):
+    """\
+    usage: job output <id>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: job output <id>
-        
-        Show the output of a completed job.
-        """)
-    
-    def complete(self, text, items):
-        return [text]
+    Show the output of the finished job with the given id.
+    """
     
     def do(self, items):
         if len(items) != 1:

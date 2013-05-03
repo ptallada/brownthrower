@@ -5,7 +5,6 @@ import logging
 import os
 import prettytable
 import subprocess
-import textwrap
 
 from .base import Command, error, success, strong, warn
 from brownthrower import profile
@@ -13,16 +12,11 @@ from brownthrower import profile
 log = logging.getLogger('brownthrower.manager')
 
 class ProfileCreate(Command):
+    """\
+    usage: profile create <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile create <name>
-        
-        Create a new configuration profile with the given name.
-        """)
-    
-    def complete(self, text, items):
-        pass
+    Create a new configuration profile with the given name.
+    """
     
     def do(self, items):
         if len(items) != 1:
@@ -43,13 +37,11 @@ class ProfileCreate(Command):
                 log.debug(e)
 
 class ProfileDefault(Command):
+    """\
+    usage: profile default <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile default <name>
-        
-        Set the given configuration profile as the default.
-        """)
+    Set the given configuration profile as the default.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -76,13 +68,11 @@ class ProfileDefault(Command):
                 log.debug(e)
 
 class ProfileEdit(Command):
+    """\
+    usage: profile edit <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile edit <name>
-        
-        Edit the configuration profile with the given name.
-        """)
+    Edit the configuration profile with the given name.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -112,16 +102,11 @@ class ProfileEdit(Command):
                 log.debug(e)
 
 class ProfileList(Command):
+    """\
+    usage: profile list
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile list
-        
-        Show a list of all the configuration profiles available.
-        """)
-    
-    def complete(self, text, items):
-        pass
+    Show a list of all the configuration profiles available.
+    """
     
     def do(self, items):
         if len(items) > 0:
@@ -147,13 +132,11 @@ class ProfileList(Command):
             print strong("'C' or 'D' in the second column designate the Current and Default profiles.")
 
 class ProfileShow(Command):
+    """\
+    usage: profile show <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile show <name>
-        
-        Show the configuration profile with the given name.
-        """)
+    Show the configuration profile with the given name.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -180,13 +163,11 @@ class ProfileShow(Command):
                 log.debug(e)
 
 class ProfileRemove(Command):
+    """\
+    usage: profile remove <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile remove <name>
-        
-        Remove the specified configuration profile.
-        """)
+    Remove the specified configuration profile.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -215,13 +196,11 @@ class ProfileRemove(Command):
                 log.debug(e)
 
 class ProfileSwitch(Command):
+    """\
+    usage: profile switch <name>
     
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: profile switch <name>
-        
-        Apply the specified configuration profile and switch to its settings.
-        """)
+    Apply the configuration profile with the given name and switch to its settings.
+    """
     
     def complete(self, text, items):
         if not items:

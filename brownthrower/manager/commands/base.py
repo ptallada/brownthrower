@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import termcolor
+import textwrap
+
+from tabulate import tabulate
 
 def error(msg):
     termcolor.cprint("ERROR: %s" % msg, color='red')
@@ -48,10 +51,22 @@ class Command(object):
         return self.do(items)
     
     def help(self, items):
-        pass
+        print textwrap.dedent(self.__doc__).strip()
+        if self._subcmds:
+            print "\nAvailable commands:"
+            print tabulate([
+                (" ", name, textwrap.dedent(self._subcmds[name].__doc__).strip().split('\n')[2])
+                for name in sorted(self._subcmds.keys())
+            ], tablefmt="plain")
     
     def complete(self, text, items):
-        pass
+        # Autocomplete with subcommands by default
+        available = self._subcmds.keys()
+        
+        return [command
+                for command in available
+                if command.startswith(text)]
     
     def do(self, items):
-        pass
+        # Show usage by default
+        self.help(items)

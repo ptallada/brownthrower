@@ -5,22 +5,17 @@ import logging
 import prettytable
 import textwrap
 
-from . import input, config
 from ..base import Command, error, warn
-from brownthrower import api
+from brownthrower import api, profile
 
 log = logging.getLogger('brownthrower.manager')
 
 class TaskList(Command):
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task list
-        
-        Show a list of all the tasks available in this environment.
-        """)
+    """\
+    usage: task list
     
-    def complete(self, text, items):
-        pass
+    Show a list of all the tasks available in this environment.
+    """
     
     def do(self, items):
         if len(items) > 0:
@@ -38,12 +33,11 @@ class TaskList(Command):
         print table
 
 class TaskShow(Command):
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task show <name>
-        
-        Show a detailed description of the specified task.
-        """)
+    """\
+    usage: task show <name>
+    
+    Show a detailed description of the task with the given name.
+    """
     
     def complete(self, text, items):
         if not items:
@@ -66,111 +60,79 @@ class TaskShow(Command):
         else:
             error("The task '%s' is not currently available in this environment." % items[0])
 
-# FIXME: Refer els commands per q el help sigui automàtic, entre d'altres :)
 class TaskInput(Command):
+    """\
+    usage: task input <command> [options]
+    """
     
     def __init__(self, *args, **kwargs):
         super(TaskInput, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('create',  input.TaskInputCreate())
-        self.add_subcmd('default', input.TaskInputDefault())
-        self.add_subcmd('edit',    input.TaskInputEdit())
-        self.add_subcmd('list',    input.TaskInputList())
-        self.add_subcmd('remove',  input.TaskInputRemove())
-        self.add_subcmd('sample',  input.TaskInputSample())
-        self.add_subcmd('schema',  input.TaskInputSchema())
-        self.add_subcmd('show',    input.TaskInputShow())
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task input <command> [options]
+        from . import dataset
         
-        Available commands:
-            create     add a new dataset
-            default    set a given dataset as the default
-            edit       edit a dataset
-            list       list available datasets
-            remove     delete a dataset
-            sample     show a sample for this dataset
-            schema     show this dataset schema
-            show       display a dataset contents
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
+        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'input',
+                                                              profile = profile.input))
+        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'input',
+                                                              profile = profile.input))
+        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'input',
+                                                              profile = profile.input,
+                                                          validate_fn = api.validate_input))
+        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'input',
+                                                              profile = profile.input))
+        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'input',
+                                                              profile = profile.input))
+        self.add_subcmd('sample',  dataset.TaskDatasetAttr(   dataset = 'input',
+                                                              attr    = 'sample',
+                                                              attr_fn = api.get_input_schema))
+        self.add_subcmd('schema',  dataset.TaskDatasetAttr(   dataset = 'input',
+                                                              attr    = 'schema',
+                                                              attr_fn = api.get_input_schema))
+        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'input',
+                                                              profile = profile.input))
 
 class TaskConfig(Command):
+    """\
+    usage: task config <command> [options]
+    """
     
     def __init__(self, *args, **kwargs):
         super(TaskConfig, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('create',  config.TaskConfigCreate())
-        self.add_subcmd('default', config.TaskConfigDefault())
-        self.add_subcmd('edit',    config.TaskConfigEdit())
-        self.add_subcmd('list',    config.TaskConfigList())
-        self.add_subcmd('remove',  config.TaskConfigRemove())
-        self.add_subcmd('sample',  config.TaskConfigSample())
-        self.add_subcmd('schema',  config.TaskConfigSchema())
-        self.add_subcmd('show',    config.TaskConfigShow())
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task config <command> [options]
+        from . import dataset
         
-        Available commands:
-            create     add a new dataset
-            default    set a given dataset as the default
-            edit       edit a dataset
-            list       list available datasets
-            remove     delete a dataset
-            sample     show a sample for this dataset
-            schema     show this dataset schema
-            show       display a dataset contents
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
-
+        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'config',
+                                                              profile = profile.config))
+        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'config',
+                                                              profile = profile.config))
+        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'config',
+                                                              profile = profile.config,
+                                                          validate_fn = api.validate_config))
+        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'config',
+                                                              profile = profile.config))
+        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'config',
+                                                              profile = profile.config))
+        self.add_subcmd('sample',  dataset.TaskDatasetAttr(   dataset = 'config',
+                                                              attr    = 'sample',
+                                                              attr_fn = api.get_config_schema))
+        self.add_subcmd('schema',  dataset.TaskDatasetAttr(   dataset = 'config',
+                                                              attr    = 'schema',
+                                                              attr_fn = api.get_config_schema))
+        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'config',
+                                                              profile = profile.config))
 
 class TaskOutput(Command):
+    """\
+    usage: task output <command> [options]
+    """
     
     def __init__(self, *args, **kwargs):
         super(TaskOutput, self).__init__(*args, **kwargs)
         
-        from . import output
+        from . import dataset
         
-        self.add_subcmd('schema', output.TaskOutputSchema())
-        self.add_subcmd('sample', output.TaskOutputSample())
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: task output <command> [options]
-        
-        Available commands:
-            sample     show a sample for this dataset
-            schema     show this dataset schema
-        """)
-    
-    def complete(self, text, items):
-        available = self._subcmds.keys()
-        
-        return [command
-                for command in available
-                if command.startswith(text)]
-    
-    def do(self, items):
-        self.help(items)
+        self.add_subcmd('sample', dataset.TaskDatasetAttr(dataset = 'output',
+                                                         attr    = 'sample',
+                                                         attr_fn = api.get_output_sample))
+        self.add_subcmd('schema', dataset.TaskDatasetAttr(dataset = 'output',
+                                                         attr    = 'schema',
+                                                         attr_fn = api.get_output_schema))

@@ -2,25 +2,19 @@
 # -*- coding: utf-8 -*-
 
 import prettytable
-import textwrap
 
 from .base import Command, error, warn
 
 class DispatcherList(Command):
+    """\
+    usage: dispatcher list
+        
+    Show a list of all the dispatchers available in this environment.
+    """
     
     def __init__(self, dispatchers, *args, **kwargs):
         super(DispatcherList, self).__init__(*args, **kwargs)
         self._dispatchers = dispatchers
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: dispatcher list
-        
-        Show a list of all the dispatchers available in this environment.
-        """)
-    
-    def complete(self, text, items):
-        pass
     
     def do(self, items):
         if len(items) > 0:
@@ -38,17 +32,15 @@ class DispatcherList(Command):
         print table
 
 class DispatcherShow(Command):
+    """\
+    usage: dispatcher show <name>
     
+    Show a detailed description of the dispatcher with the given name.
+    """
+        
     def __init__(self, dispatchers, *args, **kwargs):
         super(DispatcherShow, self).__init__(*args, **kwargs)
         self._dispatchers = dispatchers
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: dispatcher show <name>
-        
-        Show a detailed description of the specified dispatcher.
-        """)
     
     def complete(self, text, items):
         if not items:
@@ -70,19 +62,17 @@ class DispatcherShow(Command):
         else:
             error("The dispatcher '%s' is not currently available in this environment." % items[0])
 
+#TODO: substituir prettytable per tabulate
 class DispatcherRun(Command):
+    """\
+    usage: dispatcher run <name>
+        
+    Run the specified dispatcher until it is interrupted or there are no more jobs to be executed.
+    """
     
     def __init__(self, dispatchers, *args, **kwargs):
         super(DispatcherRun, self).__init__(*args, **kwargs)
         self._dispatchers = dispatchers
-    
-    def help(self, items):
-        print textwrap.dedent("""\
-        usage: dispatcher run <name>
-        
-        Run the specified dispatcher until it is interrupted or there are no
-        more jobs to be executed..
-        """)
     
     def complete(self, text, items):
         if not items:

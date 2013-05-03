@@ -8,13 +8,15 @@ import pkg_resources
 import shutil
 import yaml
 
-from brownthrower import model, release
+from brownthrower import api, model, release
 
 _options = None
 _profile_list = []
 _default_profile = None
 _current_profile = None
 settings = {}
+input  = None # @ReservedAssignment
+config = None
 
 _defaults = {
     'entry_points' : {
@@ -42,12 +44,19 @@ class AlreadyExistsError(Exception):
     pass
 
 def init_settings():
+    global input, config # @ReservedAssignment
+    
     settings.clear()
     settings.update(_defaults)
     _update_profile_list()
     profile = _parse_args()
     if profile not in ['default'] + get_available():
         create(profile)
+    
+    from . import dataset
+    
+    input  = dataset.DatasetProfile('input',  api.get_input_sample) # @ReservedAssignment
+    config = dataset.DatasetProfile('config', api.get_config_sample)
     
     switch(profile)
 
@@ -100,8 +109,8 @@ def switch(name):
     if _current_profile == 'default':
         _current_profile = os.readlink(get_path('default'))
     
-    from brownthrower.profile import input
-    input._update_input_list()
+    input._update_dataset_list()
+    config._update_dataset_list()
     
     model.init(settings['database_url'])
 
