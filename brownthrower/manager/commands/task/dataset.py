@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import brownthrower.profile.dataset # @UnusedImport
 import logging
 import os
 import prettytable
@@ -43,13 +44,19 @@ class TaskDatasetAttr(Command):
         if len(items) != 1:
             return self.help(items)
         
-        task = api.get_task(items[0])
-        if not task:
-            error("The task '%s' is not currently available in this environment." % items[0])
-            return
+        try:
+            task = api.get_task(items[0])
+            
+            viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
+            viewer.communicate(input=self._attr_fn(task))
         
-        viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
-        viewer.communicate(input=self._attr_fn(task))
+        except BaseException as e:
+            try:
+                raise
+            except KeyError:
+                error("The task '%s' is not available in this environment." % items[0])
+        finally:
+            log.debug(e)
 
 class TaskDatasetShow(Command):
     @property
@@ -81,20 +88,21 @@ class TaskDatasetShow(Command):
             return matching
     
     def do(self, items):
-        if (
-            (len(items) != 2) or
-            (items[0] not in api.get_tasks().iterkeys()) or
-            (items[1] not in self._profile.get_available(items[0]))
-        ):
+        if len(items) != 2:
             return self.help(items)
         
         try:
             path = self._profile.get_dataset_path(items[0], items[1])
+            assert os.access(path, os.R_OK)
             subprocess.check_call(['pager', path])
         
         except BaseException as e:
             try:
                 raise
+            except AssertionError:
+                error("Cannot open this dataset for reading.")
+            except profile.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
             except subprocess.CalledProcessError:
                 error("An error occurred while trying to display this dataset.")
             finally:
@@ -131,11 +139,7 @@ class TaskDatasetEdit(Command):
             return matching
     
     def do(self, items):
-        if (
-            (len(items) != 2) or
-            (items[0] not in api.get_tasks().iterkeys()) or
-            (items[1] not in self._profile.get_available(items[0]))
-        ):
+        if len(items) != 2:
             return self.help(items)
         
         try:
@@ -159,8 +163,16 @@ class TaskDatasetEdit(Command):
         except BaseException as e:
             try:
                 raise
+            except KeyError:
+                error("The task '%s' is not available in this environment." % items[0])
+            except AssertionError:
+                error("Cannot open this dataset for writing.")
             except EnvironmentError:
                 error("Unable to open the temporary dataset buffer.")
+            except profile.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
+            except subprocess.CalledProcessError:
+                error("An error occurred while trying to edit this dataset.")
             except interface.task.ValidationException:
                 error("The new value for this dataset is not valid.")
             finally:
@@ -196,11 +208,7 @@ class TaskDatasetRemove(Command):
             return matching
     
     def do(self, items):
-        if (
-            (len(items) != 2) or
-            (items[0] not in api.get_tasks().iterkeys()) or
-            (items[1] not in self._profile.get_available(items[0]))
-        ):
+        if len(items) != 2:
             return self.help(items)
         
         try:
@@ -212,6 +220,8 @@ class TaskDatasetRemove(Command):
                 raise
             except profile.DoesNotExistError:
                 error("There is no %s dataset named '%s' for the given task '%s'." % (self._dataset, items[1], items[0]))
+            except profile.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
             finally:
                 log.debug(e)
 
@@ -285,23 +295,24 @@ class TaskDatasetCreate(Command):
             return matching
     
     def do(self, items):
-        if (
-            (len(items) != 2) or
-            (items[0] not in api.get_tasks().iterkeys())
-        ):
+        if len(items) != 2:
             return self.help(items)
         
         try:
-            self._profile.create(api.get_task(items[0]), items[1])
+            self._profile.create(items[0], items[1])
             success("A new %s dataset with name '%s' has been created." % (self._dataset, items[0]))
         
         except BaseException as e:
             try:
                 raise
+            except KeyError:
+                error("The task '%s' is not available in this environment." % items[0])
             except profile.ReservedNameError:
                 error('You cannot use this name for a dataset. Please, specify another name.')
             except profile.AlreadyExistsError:
                 error('There is already a dataset with this name. Please, specify another name.')
+            except profile.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
             finally:
                 log.debug(e)
 
@@ -335,11 +346,7 @@ class TaskDatasetDefault(Command):
             return matching
     
     def do(self, items):
-        if (
-            (len(items) != 2) or
-            (items[0] not in api.get_tasks().iterkeys()) or
-            (items[1] not in self._profile.get_available(items[0]))
-        ):
+        if len(items) != 2:
             return self.help(items)
         
         try:
@@ -351,5 +358,7 @@ class TaskDatasetDefault(Command):
                 raise
             except profile.DoesNotExistError:
                 error("There is no %s dataset named '%s' for the task '%s'." % (self._dataset, items[1], items[0]))
+            except profile.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
             finally:
                 log.debug(e)

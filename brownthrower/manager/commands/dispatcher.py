@@ -54,6 +54,7 @@ class DispatcherShow(Command):
         if len(items) != 1:
             return self.help(items)
         
+        #FIXME: Move to api
         dispatcher = self._dispatchers.get(items[0])
         if dispatcher:
             desc = dispatcher.get_help()
@@ -86,6 +87,7 @@ class DispatcherRun(Command):
         if len(items) != 1:
             return self.help(items)
         
+        # FIXME: Rewrite as the job
         dispatcher = self._dispatchers.get(items[0])
         if dispatcher:
             dispatcher().run()

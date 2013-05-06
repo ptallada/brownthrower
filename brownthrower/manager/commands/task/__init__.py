@@ -51,14 +51,20 @@ class TaskShow(Command):
         if len(items) != 1:
             return self.help(items)
         
-        task = api.get_task(items[0])
-        if task:
+        try:
+            task = api.get_task(items[0])
             desc = api.get_help(task)
             print desc[0]
             print
             print desc[1]
-        else:
-            error("The task '%s' is not currently available in this environment." % items[0])
+        
+        except BaseException as e:
+            try:
+                raise
+            except KeyError:
+                error("The task '%s' is not available in this environment." % items[0])
+        finally:
+            log.debug(e)
 
 class TaskInput(Command):
     """\

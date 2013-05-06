@@ -62,7 +62,11 @@ def init_settings():
 
 def _update_profile_list():
     global _default_profile
-    _profile_list[:] = os.walk(settings['paths']['profile']).next()[1]
+    _profile_list[:] = []
+    try:
+        _profile_list[:] = os.walk(settings['paths']['profile']).next()[1]
+    except StopIteration:
+        pass
     
     _default_profile = None
     if 'default' in _profile_list:
@@ -138,9 +142,6 @@ def create(name):
     _update_profile_list()
     
     # FIXME: Do not have any profile or input or config as default unless asked.
-    # Allow having no defaults. 'reset_default' command.
-    if not get_default():
-        set_default(name)
 
 def remove(name):
     if not name in get_available():
@@ -170,7 +171,7 @@ def get_current():
 def set_default(name):
     global _default_profile
     
-    if not name in get_available():
+    if not name in [None] + get_available():
         raise DoesNotExistError
     
     path = get_path('default')
@@ -179,5 +180,6 @@ def set_default(name):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-    os.symlink(name, path)
+    if name:
+        os.symlink(name, path)
     _default_profile = name

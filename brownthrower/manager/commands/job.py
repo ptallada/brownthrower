@@ -427,11 +427,7 @@ class JobEdit(Command):
                 error("This job is not editable in its current status.")
                 return
             
-            # TODO: Move this to api
             task = api.get_task(job.task)
-            if not task:
-                error("The task '%s' is not currently available in this environment." % job.task)
-                return
             
             field    = self._dataset_attr[items[0]]['field']
             sample   = self._dataset_attr[items[0]]['sample'](task)
@@ -456,10 +452,12 @@ class JobEdit(Command):
             transaction.commit()
             
             success("The job dataset has been successfully modified.")
-        
+            
         except BaseException as e:
             try:
                 raise
+            except KeyError:
+                error("The task '%s' is not available in this environment." % job.task)
             except NoResultFound:
                 error("The specified job does not exist.")
             except EnvironmentError:
