@@ -20,10 +20,9 @@ setup(
     install_requires = [
         'argparse',
         'jsonschema',
-        'PrettyTable',
-        'Python >= 2.6',
         'PyYAML',
-        'SQLAlchemy',
+        'SQLAlchemy >= 0.8',
+        'tabulate',
         'termcolor',
         'transaction',
         'zope.sqlalchemy',
@@ -69,6 +68,6 @@ setup(
         ],
     },
     
-    #include_package_data=True,
+    include_package_data=True,
     #zip_safe=True,
 )
