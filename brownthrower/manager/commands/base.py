@@ -54,10 +54,10 @@ class Command(object):
         print textwrap.dedent(self.__doc__).strip()
         if self._subcmds:
             print "\nAvailable commands:"
-            print tabulate([
-                (" ", name, textwrap.dedent(self._subcmds[name].__doc__).strip().split('\n')[2])
-                for name in sorted(self._subcmds.keys())
-            ], tablefmt="plain")
+            table = []
+            for name in sorted(self._subcmds.keys()):
+                table.append([" ", name, textwrap.dedent(self._subcmds[name].__doc__).strip().split('\n')[2]])
+            print tabulate(table, tablefmt="plain")
     
     def complete(self, text, items):
         # Autocomplete with subcommands by default

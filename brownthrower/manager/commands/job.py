@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import errno
 import logging
-import prettytable
 import subprocess
 import tempfile
 import transaction
@@ -10,18 +10,31 @@ import transaction
 log = logging.getLogger('brownthrower.manager')
 
 from .base import Command, error, warn, success, strong
-from brownthrower import api, interface, model
+from brownthrower import api, model
 from brownthrower.interface import constants
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
+from tabulate import tabulate
 
 class JobCreate(Command):
     """\
-    usage: job create <task>
+    usage: job create <task> [input <reference>] [config <reference>]
     
     Create a new job of the given task.
+    Optionally, a reference can be specified to indicate the initial value of the
+    input and config datasets. The valid values for these references are:
+      - default : the default dataset for this task.
+      - sample  : the sample dataset for this task
+      - <name>  : a user defined dataset for this task
     """
+    
+    def __init__(self, *args, **kwargs):
+        super(JobCreate, self).__init__(*args, **kwargs)
+        
+        self._profile = {}
+        self._profile['config'] = api.profile.config
+        self._profile['input']  = api.profile.input
     
     def complete(self, text, items):
         if not items:
@@ -30,24 +43,108 @@ class JobCreate(Command):
                         if key.startswith(text)]
             
             return matching
+        
+        elif (
+            (len(items) == 1) and 
+            (items[0] in api.get_tasks().iterkeys())
+        ):
+            available = ['config', 'input']
+            return [
+                name
+                for name in sorted(available)
+                if name.startswith(text)
+            ]
+        
+        elif (
+            (len(items) == 2) and
+            (items[0] in api.get_tasks().iterkeys()) and
+            (items[1] in ['config', 'input'])
+        ):
+            available = ['sample']
+            if self._profile[items[1]].get_default(items[0]):
+                available.append('default')
+            available.extend(self._profile[items[1]].get_available(items[0]))
+            return [
+                name
+                for name in sorted(available)
+                if name.startswith(text)
+            ]
+        
+        elif (
+            (len(items) == 3) and
+            (items[0] in api.get_tasks().iterkeys()) and
+            (items[1] in ['config', 'input']) and
+            (items[2] in self._profile[items[1]].get_available(items[0]))
+        ):
+            return 'config' if items[1] == 'input' else 'input'
+        
+        elif (
+            (len(items) == 4) and
+            (items[0] in api.get_tasks().iterkeys()) and
+            (items[1] in ['config', 'input']) and
+            (items[2] in self._profile[items[1]].get_available(items[0]))
+            (items[3] == 'config' if items[1] == 'input' else 'input')
+        ):
+            available = ['sample']
+            if self._profile[items[3]].get_default(items[0]):
+                available.append('default')
+            available.extend(self._profile[items[3]].get_available(items[0]))
+            return [
+                name
+                for name in sorted(available)
+                if name.startswith(text)
+            ]
     
-    # FIXME: crear amb input i config per defecte
     def do(self, items):
-        if len(items) != 1:
+        if (
+            (len(items) not in [1, 3, 5]) or
+            ( (len(items) == 3) and (items[1]) not in ['config', 'input'] ) or
+            ( (len(items) == 5) and (set([items[1], items[3]]) == set(['config', 'input'])) )
+        ):
             return self.help(items)
         
         try:
-            job_id = api.create(items[0])
+            task = api.get_task(items[0])
+            
+            reference = {
+                'config' : self._profile['config'].get_default(items[0]) or 'sample',
+                'input'  : self._profile['input' ].get_default(items[0]) or 'sample',
+            }
+            if len(items) == 3:
+                reference[items[1]] = items[2]
+            if len(items) == 5:
+                reference[items[3]] = items[4]
+            
+            contents = {}
+            for dataset in ['config', 'input']:
+                name = reference[dataset]
+                if name == 'sample':
+                    contents[dataset] = api.task.get_dataset(dataset, name)(task)
+                    continue
+                
+                path = self._profile[dataset].get_dataset_path(items[0], name)
+                contents[dataset] = open(path, 'r').read()
+            
+            job = api.task.create(items[0])
+            job.config = contents['config']
+            job.input  = contents['input']
+            
+            job_id = job.id 
             transaction.commit()
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except KeyError:
-                error("Task '%s' is not available in this environment" % items[0])
-            except StatementError as e:
+            except api.dataset.NoProfileIsActive:
+                error("No configuration profile is active at this time. Please, switch into one.")
+            except api.task.UnavailableException:
+                error("The task '%s' is not available in this environment." % e.task)
+            except StatementError:
                 error("The job could not be created.")
+            except IOError:
+                if e.errno != errno.ENOENT:
+                    raise
             finally:
                 log.debug(e)
         finally:
@@ -67,31 +164,21 @@ class JobList(Command):
         try:
             session = model.session_maker()
             
-            # FIXME: clean up
-            table = prettytable.PrettyTable([
+            table = []
+            headers = (
                 'id', 'super_id',
                 'task', 'status',
-                'created', 'queued', 'started', 'ended',
-            #    'has config', 'has input', 'has output',
-            #    '# parents', '# children', '# subjobs'
-            ])
-            table.align = 'l'
-            
-            jobs = session.query(model.Job).options(
-            #    model.joinedload(model.Job.parents),
-            #    model.joinedload(model.Job.children),
-            #    model.joinedload(model.Job.subjobs),
-            ).all()
+                'created', 'queued', 'started', 'ended'
+            )            
+            jobs = session.query(model.Job).order_by(model.Job.id).all()
             for job in jobs:
-                table.add_row([
+                table.append([
                     job.id, job.super_id,
                     job.task, job.status,
                     job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
                     job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued else None,
                     job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
                     job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended else None,
-                #    job.config != None, job.input != None, job.output != None,
-                #    len(job.parents), len(job.children), len(job.subjobs)
                 ])
             
             if not jobs:
@@ -100,11 +187,15 @@ class JobList(Command):
             
             transaction.commit()
             
-            print table
+            print tabulate(table, headers=headers)
         
-        except StatementError as e:
-            error("Could not complete the query to the database.")
-            log.debug(e)
+        except Exception as e:
+            try:
+                raise
+            except StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
         finally:
             transaction.abort()
 
@@ -145,33 +236,37 @@ class JobShow(Command):
             print strong("\nJOB OUTPUT:")
             print job.output.strip() if job.output else ''
             
-            table = prettytable.PrettyTable(['kind', 'id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output'])
-            table.align = 'l'
+            table = []
+            headers = ('kind', 'id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output')
             
             for parent in job.parents:
-                table.add_row(['PARENT', parent.id, parent.super_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
-            table.add_row(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                table.append(['PARENT', parent.id, parent.super_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
+            table.append(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
             for child in job.children:
-                table.add_row(['CHILD', child.id, child.super_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
+                table.append(['CHILD', child.id, child.super_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
             
             print strong("\nPARENT/CHILD JOBS:")
-            print table
+            print tabulate(table, headers=headers)
             
-            table.clear_rows()
+            table = []
             if job.superjob:
-                table.add_row(['SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status, job.superjob.config != None, job.superjob.input != None, job.superjob.output != None])
-            table.add_row(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                table.append(['SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status, job.superjob.config != None, job.superjob.input != None, job.superjob.output != None])
+            table.append(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
             for subjob in job.subjobs:
-                table.add_row(['SUB', subjob.id, subjob.super_id, subjob.task, subjob.status, subjob.config != None, subjob.input != None, subjob.output != None])
+                table.append(['SUB', subjob.id, subjob.super_id, subjob.task, subjob.status, subjob.config != None, subjob.input != None, subjob.output != None])
             
             transaction.commit()
             
             print strong("\nSUPER/SUB JOBS:")
-            print table
+            print tabulate(table, headers=headers)
         
-        except StatementError as e:
-            error("Could not complete the query to the database.")
-            log.debug(e)
+        except Exception as e:
+            try:
+                raise
+            except StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
         finally:
             transaction.abort()
 
@@ -187,14 +282,14 @@ class JobRemove(Command):
             return self.help(items)
         
         try:
-            api.remove(items[0])
+            api.task.remove(items[0])
             transaction.commit()
             success("The job has been successfully removed.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except api.InvalidStatusException as e:
+            except api.task.InvalidStatusException:
                 error(e.message)
             except NoResultFound:
                 error("The specified job does not exist.")
@@ -219,20 +314,20 @@ class JobSubmit(Command):
             return self.help(items)
         
         try:
-            api.submit(items[0])
+            api.task.submit(items[0])
             transaction.commit()
             success("The job has been successfully marked as ready for execution.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except api.InvalidStatusException as e:
+            except api.task.InvalidStatusException:
                 error(e.message)
-            except interface.task.UnavailableException as e:
-                error("The task '%s' is currently not available in this environment." % e.task)
-            except interface.task.ValidationException:
+            except api.task.UnavailableException:
+                error("The task '%s' is not available in this environment." % e.task)
+            except api.task.ValidationException:
                 error("The job has an invalid config or input.")
             except StatementError:
                 error("Could not complete the query to the database.")
@@ -253,18 +348,18 @@ class JobReset(Command):
             return self.help(items)
         
         try:
-            api.reset(items[0])
+            api.task.reset(items[0])
             transaction.commit()
             success("The job has been successfully returned to the stash.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except api.InvalidStatusException as e:
+            except api.task.InvalidStatusException:
                 error(e.message)
-            except StatementError as e:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
@@ -283,18 +378,18 @@ class JobLink(Command):
             return self.help(items)
         
         try:
-            api.link(items[0], items[1])
+            api.task.link(items[0], items[1])
             transaction.commit()
             success("The parent-child dependency has been successfully established.")
             
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except api.InvalidStatusException as e:
+            except api.task.InvalidStatusException:
                 error(e.message)
             except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except StatementError as e:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
@@ -342,12 +437,12 @@ class JobUnlink(Command):
             else:
                 success("The parent-child dependency has been successfully removed.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except StatementError as e:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
@@ -366,18 +461,18 @@ class JobCancel(Command):
             return self.help(items)
         
         try:
-            api.cancel(items[0])
+            api.task.cancel(items[0])
             transaction.commit()
             success("The job has been marked to be cancelled as soon as possible.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except api.InvalidStatusException as e:
+            except api.task.InvalidStatusException:
                 error(e.message)
-            except StatementError as e:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
@@ -391,30 +486,17 @@ class JobEdit(Command):
     Edit the specified dataset of the job with the given id.
     """
     
-    _dataset_attr = {
-        'config' : {
-            'field'    : model.Job.config,
-            'sample'   : lambda task: api.get_config_sample(task),
-            'validate' : api.validate_config,
-        },
-        'input'  : {
-            'field'    : model.Job.input,
-            'sample'   : lambda task: api.get_input_sample(task),
-            'validate' : api.validate_input,
-        }
-    }
-    
     def complete(self, text, items):
         if not items:
             matching = [attr
-                        for attr in self._dataset_attr.keys()
+                        for attr in ['config', 'input']
                         if attr.startswith(text)]
             return matching
     
     def do(self, items):
         if (
             (len(items) != 2) or
-            (items[0] not in self._dataset_attr)
+            (items[0] not in ['config', 'input'])
         ):
             return self.help(items)
         
@@ -429,11 +511,10 @@ class JobEdit(Command):
             
             task = api.get_task(job.task)
             
-            field    = self._dataset_attr[items[0]]['field']
-            sample   = self._dataset_attr[items[0]]['sample'](task)
-            validate = self._dataset_attr[items[0]]['validate']
+            sample   = api.task.get_dataset(items[0], 'sample')(task)
+            validate = api.task.get_validator(items[0])
             
-            current_value = getattr(job, field.key)
+            current_value = getattr(job, items[0])
             if not current_value:
                 current_value = sample
             
@@ -448,21 +529,21 @@ class JobEdit(Command):
             
             validate(task, new_value)
             
-            setattr(job, field.key, new_value)
+            setattr(job, items[0], new_value)
             transaction.commit()
             
             success("The job dataset has been successfully modified.")
             
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except KeyError:
-                error("The task '%s' is not available in this environment." % job.task)
+            except api.task.UnavailableException:
+                error("The task '%s' is not available in this environment." % e.task)
             except NoResultFound:
                 error("The specified job does not exist.")
             except EnvironmentError:
                 error("Unable to open the temporary dataset buffer.")
-            except interface.task.ValidationException:
+            except api.task.ValidationException:
                 error("The new value for the %s is not valid." % items[0])
             except StatementError:
                 error("Could not complete the query to the database.")
@@ -470,7 +551,6 @@ class JobEdit(Command):
                 log.debug(e)
         finally:
             transaction.abort()
-
 
 class JobOutput(Command):
     """\
@@ -499,12 +579,12 @@ class JobOutput(Command):
             viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
             viewer.communicate(input=job_output)
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except NoResultFound as e:
+            except NoResultFound:
                 error("The specified job does not exist.")
-            except StatementError as e:
+            except StatementError:
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)

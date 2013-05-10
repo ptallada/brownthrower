@@ -3,11 +3,11 @@
 
 import logging
 import os
-import prettytable
 import subprocess
 
 from .base import Command, error, success, strong, warn
-from brownthrower import profile
+from brownthrower import api
+from tabulate import tabulate
 
 log = logging.getLogger('brownthrower.manager')
 
@@ -23,46 +23,54 @@ class ProfileCreate(Command):
             return self.help(items)
         
         try:
-            profile.create(items[0])
+            api.profile.create(items[0])
             success("A new configuration profile with name '%s' has been created." % (items[0]))
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except profile.ReservedNameError:
+            except api.profile.ReservedNameError:
                 error('You cannot use this name for a profile. Please, specify another name.')
-            except profile.AlreadyExistsError:
+            except api.profile.AlreadyExistsError:
                 error('There is already a profile with this name. Please, specify another name.')
             finally:
                 log.debug(e)
 
 class ProfileDefault(Command):
     """\
-    usage: profile default <name>
+    usage: profile default [ <name> ]
     
-    Set the given configuration profile as the default.
+    Set or reset the default configuration profile.
+    If no name is given, there will be no default configuration profile.
     """
     
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in profile.get_available()
+                        for key in api.profile.get_available()
                         if key.startswith(text)]
             
             return matching
     
     def do(self, items):
-        if len(items) != 1:
+        if len(items) > 1:
             return self.help(items)
         
         try:
-            profile.set_default(items[0])
-            success("The configuration profile '%s' is now the default profile." % items[0])
+            profile = None
+            if len(items) == 1:
+                profile = items[0]
+            
+            api.profile.set_default(profile)
+            if profile:
+                success("The configuration profile '%s' is now the default profile." % items[0])
+            else:
+                success("No configuration profile is currently the default one.")
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except profile.DoesNotExistError:
+            except api.profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
             finally:
                 log.debug(e)
@@ -77,7 +85,7 @@ class ProfileEdit(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in profile.get_available()
+                        for key in api.profile.get_available()
                         if key.startswith(text)]
             
             return matching
@@ -87,13 +95,15 @@ class ProfileEdit(Command):
             return self.help(items)
         
         try:
-            path = profile.get_settings_path(items[0])
+            path = api.profile.get_settings_path(items[0])
             assert os.access(path, os.W_OK)
             subprocess.check_call(['editor', path])
-            if items[0] == profile.get_current():
-                profile.switch(items[0])
+            if items[0] == api.profile.get_current():
+                api.profile.switch(items[0])
             
-        except BaseException as e:
+            success("The configuration profile has been successfully modified.")
+            
+        except Exception as e:
             try:
                 raise
             except AssertionError, subprocess.CalledProcessError:
@@ -112,22 +122,21 @@ class ProfileList(Command):
         if len(items) > 0:
             return self.help(items)
         
-        profiles = profile.get_available()
-        default  = profile.get_default()
-        current  = profile.get_current()
+        profiles = api.profile.get_available()
+        default  = api.profile.get_default()
+        current  = api.profile.get_current()
         
         if len(profiles) == 0:
             warn("There are no profiles currently available.")
             return
         
-        table = prettytable.PrettyTable(['name', ''], sortby='name')
-        table.align = 'l'
+        table = []
         for name in profiles:
             tag =        'C' if name == current else ''
             tag = tag + ('D' if name == default else '')
-            table.add_row([name, tag])
+            table.append([name, tag])
         
-        print table
+        print tabulate(table, headers = ['name', ''])
         if profiles:
             print strong("'C' or 'D' in the second column designate the Current and Default profiles.")
 
@@ -141,7 +150,7 @@ class ProfileShow(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in profile.get_available()
+                        for key in api.profile.get_available()
                         if key.startswith(text)]
             
             return matching
@@ -151,10 +160,10 @@ class ProfileShow(Command):
             return self.help(items)
         
         try:
-            path = profile.get_settings_path(items[0])
+            path = api.profile.get_settings_path(items[0])
             subprocess.check_call(['pager', path])
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
             except subprocess.CalledProcessError:
@@ -172,7 +181,7 @@ class ProfileRemove(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in profile.get_available()
+                        for key in api.profile.get_available()
                         if key.startswith(text)]
             
             return matching
@@ -182,15 +191,15 @@ class ProfileRemove(Command):
             return self.help(items)
         
         try:
-            profile.remove(items[0])
+            api.profile.remove(items[0])
             success("The configuration profile '%s' has been removed." % items[0])
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except profile.DoesNotExistError:
+            except api.profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
-            except profile.InUseError:
+            except api.profile.InUseError:
                 error("Cannot remove current configuration profile.")
             finally:
                 log.debug(e)
@@ -205,7 +214,7 @@ class ProfileSwitch(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in profile.get_available()
+                        for key in api.profile.get_available()
                         if key.startswith(text)]
             
             return matching
@@ -215,13 +224,13 @@ class ProfileSwitch(Command):
             return self.help(items)
         
         try:
-            profile.switch(items[0])
+            api.profile.switch(items[0])
             success("The configuration profile '%s' is now the current profile." % items[0])
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except profile.DoesNotExistError:
+            except api.profile.DoesNotExistError:
                 error("There is no configuration profile named '%s'." % items[0])
             finally:
                 log.debug(e)

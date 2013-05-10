@@ -9,9 +9,8 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, scoped_session
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy.orm.session import object_session, sessionmaker
 from sqlalchemy.schema import Column, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.sql import functions

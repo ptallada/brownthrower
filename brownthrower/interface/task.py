@@ -1,23 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-class ValidationException(Exception):
-    def __init__(self, message=None, exception=None):
-        self.exception = exception
-        self.message   = message
-        
-    def __str__(self):
-        return "%s: %s" % (self.message, repr(self.exception))
-
 class CancelledException(Exception):
     pass
-
-class UnavailableException(Exception):
-    def __init__(self, task=None):
-        self.task = task
-        
-    def __str__(self):
-        return "Task '%s' is not available in this environment." % self.task
 
 class Task(object):
     """\
@@ -52,7 +37,7 @@ class Task(object):
     # Global unique identifying name for this task
     __brownthrower_name__   = "task.name"
     
-    # Name of the runner required to run this Task. None if not needed.
+    # Name of the runner required to run this Task. OPTIONAL.
     __brownthrower_runner__ = "runner.name"
     
     def __init__(self, config):
@@ -230,7 +215,7 @@ class Task(object):
     def check_config(cls, config):
         """
         Additional checks to the supplied config, after it has passed the schema
-        validation.
+        validation. This method is OPTIONAL.
         
         @param config: mapping with configuration values
         @type config: dict
@@ -242,7 +227,7 @@ class Task(object):
     def check_input(cls, inp):
         """
         Additional checks to the supplied input, after it has passed the schema
-        validation.
+        validation. This method is OPTIONAL.
         
         @param inp: mapping with input data
         @type inp: dict
@@ -254,7 +239,7 @@ class Task(object):
     def check_output(cls, out):
         """
         Additional checks to the supplied output, after it has passed the schema
-        validation.
+        validation. This method is OPTIONAL.
         
         @param out: mapping with output data
         @type out: dict

@@ -5,7 +5,7 @@ import textwrap
 
 from . import dispatcher, job, profile, task
 from .base import Command
-from brownthrower.profile import settings
+from brownthrower.api.profile import settings
 
 class Job(Command):
     """\

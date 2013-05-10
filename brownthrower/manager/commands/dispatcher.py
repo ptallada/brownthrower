@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import prettytable
-
 from .base import Command, error, warn
+from tabulate import tabulate
 
 class DispatcherList(Command):
     """\
@@ -24,12 +23,11 @@ class DispatcherList(Command):
             warn("There are no dispatchers currently registered in this environment.")
             return
         
-        table = prettytable.PrettyTable(['name', 'description'], sortby='name')
-        table.align = 'l'
-        for name, dispatcher in self._dispatchers.iteritems():
-            table.add_row([name, dispatcher.get_help()[0]])
+        table = []
+        for name in sorted(self._dispatchers.keys()):
+            table.append([name, self._dispatchers[name].get_help()[0]])
         
-        print table
+        print tabulate(table, headers=['name', 'description'])
 
 class DispatcherShow(Command):
     """\
@@ -63,7 +61,6 @@ class DispatcherShow(Command):
         else:
             error("The dispatcher '%s' is not currently available in this environment." % items[0])
 
-#TODO: substituir prettytable per tabulate
 class DispatcherRun(Command):
     """\
     usage: dispatcher run <name>

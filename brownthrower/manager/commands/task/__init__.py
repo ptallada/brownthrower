@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import prettytable
 import textwrap
 
 from ..base import Command, error, warn
-from brownthrower import api, profile
+from brownthrower import api
+from tabulate import tabulate
 
 log = logging.getLogger('brownthrower.manager')
 
@@ -25,12 +25,12 @@ class TaskList(Command):
             warn("There are no tasks currently registered in this environment.")
             return
         
-        table = prettytable.PrettyTable(['name', 'description'], sortby='name')
-        table.align = 'l'
-        for name, task in api.get_tasks().iteritems():
-            table.add_row([name, api.get_help(task)[0]])
+        tasks = api.get_tasks()
+        table = []
+        for name in sorted(tasks.keys()):
+            table.append([name, api.task.get_help(tasks[name])[0]])
         
-        print table
+        print tabulate(table, headers=['name', 'description'])
 
 class TaskShow(Command):
     """\
@@ -53,22 +53,24 @@ class TaskShow(Command):
         
         try:
             task = api.get_task(items[0])
-            desc = api.get_help(task)
+            desc = api.task.get_help(task)
             print desc[0]
             print
             print desc[1]
         
-        except BaseException as e:
+        except Exception as e:
             try:
                 raise
-            except KeyError:
-                error("The task '%s' is not available in this environment." % items[0])
-        finally:
-            log.debug(e)
+            except api.task.UnavailableException:
+                error("The task '%s' is not available in this environment." % e.task)
+            finally:
+                log.debug(e)
 
 class TaskInput(Command):
     """\
     usage: task input <command> [options]
+    
+    Create, edit and remove customized input datasets for the tasks.
     """
     
     def __init__(self, *args, **kwargs):
@@ -76,29 +78,22 @@ class TaskInput(Command):
         
         from . import dataset
         
-        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'input',
-                                                              profile = profile.input))
-        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'input',
-                                                              profile = profile.input))
-        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'input',
-                                                              profile = profile.input,
-                                                          validate_fn = api.validate_input))
-        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'input',
-                                                              profile = profile.input))
-        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'input',
-                                                              profile = profile.input))
+        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'input'))
+        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'input'))
+        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'input'))
+        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'input'))
+        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'input'))
         self.add_subcmd('sample',  dataset.TaskDatasetAttr(   dataset = 'input',
-                                                              attr    = 'sample',
-                                                              attr_fn = api.get_input_schema))
+                                                              attr    = 'sample'))
         self.add_subcmd('schema',  dataset.TaskDatasetAttr(   dataset = 'input',
-                                                              attr    = 'schema',
-                                                              attr_fn = api.get_input_schema))
-        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'input',
-                                                              profile = profile.input))
+                                                              attr    = 'schema'))
+        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'input'))
 
 class TaskConfig(Command):
     """\
     usage: task config <command> [options]
+    
+    Create, edit and remove customized config datasets for the tasks.
     """
     
     def __init__(self, *args, **kwargs):
@@ -106,29 +101,22 @@ class TaskConfig(Command):
         
         from . import dataset
         
-        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'config',
-                                                              profile = profile.config))
-        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'config',
-                                                              profile = profile.config))
-        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'config',
-                                                              profile = profile.config,
-                                                          validate_fn = api.validate_config))
-        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'config',
-                                                              profile = profile.config))
-        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'config',
-                                                              profile = profile.config))
+        self.add_subcmd('create',  dataset.TaskDatasetCreate( dataset = 'config'))
+        self.add_subcmd('default', dataset.TaskDatasetDefault(dataset = 'config'))
+        self.add_subcmd('edit',    dataset.TaskDatasetEdit(   dataset = 'config'))
+        self.add_subcmd('list',    dataset.TaskDatasetList(   dataset = 'config'))
+        self.add_subcmd('remove',  dataset.TaskDatasetRemove( dataset = 'config'))
         self.add_subcmd('sample',  dataset.TaskDatasetAttr(   dataset = 'config',
-                                                              attr    = 'sample',
-                                                              attr_fn = api.get_config_schema))
+                                                              attr    = 'sample'))
         self.add_subcmd('schema',  dataset.TaskDatasetAttr(   dataset = 'config',
-                                                              attr    = 'schema',
-                                                              attr_fn = api.get_config_schema))
-        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'config',
-                                                              profile = profile.config))
+                                                              attr    = 'schema'))
+        self.add_subcmd('show',    dataset.TaskDatasetShow(   dataset = 'config'))
 
 class TaskOutput(Command):
     """\
     usage: task output <command> [options]
+    
+    Show detailed information about output datasets for the tasks.
     """
     
     def __init__(self, *args, **kwargs):
@@ -137,8 +125,6 @@ class TaskOutput(Command):
         from . import dataset
         
         self.add_subcmd('sample', dataset.TaskDatasetAttr(dataset = 'output',
-                                                         attr    = 'sample',
-                                                         attr_fn = api.get_output_sample))
+                                                          attr    = 'sample'))
         self.add_subcmd('schema', dataset.TaskDatasetAttr(dataset = 'output',
-                                                         attr    = 'schema',
-                                                         attr_fn = api.get_output_schema))
+                                                          attr    = 'schema'))

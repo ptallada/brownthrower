@@ -9,8 +9,8 @@ import signal
 import sys
 import transaction
 
-from brownthrower import api, interface, model, profile
-from brownthrower.profile import settings
+from brownthrower import api, interface, model
+from brownthrower.api.profile import settings
 
 log = logging.getLogger('brownthrower.manager')
 
@@ -21,15 +21,14 @@ class Manager(cmd.Cmd):
         
         self._dispatchers = {}
         self._subcmds     = {}
-        
-        self.intro = "\nbrownthrower manager v{version} is ready".format(
-            version = brownthrower.release.__version__
-        )
     
     def preloop(self):
-        model.init(settings['database_url'])
-        self._dispatchers = api.load_dispatchers(settings['entry_points']['dispatcher'])
-        api.init(settings['entry_points']['task'])
+        print "brownthrower manager v{version} is loading...".format(
+            version = brownthrower.release.__version__
+        )
+        
+        api.init()
+        self._dispatchers = api.load_dispatchers()
         
         from brownthrower.manager.commands import Dispatcher, Job, Profile, Task
         
@@ -50,11 +49,11 @@ class Manager(cmd.Cmd):
         usage: <command> [options]
         
         Available commands:
-            dispatcher    show information about the available dispatchers
-            job           create, configure, submit and remove jobs
-            profile       create, edit and remove configuration profiles
-            quit          exit this program
-            task          show information about the available tasks
+          dispatcher  show information about the available dispatchers
+          job         create, configure, submit and remove jobs
+          profile     create, edit and remove configuration profiles
+          quit        exit this program
+          task        show information about the available tasks
         """)
     
     def completedefault(self, text, line, begidx, endidx):
@@ -104,14 +103,11 @@ def main():
     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     logging.getLogger('txn').setLevel(logging.INFO)
     
-    from pysrc import pydevd
-    pydevd.settrace(suspend=False)
+    #from pysrc import pydevd
+    #pydevd.settrace(suspend=False)
     
     #import rpdb
     #rpdb.Rpdb().set_trace()
-    
-    profile.init_settings()
-    
     manager = Manager()
     manager.cmdloop()
 
