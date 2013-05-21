@@ -28,7 +28,7 @@ setup(
         'zope.sqlalchemy',
     ],
     
-    #description = "",
+    description = "",
     long_description = README,
     author = 'Pau Tallada Crespí',
     author_email = 'pau.tallada@gmail.com',

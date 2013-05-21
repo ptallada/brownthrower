@@ -28,9 +28,9 @@ class TaskList(Command):
         tasks = api.get_tasks()
         table = []
         for name in sorted(tasks.keys()):
-            table.append([name, api.task.get_help(tasks[name])[0]])
+            table.append([name, tasks[name].__module__, api.task.get_help(tasks[name])[0]])
         
-        print tabulate(table, headers=['name', 'description'])
+        print tabulate(table, headers=['name', 'module', 'description'])
 
 class TaskShow(Command):
     """\
