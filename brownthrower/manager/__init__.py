@@ -36,7 +36,6 @@ class Manager(cmd.Cmd):
         self._subcmds['job']        = Job()
         self._subcmds['profile']    = Profile()
         self._subcmds['task']       = Task()
-
     
     def do_help(self, line):
         items = line.strip().split()
@@ -90,6 +89,14 @@ class Manager(cmd.Cmd):
         return cmd.Cmd.postcmd(self, stop, line)
     
     def postloop(self):
+        try:
+            import readline
+            
+            if api.profile.get_current():
+                readline.write_history_file(api.profile.get_history_path(api.profile.get_current()))
+        except Exception:
+            pass
+        
         print
 
 def system_exit(*args, **kwargs):

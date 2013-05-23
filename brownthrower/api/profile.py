@@ -25,7 +25,8 @@ _defaults = {
     },
     
     # Default settings
-    'database_url' : 'sqlite:///',
+    'database_url'   : 'sqlite:///',
+    'history_length' : 1000,
 }
 
 ################################################################################
@@ -101,6 +102,9 @@ def get_current():
 
 def get_default():
     return _default_profile
+
+def get_history_path(name):
+    return os.path.join(get_path(name), 'history')
 
 def get_path(name):
     return os.path.join(settings['paths']['profile'], name)
@@ -192,3 +196,12 @@ def switch(name):
     config._update_dataset_list()
     
     model.init(settings['database_url'])
+    
+    try:
+        import readline
+        
+        readline.set_history_length(settings['history_length'])
+        if get_current():
+            readline.read_history_file(get_history_path(get_current()))
+    except Exception:
+        pass

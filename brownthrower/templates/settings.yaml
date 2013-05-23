@@ -7,3 +7,6 @@
 
 ### Database connection settings
 # database_url : sqlite:///
+
+### Max number of history lines to be preserved. -1 for no limit.si
+# history_length : 1000
