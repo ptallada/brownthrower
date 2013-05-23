@@ -23,11 +23,6 @@ class Manager(cmd.Cmd):
         self._subcmds     = {}
     
     def preloop(self):
-        print "brownthrower manager v{version} is loading...".format(
-            version = brownthrower.release.__version__
-        )
-        
-        api.init()
         self._dispatchers = api.load_dispatchers()
         
         from brownthrower.manager.commands import Dispatcher, Job, Profile, Task
@@ -99,10 +94,23 @@ class Manager(cmd.Cmd):
         
         print
 
+def setup_debugger(dbg):
+    if dbg == 'pydevd':
+        from pysrc import pydevd
+        pydevd.settrace(suspend=True)
+    
+    elif dbg == 'ipdb':
+        import ipdb
+        ipdb.set_trace()
+    
+    else:
+        import pdb
+        pdb.set_trace()
+
 def system_exit(*args, **kwargs):
     sys.exit(1)
 
-def main():
+def main(args = None):
     signal.signal(signal.SIGTERM, system_exit)
     
     # TODO: Remove
@@ -110,13 +118,16 @@ def main():
     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     logging.getLogger('txn').setLevel(logging.INFO)
     
-    #from pysrc import pydevd
-    #pydevd.settrace(suspend=False)
-    
-    #import rpdb
-    #rpdb.Rpdb().set_trace()
     manager = Manager()
+    print "brownthrower manager v{version} is loading...".format(
+        version = brownthrower.release.__version__
+    )
+    api.init(args)
+    
+    if settings['debug']:
+        setup_debugger(settings['debug'])
+    
     manager.cmdloop()
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)

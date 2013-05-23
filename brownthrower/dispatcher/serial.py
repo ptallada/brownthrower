@@ -3,6 +3,7 @@
 
 import datetime
 import logging
+import textwrap
 import transaction
 import yaml
 
@@ -22,47 +23,73 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
     
     __brownthrower_name__ = 'serial'
     
-    def _queued_jobs(self):
+    def usage(self):
+        print textwrap.dedent("""\
+        usage: {name} [ ID ]
+        
+        Optionally, a single job id can be provided to restrict the job that may be
+        run by this dispatcher.""".format(
+            name = self.__brownthrower_name__
+        ))
+    
+    def check_usage(self, *args):
+        assert len(args) < 2
+        if len(args) == 1:
+            assert int(args[0])
+    
+    def _get_runnable_job(self, job_id = None):
+        """
+        @raise NoResultFound: If job_id is provided and cannot be run.
+        """
         while True:
-            try:
-                session = model.session_maker()
-                
-                # Fetch first job which WAS suitable to be executed
-                job = session.query(model.Job).filter(
-                    model.Job.status == interface.constants.JobStatus.QUEUED,
-                    model.Job.task.in_(api.get_tasks().keys()),
-                    ~ model.Job.parents.any( #@UndefinedVariable
-                        model.Job.status != interface.constants.JobStatus.DONE,
-                    )
-                ).first()
-                
-                if not job:
-                    #log.info("There are no more jobs suitable to be executed.")
-                    break
-                
-                ancestors = job.ancestors(lockmode='update')[1:]
-                
-                # Check again after locking if it is still runnable
-                if job.status != interface.constants.JobStatus.QUEUED:
-                    log.debug("Skipping this job as it has changed its status before being locked.")
-                    continue
-                
-                # Check parents to see if it is still runnable
-                parents = session.query(model.Job).filter(
-                    model.Job.children.contains(job) #@UndefinedVariable
-                ).with_lockmode('read').all()
-                if filter(lambda parent: parent.status != interface.constants.JobStatus.DONE, parents):
-                    log.debug("Skipping this job as some of its parents have changed its status before being locked.")
-                    continue
-                
-                yield (job, ancestors)
+            session = model.session_maker()
             
-            except NoResultFound:
-                log.debug("Skipping this job as it has been removed before being locked.")
+            # Fetch first job which WAS suitable to be executed
+            job = session.query(model.Job).filter(
+                model.Job.status == interface.constants.JobStatus.QUEUED,
+                model.Job.task.in_(api.get_tasks().keys()),
+                ~ model.Job.parents.any(
+                    model.Job.status != interface.constants.JobStatus.DONE,
+                )
+            )
             
-            finally:
-                # Unlock the job if it was skipped
+            if job_id:
+                # Require that the given job id exists and it is runnable.
+                try:
+                    job = job.filter_by(id = job_id).one()
+                except NoResultFound:
+                    raise Exception("The job with id %s cannot be found or it is not runnable." % job_id)
+            else:
+                job = job.first()
+            
+            if not job:
+                # There are no more jobs suitable to be executed
                 transaction.abort()
+                return (None, None)
+            
+            try:
+                ancestors = job.ancestors(lockmode='update')[1:]
+            except NoResultFound:
+                # Skipping this job as it has been removed before being locked
+                transaction.abort()
+                continue
+            
+            # Check again after locking if it is still runnable
+            if job.status != interface.constants.JobStatus.QUEUED:
+                # Skipping this job as it has changed its status before being locked
+                transaction.abort()
+                continue
+            
+            # Check parents to see if it is still runnable
+            parents = session.query(model.Job).filter(
+                model.Job.children.contains(job)
+            ).with_lockmode('read').all()
+            if filter(lambda parent: parent.status != interface.constants.JobStatus.DONE, parents):
+                # Skipping this job as some of its parents have changed its status before being locked
+                transaction.abort()
+                continue
+            
+            return (job, ancestors)
     
     def _validate_task(self, job):
         if job.parents:
@@ -99,7 +126,9 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         if hasattr(task, 'prolog'):
             try:
                 prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(inp))
-                
+            except NotImplementedError:
+                pass
+            else:
                 for subjob in prolog.get('subjobs', []):
                     subjobs[subjob]  = model.Job(
                             status   = interface.constants.JobStatus.QUEUED,
@@ -112,13 +141,10 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                 
                 for link in prolog.get('links', []):
                     subjobs[link[0]].children.append(subjobs[link[1]])
-            
-            except NotImplementedError:
-                pass
         
         return subjobs
     
-    def _run_epilog(self, task, job):
+    def _run_epilog(self, task, job, leaf_subjobs):
         """
         {
             'children' : [
@@ -132,7 +158,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
             'output' : <output>
         }
         """
-        out = [yaml.safe_load(subjob.output) for subjob in job.leaf_subjobs]
+        out = [yaml.safe_load(subjob.output) for subjob in leaf_subjobs]
         epilog = task.epilog(tasks=api.get_tasks(), out=out)
         
         children = {}
@@ -163,9 +189,24 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         for ancestor in ancestors:
             ancestor.update_status()
     
-    def run(self):
+    def run(self, *args):
         try:
-            for (job, ancestors) in self._queued_jobs():
+            self.check_usage(*args)
+        except Exception:
+            return self.usage()
+        
+        job_id = None
+        if len(args) == 1:
+            job_id = args[0]
+        
+        try:
+            while True:
+                (job, ancestors) = self._get_runnable_job(job_id)
+                
+                if not job:
+                    # No more jobs to run
+                    break
+                
                 try:
                     session = model.session_maker()
                     
@@ -182,9 +223,9 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                     
                     # Preload subjobs for the next steps
                     assert len(job.subjobs) >= 0
-                    job.leaf_subjobs = session.query(model.Job).filter(
+                    leaf_subjobs = session.query(model.Job).filter(
                         model.Job.superjob == job,
-                        ~model.Job.children.any(), # @UndefinedVariable
+                        ~model.Job.children.any(),
                     ).all()
                     
                     # Job is now PROCESSING
@@ -218,7 +259,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                         else:
                             log.info("Executing epilog of job %d." % job.id)
                             
-                            (children, out) = self._run_epilog(task, job)
+                            (children, out) = self._run_epilog(task, job, leaf_subjobs)
                             
                             with self._locked(job.id) as job:
                                 if children:
@@ -256,6 +297,9 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                 
                 finally:
                     transaction.commit()
+                    
+                    if job_id:
+                        break;
             
             log.info("No more jobs to run.")
         

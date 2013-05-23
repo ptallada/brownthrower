@@ -13,7 +13,7 @@ log = logging.getLogger('brownthrower.api')
 _tasks = {}
 _dispatchers = {}
 
-def init():
+def init(args = None):
     """\
     Initialitze the API, building the list of available tasks and dispatchers in
     this environment.
@@ -45,7 +45,7 @@ def init():
             finally:
                 log.debug(e)
     
-    profile.init()
+    profile.init(args)
 
 def get_tasks():
     return _tasks

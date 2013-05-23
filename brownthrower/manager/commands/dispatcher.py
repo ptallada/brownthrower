@@ -63,9 +63,10 @@ class DispatcherShow(Command):
 
 class DispatcherRun(Command):
     """\
-    usage: dispatcher run <name>
+    usage: dispatcher run <name> [arguments]
         
     Run the specified dispatcher until it is interrupted or there are no more jobs to be executed.
+    Each dispatcher has its own set of accepted arguments, please refer to its own documentation for help.
     """
     
     def __init__(self, dispatchers, *args, **kwargs):
@@ -81,12 +82,16 @@ class DispatcherRun(Command):
             return matching
     
     def do(self, items):
-        if len(items) != 1:
+        if len(items) < 1:
             return self.help(items)
         
         # FIXME: Rewrite as the job
         dispatcher = self._dispatchers.get(items[0])
-        if dispatcher:
-            dispatcher().run()
-        else:
+        if not dispatcher:
             error("The dispatcher '%s' is not currently available in this environment." % items[0])
+            return
+        
+        try:
+            dispatcher().run(*items[1:])
+        except Exception as e:
+            error("The dispatcher threw an error: %s" % e)

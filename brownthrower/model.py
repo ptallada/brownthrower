@@ -64,6 +64,9 @@ class Job(Base):
     # Proxies
     tag = association_proxy('tags', 'value', creator=lambda name, value: Tag(name=name, value=value))
     
+    # FIXME: Optimize getting from identity_map
+    # FIXME: Optimize locking in a single query
+    # TODO: Clear interface. Must include itself or not.
     def ancestors(self, lockmode=False):
         cls = self.__class__
         session = object_session(self)

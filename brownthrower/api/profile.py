@@ -33,18 +33,23 @@ _defaults = {
 # PRIVATE                                                                      #
 ################################################################################
 
-def _parse_args():
+def _parse_args(args = None):
     global _options
     
     parser = argparse.ArgumentParser(prog='brownthrower')
     parser.add_argument('profile', nargs='?', default='default',
                         help="configuration profile for this session (default: '%(default)s')")
-    parser.add_argument('-d', '--database-url', default=argparse.SUPPRESS,
+    parser.add_argument('-u', '--database-url',   nargs=1, default=argparse.SUPPRESS,
                         help='database connection settings')
+    parser.add_argument('-l', '--history_length', nargs=1, default=argparse.SUPPRESS,
+                        help='number of history lines to preserve')
+    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=None,
+                        help="enable debugging framework",
+                        choices=['pydevd', 'ipdb', 'pdb'])
     parser.add_argument('-v', '--version', action='version', 
                         version='%%(prog)s %s' % release.__version__)
     
-    _options = vars(parser.parse_args())
+    _options = vars(parser.parse_args(args))
     
     return _options['profile']
 
@@ -77,13 +82,13 @@ class InUseError(Exception):
 class AlreadyExistsError(Exception):
     pass
 
-def init():
+def init(args = None):
     global input, config # @ReservedAssignment
     
     settings.clear()
     settings.update(_defaults)
     _update_profile_list()
-    profile = _parse_args()
+    profile = _parse_args(args)
     if profile not in ['default'] + get_available():
         create(profile)
     
