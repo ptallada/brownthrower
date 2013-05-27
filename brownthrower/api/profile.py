@@ -68,8 +68,8 @@ def _parse_args(args = None):
     parser.add_argument('-l', '--history_length', nargs=1, default=argparse.SUPPRESS,
                         help='number of history lines to preserve')
     parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=None,
-                        help="enable debugging framework",
-                        choices=['pydevd', 'ipdb', 'pdb'])
+                        help="enable debugging framework (pdb by default)",
+                        choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
     parser.add_argument('-v', '--version', action='version', 
                         version='%%(prog)s %s' % release.__version__)
     

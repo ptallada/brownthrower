@@ -104,6 +104,10 @@ def setup_debugger(dbg):
         import ipdb
         ipdb.set_trace()
     
+    elif dbg == 'rpdb':
+        import rpdb
+        rpdb.set_trace()
+    
     else:
         import pdb
         pdb.set_trace()
