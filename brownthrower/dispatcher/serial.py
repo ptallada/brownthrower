@@ -3,11 +3,13 @@
 
 import datetime
 import logging
+import sys
 import textwrap
 import transaction
 import yaml
 
 from brownthrower import api, interface, model
+from brownthrower.api.profile import settings
 from contextlib import contextmanager
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -306,32 +308,52 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         finally:
             transaction.abort()
 
-def main():
-    import time
-    import signal
-    import sys
+def setup_debugger(dbg):
+    if dbg == 'pydevd':
+        from pysrc import pydevd
+        pydevd.settrace(suspend=True)
     
-    def system_exit(*args, **kwargs):
-        sys.exit(1)
+    elif dbg == 'ipdb':
+        import ipdb
+        ipdb.set_trace()
+    
+    else:
+        import pdb
+        pdb.set_trace()
+
+def setup_logging():
+    try:
+        from logging.config import dictConfig
+    except ImportError:
+        from logutils.dictconfig import dictConfig
+    
+    dictConfig(settings['logging'])
+    
+def system_exit(*args, **kwargs):
+    sys.exit(1)
+
+def main(args = None):
+    import signal
+    import time
+    
+    if not args:
+        args = sys.argv[1:]
     
     signal.signal(signal.SIGTERM, system_exit)
     
-    # TODO: Remove
-    #logging.basicConfig(level=logging.DEBUG)
-    #logging.getLogger('sqlalchemy.engine').setLevel(logging.DEBUG)
+    api.init(args)
     
-    #from pysrc import pydevd
-    #pydevd.settrace(suspend=False)
-    
-    #import rpdb
-    #rpdb.Rpdb().set_trace()
-    
-    api.init()
+    if settings['debug']:
+        setup_debugger(settings['debug'])
+    setup_logging()
     
     dispatcher = SerialDispatcher()
     while True:
-        dispatcher.run()
-        time.sleep(60)
-    
+        try:
+            dispatcher.run()
+            time.sleep(60)
+        except KeyboardInterrupt:
+            break
+
 if __name__ == '__main__':
     main()

@@ -87,6 +87,7 @@ class Manager(cmd.Cmd):
         try:
             import readline
             
+            # FIXME: Register this function with atexit
             if api.profile.get_current():
                 readline.write_history_file(api.profile.get_history_path(api.profile.get_current()))
         except Exception:
@@ -107,16 +108,22 @@ def setup_debugger(dbg):
         import pdb
         pdb.set_trace()
 
+def setup_logging():
+    try:
+        from logging.config import dictConfig
+    except ImportError:
+        from logutils.dictconfig import dictConfig
+    
+    dictConfig(settings['logging'])
+    
 def system_exit(*args, **kwargs):
     sys.exit(1)
 
 def main(args = None):
     signal.signal(signal.SIGTERM, system_exit)
     
-    # TODO: Remove
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-    logging.getLogger('txn').setLevel(logging.INFO)
+    if not args:
+        args = sys.argv[1:]
     
     manager = Manager()
     print "brownthrower manager v{version} is loading...".format(
@@ -126,8 +133,9 @@ def main(args = None):
     
     if settings['debug']:
         setup_debugger(settings['debug'])
-    
+    # TODO: logging should be configured at switch time
+    setup_logging()
     manager.cmdloop()
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

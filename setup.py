@@ -5,6 +5,22 @@ import os
 
 from setuptools import setup, find_packages
 
+requires = [
+    'argparse',
+    'jsonschema',
+    'PyYAML',
+    'SQLAlchemy >= 0.8',
+    'tabulate',
+    'termcolor',
+    'transaction',
+    'zope.sqlalchemy',
+],
+
+try:
+    from logging.config import dictConfig # @UnusedImport
+except ImportError:
+    requires.append('logutils')
+
 # Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
 README  = open(os.path.join(here, 'README.txt')).read()
@@ -17,16 +33,7 @@ setup(
     version = __version__, # @UndefinedVariable
     packages = find_packages(),
     
-    install_requires = [
-        'argparse',
-        'jsonschema',
-        'PyYAML',
-        'SQLAlchemy >= 0.8',
-        'tabulate',
-        'termcolor',
-        'transaction',
-        'zope.sqlalchemy',
-    ],
+    install_requires = requires,
     
     description = "",
     long_description = README,
@@ -53,6 +60,7 @@ setup(
     entry_points = {
         'console_scripts' : [
             'manager = brownthrower.manager.__init__:main',
+            'dispatcher.serial = brownthrower.dispatcher.serial:main'
         ],
         'brownthrower.dispatcher' : [
             "dispatcher01 = brownthrower.dispatcher.serial:SerialDispatcher",

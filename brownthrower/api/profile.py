@@ -27,6 +27,30 @@ _defaults = {
     # Default settings
     'database_url'   : 'sqlite:///',
     'history_length' : 1000,
+    'logging' : {
+        'version' : 1,
+        'loggers' : {
+            '' : {
+                'level' : 'NOTSET',
+                'handlers': [
+                    'console',
+                ],
+            },
+        },
+        'handlers' : {
+            'console' : {
+                'class' : 'logging.StreamHandler',
+                'level' : 'DEBUG',
+                'formatter' : 'detailed',
+                'stream' : 'ext://sys.stderr',
+            },
+        },
+        'formatters' : {
+            'detailed' : {
+                'format' : '%(asctime)s %(name)s %(module)s line:%(lineno)d %(levelname)s %(message)s',
+            },
+        },
+    },
 }
 
 ################################################################################
@@ -39,7 +63,7 @@ def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='brownthrower')
     parser.add_argument('profile', nargs='?', default='default',
                         help="configuration profile for this session (default: '%(default)s')")
-    parser.add_argument('-u', '--database-url',   nargs=1, default=argparse.SUPPRESS,
+    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
                         help='database connection settings')
     parser.add_argument('-l', '--history_length', nargs=1, default=argparse.SUPPRESS,
                         help='number of history lines to preserve')
