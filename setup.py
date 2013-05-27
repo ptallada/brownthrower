@@ -5,7 +5,7 @@ import os
 
 from setuptools import setup, find_packages
 
-requires = [
+install_requires = [
     'argparse',
     'jsonschema',
     'PyYAML',
@@ -14,12 +14,12 @@ requires = [
     'termcolor',
     'transaction',
     'zope.sqlalchemy',
-],
+]
 
 try:
     from logging.config import dictConfig # @UnusedImport
 except ImportError:
-    requires.append('logutils')
+    install_requires.append('logutils')
 
 # Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
@@ -33,7 +33,7 @@ setup(
     version = __version__, # @UndefinedVariable
     packages = find_packages(),
     
-    install_requires = requires,
+    install_requires = install_requires,
     
     description = "",
     long_description = README,
