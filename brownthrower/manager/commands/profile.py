@@ -7,6 +7,7 @@ import subprocess
 
 from .base import Command, error, success, strong, warn
 from brownthrower import api
+from brownthrower.api.profile import settings
 from tabulate import tabulate
 
 log = logging.getLogger('brownthrower.manager')
@@ -97,7 +98,7 @@ class ProfileEdit(Command):
         try:
             path = api.profile.get_settings_path(items[0])
             assert os.access(path, os.W_OK)
-            subprocess.check_call(['editor', path])
+            subprocess.check_call([settings['editor'], path])
             if items[0] == api.profile.get_current():
                 api.profile.switch(items[0])
             
@@ -161,7 +162,7 @@ class ProfileShow(Command):
         
         try:
             path = api.profile.get_settings_path(items[0])
-            subprocess.check_call(['pager', path])
+            subprocess.check_call([settings['pager'], path])
         
         except Exception as e:
             try:

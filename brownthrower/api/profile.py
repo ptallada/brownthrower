@@ -26,12 +26,14 @@ _defaults = {
     
     # Default settings
     'database_url'   : 'sqlite:///',
+    'editor'         : 'nano',
+    'pager'          : 'less',
     'history_length' : 1000,
     'logging' : {
         'version' : 1,
         'loggers' : {
             '' : {
-                'level' : 'NOTSET',
+                'level' : 'WARNING',
                 'handlers': [
                     'console',
                 ],
@@ -65,7 +67,11 @@ def _parse_args(args = None):
                         help="configuration profile for this session (default: '%(default)s')")
     parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
                         help='database connection settings')
-    parser.add_argument('-l', '--history_length', nargs=1, default=argparse.SUPPRESS,
+    parser.add_argument('-e', '--editor', default=argparse.SUPPRESS,
+                        help='command for editting text files')
+    parser.add_argument('-p', '--pager', default=argparse.SUPPRESS,
+                        help='command for displaying text files')
+    parser.add_argument('-l', '--history-length', nargs=1, default=argparse.SUPPRESS,
                         help='number of history lines to preserve')
     parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=None,
                         help="enable debugging framework (pdb by default)",

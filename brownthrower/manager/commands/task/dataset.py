@@ -10,6 +10,7 @@ import tempfile
 
 from ..base import Command, error, strong, success, warn
 from brownthrower import api
+from brownthrower.api.profile import settings
 from tabulate import tabulate
 
 log = logging.getLogger('brownthrower.manager')
@@ -46,7 +47,7 @@ class TaskDatasetAttr(Command):
         try:
             task = api.get_task(items[0])
             
-            viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
+            viewer = subprocess.Popen([settings['pager']], stdin=subprocess.PIPE)
             viewer.communicate(input=api.task.get_dataset(self._dataset, self._attr)(task))
         
         except Exception as e:
@@ -94,7 +95,7 @@ class TaskDatasetShow(Command):
         try:
             path = self._profile.get_dataset_path(items[0], items[1])
             assert os.access(path, os.R_OK)
-            subprocess.check_call(['pager', path])
+            subprocess.check_call([settings['pager'], path])
         
         except Exception as e:
             try:
@@ -152,7 +153,7 @@ class TaskDatasetEdit(Command):
                 shutil.copyfileobj(open(path), fh)
                 fh.flush()
                 
-                subprocess.check_call(['editor', fh.name])
+                subprocess.check_call([settings['editor'], fh.name])
                 
                 fh.seek(0)
                 self._validator(task, fh.read())

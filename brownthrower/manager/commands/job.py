@@ -11,6 +11,7 @@ log = logging.getLogger('brownthrower.manager')
 
 from .base import Command, error, warn, success, strong
 from brownthrower import api, model
+from brownthrower.api.profile import settings
 from brownthrower.interface import constants
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import joinedload
@@ -522,7 +523,7 @@ class JobEdit(Command):
                 fh.write(current_value)
                 fh.flush()
                 
-                subprocess.check_call(['editor', fh.name])
+                subprocess.check_call([settings['editor'], fh.name])
                 
                 fh.seek(0)
                 new_value = fh.read()
@@ -576,7 +577,7 @@ class JobOutput(Command):
             
             transaction.commit()
             
-            viewer = subprocess.Popen(['pager'], stdin=subprocess.PIPE)
+            viewer = subprocess.Popen([settings['pager']], stdin=subprocess.PIPE)
             viewer.communicate(input=job_output)
         
         except Exception as e:

@@ -6,25 +6,31 @@
 ###############################################################################
 
 ### Database connection settings
-#database_url : sqlite:///
+database_url : sqlite:///
 
-### Max number of history lines to be preserved. -1 for no limit.si
-#history_length : 1000
+### Command to launch a text editting application
+editor: nano
+
+### Pager for displaying large chunks of text
+pager: less
+
+### Max number of history lines to be preserved. -1 for no limit.
+history_length : 1000
 
 ### Logging configuration
-#logging : 
-#    version : 1
-#    loggers :
-#        '' :
-#            level : NOTSET
-#            handlers :
-#                - console
-#    handlers :
-#        console :
-#            class : logging.StreamHandler
-#            level : INFO
-#            formatter : standard
-#            stream : ext://sys.stdout
-#    formatters :
-#        standard :
-#            format : '%(asctime)s %(name)s %(module)s line:%(lineno)d %(levelname)s %(message)s'
+logging : 
+    version : 1
+    loggers :
+        '' :
+            level : WARNING
+            handlers :
+                - console
+    handlers :
+        console :
+            class : logging.StreamHandler
+            level : INFO
+            formatter : detailed
+            stream : ext://sys.stderr
+    formatters :
+        detailed :
+            format : '%(asctime)s %(name)s %(module)s line:%(lineno)d %(levelname)s %(message)s'
