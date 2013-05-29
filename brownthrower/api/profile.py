@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import argparse
+import atexit
 import errno
 import os
 import pkg_resources
 import shutil
 import yaml
 
-from brownthrower import model, release
+from brownthrower import model
 
 _options = None
 _profile_list = []
@@ -24,11 +24,20 @@ _defaults = {
         'profile' : os.path.expanduser(os.path.join('~', '.brownthrower'))
     },
     
-    # Default settings
-    'database_url'   : 'sqlite:///',
-    'editor'         : 'nano',
-    'pager'          : 'less',
+    ### Default settings
+    # Database connection settings
+    'database_url' : 'sqlite:///',
+    
+    # Command to launch a text editting application
+    'editor' : 'nano',
+    
+    # Pager for displaying large chunks of text
+    'pager' : 'less',
+    
+    # Max number of history lines to be preserved. -1 for no limit.
     'history_length' : 1000,
+    
+    # Logging configuration
     'logging' : {
         'version' : 1,
         'loggers' : {
@@ -59,29 +68,33 @@ _defaults = {
 # PRIVATE                                                                      #
 ################################################################################
 
-def _parse_args(args = None):
-    global _options
+def _setup_logging(config):
+    try:
+        from logging.config import dictConfig
+    except ImportError:
+        from logutils.dictconfig import dictConfig
     
-    parser = argparse.ArgumentParser(prog='brownthrower')
-    parser.add_argument('profile', nargs='?', default='default',
-                        help="configuration profile for this session (default: '%(default)s')")
-    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
-                        help='database connection settings')
-    parser.add_argument('-e', '--editor', default=argparse.SUPPRESS,
-                        help='command for editting text files')
-    parser.add_argument('-p', '--pager', default=argparse.SUPPRESS,
-                        help='command for displaying text files')
-    parser.add_argument('-l', '--history-length', nargs=1, default=argparse.SUPPRESS,
-                        help='number of history lines to preserve')
-    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=None,
-                        help="enable debugging framework (pdb by default)",
-                        choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
-    parser.add_argument('-v', '--version', action='version', 
-                        version='%%(prog)s %s' % release.__version__)
-    
-    _options = vars(parser.parse_args(args))
-    
-    return _options['profile']
+    dictConfig(config)
+
+def _setup_readline():
+    try:
+        import readline
+        
+        if get_current():
+            readline.read_history_file(get_history_path(get_current()))
+        
+    except ImportError:
+        pass
+
+def _shutdown_readline():
+    try:
+        import readline
+        
+        if get_current():
+            readline.write_history_file(get_history_path(get_current()))
+        
+    except ImportError:
+        pass
 
 def _update_profile_list():
     global _default_profile
@@ -112,22 +125,24 @@ class InUseError(Exception):
 class AlreadyExistsError(Exception):
     pass
 
-def init(args = None):
-    global input, config # @ReservedAssignment
+def init(options):
+    global input, config, _options # @ReservedAssignment
+    
+    _options = options
     
     settings.clear()
     settings.update(_defaults)
     _update_profile_list()
-    profile = _parse_args(args)
-    if profile not in ['default'] + get_available():
-        create(profile)
     
     from . import dataset
     
     input  = dataset.DatasetProfile('input') # @ReservedAssignment
     config = dataset.DatasetProfile('config')
     
+    profile = options.get('profile', 'default')
     switch(profile)
+    
+    atexit.register(_shutdown_readline)
 
 def get_available():
     return _profile_list
@@ -208,6 +223,8 @@ def switch(name):
     if not name in ['default'] + get_available():
         raise DoesNotExistError
     
+    _shutdown_readline()
+    
     profile = {}
     try:
         profile = yaml.safe_load(open(get_settings_path(name), 'r').read())
@@ -230,13 +247,7 @@ def switch(name):
     input._update_dataset_list()
     config._update_dataset_list()
     
-    model.init(settings['database_url'])
+    _setup_logging(settings['logging'])
+    _setup_readline()
     
-    try:
-        import readline
-        
-        readline.set_history_length(settings['history_length'])
-        if get_current():
-            readline.read_history_file(get_history_path(get_current()))
-    except Exception:
-        pass
+    model.init(settings['database_url'])

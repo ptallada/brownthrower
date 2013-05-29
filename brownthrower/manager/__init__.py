@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import brownthrower.release
+import argparse
 import cmd
 import logging
 import textwrap
@@ -9,10 +9,16 @@ import signal
 import sys
 import transaction
 
-from brownthrower import api, interface, model
+from brownthrower import api, interface, model, release
 from brownthrower.api.profile import settings
 
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler # @UnusedImport
+
 log = logging.getLogger('brownthrower.manager')
+log.addHandler(NullHandler())
 
 class Manager(cmd.Cmd):
     
@@ -23,7 +29,8 @@ class Manager(cmd.Cmd):
         self._subcmds     = {}
     
     def preloop(self):
-        self._dispatchers = api.load_dispatchers()
+        # FIXME: Use api
+        self._dispatchers = api._dispatchers
         
         from brownthrower.manager.commands import Dispatcher, Job, Profile, Task
         
@@ -84,61 +91,41 @@ class Manager(cmd.Cmd):
         return cmd.Cmd.postcmd(self, stop, line)
     
     def postloop(self):
-        try:
-            import readline
-            
-            # FIXME: Register this function with atexit
-            if api.profile.get_current():
-                readline.write_history_file(api.profile.get_history_path(api.profile.get_current()))
-        except Exception:
-            pass
-        
         print
 
-def setup_debugger(dbg):
-    if dbg == 'pydevd':
-        from pysrc import pydevd
-        pydevd.settrace(suspend=True)
+def _parse_args(args = None):
+    parser = argparse.ArgumentParser(prog='manager')
+    parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
+                        help="configuration profile for this session (default: 'default')")
+    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
+                        help='database connection settings')
+    parser.add_argument('--editor', default=argparse.SUPPRESS,
+                        help='command for editing text files')
+    parser.add_argument('--pager', default=argparse.SUPPRESS,
+                        help='command for displaying text files')
+    parser.add_argument('--history-length', nargs=1, default=argparse.SUPPRESS,
+                        help='number of history lines to preserve')
+    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
+                        help="enable debugging framework (deactivated by default, 'pdb' if framework is not specified)",
+                        choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
+    parser.add_argument('-v', '--version', action='version', 
+                        version='%%(prog)s %s' % release.__version__)
     
-    elif dbg == 'ipdb':
-        import ipdb
-        ipdb.set_trace()
+    options = vars(parser.parse_args(args))
     
-    elif dbg == 'rpdb':
-        import rpdb
-        rpdb.set_trace()
-    
-    else:
-        import pdb
-        pdb.set_trace()
-
-def setup_logging():
-    try:
-        from logging.config import dictConfig
-    except ImportError:
-        from logutils.dictconfig import dictConfig
-    
-    dictConfig(settings['logging'])
-    
-def system_exit(*args, **kwargs):
-    sys.exit(1)
+    return options
 
 def main(args = None):
-    signal.signal(signal.SIGTERM, system_exit)
-    
     if not args:
         args = sys.argv[1:]
     
     manager = Manager()
     print "brownthrower manager v{version} is loading...".format(
-        version = brownthrower.release.__version__
+        version = release.__version__
     )
-    api.init(args)
+    options = _parse_args(args)
+    api.init(options)
     
-    if settings['debug']:
-        setup_debugger(settings['debug'])
-    # TODO: logging should be configured at switch time
-    setup_logging()
     manager.cmdloop()
 
 if __name__ == '__main__':

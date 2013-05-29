@@ -10,7 +10,13 @@ from brownthrower import api
 from brownthrower.api.profile import settings
 from tabulate import tabulate
 
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler # @UnusedImport
+
 log = logging.getLogger('brownthrower.manager')
+log.addHandler(NullHandler())
 
 class ProfileCreate(Command):
     """\

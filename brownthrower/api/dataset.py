@@ -7,7 +7,6 @@ import shutil
 
 from . import profile
 
-
 class NoProfileIsActive(Exception):
     pass
 

@@ -9,7 +9,13 @@ import yaml
 
 from brownthrower import interface, model
 
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler
+
 log = logging.getLogger('brownthrower.api.task')
+log.addHandler(NullHandler())
 
 ################################################################################
 # PRIVATE                                                                      #

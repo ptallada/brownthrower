@@ -8,7 +8,13 @@ from ..base import Command, error, warn
 from brownthrower import api
 from tabulate import tabulate
 
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler
+
 log = logging.getLogger('brownthrower.manager')
+log.addHandler(NullHandler())
 
 class TaskList(Command):
     """\

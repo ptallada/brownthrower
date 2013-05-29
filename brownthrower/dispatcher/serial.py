@@ -1,19 +1,26 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
 import datetime
 import logging
 import sys
 import textwrap
+import time
 import transaction
 import yaml
 
-from brownthrower import api, interface, model
-from brownthrower.api.profile import settings
+from brownthrower import api, interface, model, release
 from contextlib import contextmanager
 from sqlalchemy.orm.exc import NoResultFound
 
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler # @UnusedImport
+
 log = logging.getLogger('brownthrower.dispatcher.serial')
+log.addHandler(NullHandler())
 
 class SerialDispatcher(interface.dispatcher.Dispatcher):
     """\
@@ -27,7 +34,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
     
     def usage(self):
         print textwrap.dedent("""\
-        usage: {name} [ ID ]
+        usage: dispatcher run serial [id]
         
         Optionally, a single job id can be provided to restrict the job that may be
         run by this dispatcher.""".format(
@@ -57,10 +64,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
             
             if job_id:
                 # Require that the given job id exists and it is runnable.
-                try:
-                    job = job.filter_by(id = job_id).one()
-                except NoResultFound:
-                    raise Exception("The job with id %s cannot be found or it is not runnable." % job_id)
+                job = job.filter_by(id = job_id).one()
             else:
                 job = job.first()
             
@@ -191,6 +195,119 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         for ancestor in ancestors:
             ancestor.update_status()
     
+    def _run_job(self, job, ancestors):
+        try:
+            session = model.session_maker()
+            
+            log.info("Validating queued job %d of task '%s'." % (job.id, job.task))
+            
+            task = self._validate_task(job)
+            
+            job.status = interface.constants.JobStatus.PROCESSING
+            job.ts_started = datetime.datetime.now()
+            
+            for ancestor in ancestors:
+                ancestor.update_status()
+            session.flush()
+            
+            # Preload subjobs for the next steps
+            assert len(job.subjobs) >= 0
+            leaf_subjobs = session.query(model.Job).filter(
+                model.Job.superjob == job,
+                ~model.Job.children.any(),
+            ).all()
+            
+            # Job is now PROCESSING
+            session.flush()
+            session.expunge(job)
+            transaction.commit()
+            
+            session = model.session_maker()
+            with transaction.manager:
+                if not job.subjobs:
+                    log.info("Executing prolog of job %d." % job.id)
+                    
+                    subjobs = self._run_prolog(task, job.input)
+                    if subjobs:
+                        with self._locked(job.id) as job:
+                            job.subjobs.extend(subjobs.itervalues())
+                        
+                        return
+                    
+                    log.info("Executing job %d." % job.id)
+                    
+                    runner = interface.runner.Runner(job_id = job.id)
+                    out = runner.run(task, inp=yaml.safe_load(job.input))
+                    
+                    with self._locked(job.id) as job:
+                        job.output = yaml.safe_dump(out, default_flow_style=False)
+                        api.task.get_validator('output')(task, job.output)
+                        job.status = interface.constants.JobStatus.DONE
+                        job.ts_ended = datetime.datetime.now()
+                    
+                else:
+                    log.info("Executing epilog of job %d." % job.id)
+                    
+                    (children, out) = self._run_epilog(task, job, leaf_subjobs)
+                    
+                    with self._locked(job.id) as job:
+                        if children:
+                            job.children.append(children.itervalues())
+                        
+                        job.output = yaml.safe_dump(out, default_flow_style=False)
+                        api.task.get_validator('output')(task, job.output)
+                        job.status = interface.constants.JobStatus.DONE
+                        job.ts_ended = datetime.datetime.now()
+        
+        except BaseException as e:
+            session = model.session_maker()
+            try:
+                job = session.query(model.Job).filter_by(id = job.id).one()
+                ancestors = job.ancestors(lockmode='update')[1:]
+                raise
+            except interface.task.CancelledException:
+                job.status = interface.constants.JobStatus.CANCELLED
+            except Exception:
+                job.status = interface.constants.JobStatus.FAILED
+            except BaseException:
+                job.status = interface.constants.JobStatus.CANCELLED
+                raise
+            finally:
+                for ancestor in ancestors:
+                    ancestor.update_status()
+                
+                job.ts_ended = datetime.datetime.now()
+                # Set start time in case the job fail to validate
+                if not job.ts_started:
+                    job.ts_started = job.ts_ended
+                
+                log.error("Execution of job %d ended with status '%s'." % (job.id, job.status))
+                log.debug(e)
+        
+        finally:
+            transaction.commit()
+    
+    def _run(self, job_id):
+        if job_id:
+            try:
+                (job, ancestors) = self._get_runnable_job(job_id)
+                
+                self._run_job(job, ancestors)
+                
+            except NoResultFound:
+                raise Exception("The job with id %s cannot be found or it is not runnable." % job_id)
+        else:
+            while True:
+                (job, ancestors) = self._get_runnable_job()
+                
+                if not job:
+                    # No more jobs to run
+                    break
+                
+                self._run_job(job, ancestors)
+            
+            log.info("No more jobs to run.")
+    
     def run(self, *args):
         try:
             self.check_usage(*args)
@@ -201,159 +318,42 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         if len(args) == 1:
             job_id = args[0]
         
-        try:
-            while True:
-                (job, ancestors) = self._get_runnable_job(job_id)
-                
-                if not job:
-                    # No more jobs to run
-                    break
-                
-                try:
-                    session = model.session_maker()
-                    
-                    log.info("Validating queued job %d of task '%s'." % (job.id, job.task))
-                    
-                    task = self._validate_task(job)
-                    
-                    job.status = interface.constants.JobStatus.PROCESSING
-                    job.ts_started = datetime.datetime.now()
-                    
-                    for ancestor in ancestors:
-                        ancestor.update_status()
-                    session.flush()
-                    
-                    # Preload subjobs for the next steps
-                    assert len(job.subjobs) >= 0
-                    leaf_subjobs = session.query(model.Job).filter(
-                        model.Job.superjob == job,
-                        ~model.Job.children.any(),
-                    ).all()
-                    
-                    # Job is now PROCESSING
-                    session.flush()
-                    session.expunge(job)
-                    transaction.commit()
-                    
-                    session = model.session_maker()
-                    with transaction.manager:
-                        if not job.subjobs:
-                            log.info("Executing prolog of job %d." % job.id)
-                            
-                            subjobs = self._run_prolog(task, job.input)
-                            if subjobs:
-                                with self._locked(job.id) as job:
-                                    job.subjobs.extend(subjobs.itervalues())
-                                
-                                continue
-                            
-                            log.info("Executing job %d." % job.id)
-                            
-                            runner = interface.runner.Runner(job_id = job.id)
-                            out = runner.run(task, inp=yaml.safe_load(job.input))
-                            
-                            with self._locked(job.id) as job:
-                                job.output = yaml.safe_dump(out, default_flow_style=False)
-                                api.task.get_validator('output')(task, job.output)
-                                job.status = interface.constants.JobStatus.DONE
-                                job.ts_ended = datetime.datetime.now()
-                            
-                        else:
-                            log.info("Executing epilog of job %d." % job.id)
-                            
-                            (children, out) = self._run_epilog(task, job, leaf_subjobs)
-                            
-                            with self._locked(job.id) as job:
-                                if children:
-                                    job.children.append(children.itervalues())
-                                
-                                job.output = yaml.safe_dump(out, default_flow_style=False)
-                                api.task.get_validator('output')(task, job.output)
-                                job.status = interface.constants.JobStatus.DONE
-                                job.ts_ended = datetime.datetime.now()
-                
-                except BaseException as e:
-                    session = model.session_maker()
-                    try:
-                        job = session.query(model.Job).filter_by(id = job.id).one()
-                        ancestors = job.ancestors(lockmode='update')[1:]
-                        raise
-                    except interface.task.CancelledException:
-                        job.status = interface.constants.JobStatus.CANCELLED
-                    except Exception:
-                        job.status = interface.constants.JobStatus.FAILED
-                    except BaseException:
-                        job.status = interface.constants.JobStatus.CANCELLED
-                        raise
-                    finally:
-                        for ancestor in ancestors:
-                            ancestor.update_status()
-                        
-                        job.ts_ended = datetime.datetime.now()
-                        # Set start time in case the job fail to validate
-                        if not job.ts_started:
-                            job.ts_started = job.ts_ended
-                        
-                        log.error("Execution of job %d ended with status '%s'." % (job.id, job.status))
-                        log.debug(e)
-                
-                finally:
-                    transaction.commit()
-                    
-                    if job_id:
-                        break;
-            
-            log.info("No more jobs to run.")
-        
-        finally:
-            transaction.abort()
+        self._run(job_id)
 
-def setup_debugger(dbg):
-    if dbg == 'pydevd':
-        from pysrc import pydevd
-        pydevd.settrace(suspend=True)
+def _parse_args(args = None):
+    parser = argparse.ArgumentParser(prog='manager')
+    parser.add_argument('job_id', nargs='?', default=argparse.SUPPRESS,
+                        help="run this specific job")
+    parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
+                        help="configuration profile for this session (default: 'default')")
+    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
+                        help='database connection settings')
+    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
+                        help="enable debugging framework (deactivated by default, 'pdb' if framework is not specified)",
+                        choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
+    parser.add_argument('-v', '--version', action='version', 
+                        version='%%(prog)s %s' % release.__version__)
     
-    elif dbg == 'ipdb':
-        import ipdb
-        ipdb.set_trace()
+    options = vars(parser.parse_args(args))
     
-    else:
-        import pdb
-        pdb.set_trace()
-
-def setup_logging():
-    try:
-        from logging.config import dictConfig
-    except ImportError:
-        from logutils.dictconfig import dictConfig
-    
-    dictConfig(settings['logging'])
-    
-def system_exit(*args, **kwargs):
-    sys.exit(1)
+    return options
 
 def main(args = None):
-    import signal
-    import time
-    
     if not args:
         args = sys.argv[1:]
     
-    signal.signal(signal.SIGTERM, system_exit)
-    
-    api.init(args)
-    
-    if settings['debug']:
-        setup_debugger(settings['debug'])
-    setup_logging()
-    
     dispatcher = SerialDispatcher()
-    while True:
-        try:
-            dispatcher.run()
-            time.sleep(60)
-        except KeyboardInterrupt:
-            break
+    print "brownthrower dispatcher serial v{version} is loading...".format(
+        version = release.__version__
+    )
+    options = _parse_args(args)
+    job_id = options.get('job_id', None)
+    api.init(options)
+    
+    try:
+        dispatcher._run(job_id)
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == '__main__':
     main()

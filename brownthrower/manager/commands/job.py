@@ -7,8 +7,6 @@ import subprocess
 import tempfile
 import transaction
 
-log = logging.getLogger('brownthrower.manager')
-
 from .base import Command, error, warn, success, strong
 from brownthrower import api, model
 from brownthrower.api.profile import settings
@@ -17,6 +15,13 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate
+
+try:
+    from logging import NullHandler
+except ImportError:
+    from logutils import NullHandler # @UnusedImport
+
+log = logging.getLogger('brownthrower.manager')
 
 class JobCreate(Command):
     """\
