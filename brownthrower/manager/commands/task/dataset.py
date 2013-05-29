@@ -410,7 +410,7 @@ class TaskDatasetDefault(Command):
             return matching
     
     def do(self, items):
-        if len(items) > 2:
+        if len(items) not in [1, 2]:
             return self.help(items)
         
         try:
