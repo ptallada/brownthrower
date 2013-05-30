@@ -287,7 +287,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         finally:
             transaction.commit()
     
-    def _run(self, job_id):
+    def _run(self, job_id=None):
         if job_id:
             try:
                 (job, ancestors) = self._get_runnable_job(job_id)
@@ -322,8 +322,10 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='manager')
-    parser.add_argument('job_id', type=int, nargs='?', default=argparse.SUPPRESS,
+    parser.add_argument('-j', '--job-id', type=int, default=argparse.SUPPRESS,
                         help="run this specific job")
+    parser.add_argument('--loop', metavar='SECONDS', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
+                        help="wait SECONDS then loop again")
     parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
                         help="configuration profile for this session (default: 'default')")
     parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
@@ -347,15 +349,18 @@ def main(args = None):
         version = release.__version__
     )
     options = _parse_args(args)
-    job_id = options.get('job_id', None)
+    
+    job_id = options.pop('job_id', None)
+    loop = options.pop('loop', None)
+    
     api.init(options)
     
     try:
         dispatcher._run(job_id)
-        if not job_id:
+        if loop:
             while True:
                 dispatcher._run()
-                time.sleep(60)
+                time.sleep(loop)
     
     except KeyboardInterrupt:
         pass

@@ -27,6 +27,8 @@ class Manager(cmd.Cmd):
         
         self._dispatchers = {}
         self._subcmds     = {}
+        
+        self.prompt = '(brownthrower): '
     
     def preloop(self):
         # FIXME: Use api
@@ -106,7 +108,7 @@ def _parse_args(args = None):
     parser.add_argument('--history-length', type=int, default=argparse.SUPPRESS,
                         help='number of history lines to preserve')
     parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
-                        help="enable debugging framework (deactivated by default, 'pdb' if framework is not specified)",
+                        help="enable debugging framework (deactivated by default, 'pdb' if not specific framework requested)",
                         choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
     parser.add_argument('-v', '--version', action='version', 
                         version='%%(prog)s %s' % release.__version__)
