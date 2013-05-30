@@ -96,21 +96,23 @@ class Manager(cmd.Cmd):
         print
 
 def _parse_args(args = None):
-    parser = argparse.ArgumentParser(prog='manager')
-    parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
-                        help="configuration profile for this session (default: 'default')")
-    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
-                        help='database connection settings')
-    parser.add_argument('--editor', default=argparse.SUPPRESS,
-                        help='command for editing text files')
-    parser.add_argument('--pager', default=argparse.SUPPRESS,
-                        help='command for displaying text files')
-    parser.add_argument('--history-length', type=int, default=argparse.SUPPRESS,
-                        help='number of history lines to preserve')
-    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
+    parser = argparse.ArgumentParser(prog='manager', add_help=False)
+    parser.add_argument('--database-url', '-u', default=argparse.SUPPRESS, metavar='URL',
+                        help='use the settings in %(metavar)s to establish the database connection')
+    parser.add_argument('--debug', '-d', const='pdb', nargs='?', default=argparse.SUPPRESS,
                         help="enable debugging framework (deactivated by default, 'pdb' if not specific framework requested)",
                         choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
-    parser.add_argument('-v', '--version', action='version', 
+    parser.add_argument('--editor', default=argparse.SUPPRESS, metavar='COMMAND',
+                        help='use %(metavar)s to edit text files')
+    parser.add_argument('--help', '-h', action='help',
+                        help='show this help message and exit')
+    parser.add_argument('--history-length', type=int, default=argparse.SUPPRESS, metavar='NUMBER',
+                        help='preserve as many as %(metavar)s lines of history')
+    parser.add_argument('--pager', default=argparse.SUPPRESS, metavar='COMMAND',
+                        help='use %(metavar)s to display large chunks of text')
+    parser.add_argument('--profile', '-p', const='default', nargs='?', default='default', metavar='NAME',
+                        help="load the profile %(metavar)s at startup (default: 'default')")
+    parser.add_argument('--version', '-v', action='version', 
                         version='%%(prog)s %s' % release.__version__)
     
     options = vars(parser.parse_args(args))

@@ -321,19 +321,21 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         self._run(job_id)
 
 def _parse_args(args = None):
-    parser = argparse.ArgumentParser(prog='manager')
-    parser.add_argument('-j', '--job-id', type=int, default=argparse.SUPPRESS,
-                        help="run this specific job")
-    parser.add_argument('--loop', metavar='SECONDS', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
-                        help="wait SECONDS then loop again")
-    parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
-                        help="configuration profile for this session (default: 'default')")
-    parser.add_argument('-u', '--database-url', default=argparse.SUPPRESS,
-                        help='database connection settings')
-    parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
-                        help="enable debugging framework (deactivated by default, 'pdb' if framework is not specified)",
+    parser = argparse.ArgumentParser(prog='dispatcher.serial', add_help=False)
+    parser.add_argument('--database-url', '-u', default=argparse.SUPPRESS, metavar='URL',
+                        help='use the settings in %(metavar)s to establish the database connection')
+    parser.add_argument('--debug', '-d', const='pdb', nargs='?', default=argparse.SUPPRESS,
+                        help="enable debugging framework (deactivated by default, 'pdb' if not specific framework requested)",
                         choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
-    parser.add_argument('-v', '--version', action='version', 
+    parser.add_argument('--help', '-h', action='help',
+                        help='show this help message and exit')
+    parser.add_argument('--job-id', '-j', type=int, default=argparse.SUPPRESS, metavar='ID',
+                        help="run only the job identified by %(metavar)s")
+    parser.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
+                        help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
+    parser.add_argument('--profile', '-p', const='default', nargs='?', default='default', metavar='NAME',
+                        help="load the profile %(metavar)s at startup (default: 'default')")
+    parser.add_argument('--version', '-v', action='version', 
                         version='%%(prog)s %s' % release.__version__)
     
     options = vars(parser.parse_args(args))
