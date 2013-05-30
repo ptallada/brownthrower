@@ -42,7 +42,7 @@ _defaults = {
         'version' : 1,
         'loggers' : {
             '' : {
-                'level' : 'WARNING',
+                'level' : 'NOTSET',
                 'handlers': [
                     'console',
                 ],
@@ -51,7 +51,6 @@ _defaults = {
         'handlers' : {
             'console' : {
                 'class' : 'logging.StreamHandler',
-                'level' : 'DEBUG',
                 'formatter' : 'detailed',
                 'stream' : 'ext://sys.stderr',
             },
@@ -83,8 +82,13 @@ def _setup_readline():
         if get_current():
             readline.read_history_file(get_history_path(get_current()))
         
+        readline.set_history_length(settings['history_length'])
+        
     except ImportError:
         pass
+    except IOError as e:
+        if e.errno != errno.ENOENT:
+            raise
 
 def _shutdown_readline():
     try:
@@ -93,8 +97,13 @@ def _shutdown_readline():
         if get_current():
             readline.write_history_file(get_history_path(get_current()))
         
+        readline.clear_history()
+        
     except ImportError:
         pass
+    except IOError as e:
+        if e.errno != errno.ENOENT:
+            raise
 
 def _update_profile_list():
     global _default_profile

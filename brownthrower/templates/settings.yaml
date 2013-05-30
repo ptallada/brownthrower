@@ -28,7 +28,6 @@ logging :
     handlers :
         console :
             class : logging.StreamHandler
-            level : INFO
             formatter : detailed
             stream : ext://sys.stderr
     formatters :

@@ -216,7 +216,7 @@ class TaskDatasetDefault(Command):
             if dataset:
                 success("The %s dataset '%s' is now the default for the task '%s'." % (self._dataset, items[1], items[0]))
             else:
-                success("The task '%s' now has no default %s dataset.'" % (items[0], self._dataset))
+                success("The default %s dataset for task '%s' has been reset." % (self._dataset, items[0]))
         
         except Exception as e:
             try:

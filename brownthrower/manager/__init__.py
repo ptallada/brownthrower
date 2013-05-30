@@ -103,7 +103,7 @@ def _parse_args(args = None):
                         help='command for editing text files')
     parser.add_argument('--pager', default=argparse.SUPPRESS,
                         help='command for displaying text files')
-    parser.add_argument('--history-length', nargs=1, default=argparse.SUPPRESS,
+    parser.add_argument('--history-length', type=int, default=argparse.SUPPRESS,
                         help='number of history lines to preserve')
     parser.add_argument('-d', '--debug', const='pdb', nargs='?', default=argparse.SUPPRESS,
                         help="enable debugging framework (deactivated by default, 'pdb' if framework is not specified)",
@@ -126,7 +126,10 @@ def main(args = None):
     options = _parse_args(args)
     api.init(options)
     
-    manager.cmdloop()
+    try:
+        manager.cmdloop()
+    except KeyboardInterrupt:
+        print
 
 if __name__ == '__main__':
     main()

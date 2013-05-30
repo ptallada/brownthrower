@@ -72,7 +72,7 @@ class ProfileDefault(Command):
             if profile:
                 success("The configuration profile '%s' is now the default profile." % items[0])
             else:
-                success("No configuration profile is currently the default one.")
+                success("The default configuration profile has been reset.")
         
         except Exception as e:
             try:
@@ -147,37 +147,6 @@ class ProfileList(Command):
         if profiles:
             print strong("'C' or 'D' in the second column designate the Current and Default profiles.")
 
-class ProfileShow(Command):
-    """\
-    usage: profile show <name>
-    
-    Show the configuration profile with the given name.
-    """
-    
-    def complete(self, text, items):
-        if not items:
-            matching = [key
-                        for key in api.profile.get_available()
-                        if key.startswith(text)]
-            
-            return matching
-    
-    def do(self, items):
-        if len(items) != 1:
-            return self.help(items)
-        
-        try:
-            path = api.profile.get_settings_path(items[0])
-            subprocess.check_call([settings['pager'], path])
-        
-        except Exception as e:
-            try:
-                raise
-            except subprocess.CalledProcessError:
-                error("Could not display configuration profile '%s'" % items[0])
-            finally:
-                log.debug(e)
-
 class ProfileRemove(Command):
     """\
     usage: profile remove <name>
@@ -208,6 +177,37 @@ class ProfileRemove(Command):
                 error("There is no configuration profile named '%s'." % items[0])
             except api.profile.InUseError:
                 error("Cannot remove current configuration profile.")
+            finally:
+                log.debug(e)
+
+class ProfileShow(Command):
+    """\
+    usage: profile show <name>
+    
+    Show the configuration profile with the given name.
+    """
+    
+    def complete(self, text, items):
+        if not items:
+            matching = [key
+                        for key in api.profile.get_available()
+                        if key.startswith(text)]
+            
+            return matching
+    
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+        
+        try:
+            path = api.profile.get_settings_path(items[0])
+            subprocess.check_call([settings['pager'], path])
+        
+        except Exception as e:
+            try:
+                raise
+            except subprocess.CalledProcessError:
+                error("Could not display configuration profile '%s'" % items[0])
             finally:
                 log.debug(e)
 

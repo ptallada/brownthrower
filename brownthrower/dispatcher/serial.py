@@ -322,7 +322,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='manager')
-    parser.add_argument('job_id', nargs='?', default=argparse.SUPPRESS,
+    parser.add_argument('job_id', type=int, nargs='?', default=argparse.SUPPRESS,
                         help="run this specific job")
     parser.add_argument('-p', '--profile', const='default', nargs='?', default='default',
                         help="configuration profile for this session (default: 'default')")
@@ -352,6 +352,11 @@ def main(args = None):
     
     try:
         dispatcher._run(job_id)
+        if not job_id:
+            while True:
+                dispatcher._run()
+                time.sleep(60)
+    
     except KeyboardInterrupt:
         pass
 

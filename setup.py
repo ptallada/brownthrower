@@ -35,7 +35,7 @@ setup(
     
     install_requires = install_requires,
     
-    description = "",
+    description = "Framework for executing jobs with inter-dependencies",
     long_description = README,
     author = 'Pau Tallada Crespí',
     author_email = 'pau.tallada@gmail.com',
