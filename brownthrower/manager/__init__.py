@@ -110,7 +110,7 @@ def _parse_args(args = None):
                         help='preserve as many as %(metavar)s lines of history')
     parser.add_argument('--pager', default=argparse.SUPPRESS, metavar='COMMAND',
                         help='use %(metavar)s to display large chunks of text')
-    parser.add_argument('--profile', '-p', const='default', nargs='?', default='default', metavar='NAME',
+    parser.add_argument('--profile', '-p', default='default', metavar='NAME',
                         help="load the profile %(metavar)s at startup (default: 'default')")
     parser.add_argument('--version', '-v', action='version', 
                         version='%%(prog)s %s' % release.__version__)

@@ -18,50 +18,9 @@ input  = None # @ReservedAssignment
 config = None
 
 settings  = {}
+_defaults = {}
 
-_defaults = {
-    'paths' : {
-        'profile' : os.path.expanduser(os.path.join('~', '.brownthrower'))
-    },
-    
-    ### Default settings
-    # Database connection settings
-    'database_url' : 'sqlite:///',
-    
-    # Command to launch a text editting application
-    'editor' : 'nano',
-    
-    # Pager for displaying large chunks of text
-    'pager' : 'less',
-    
-    # Max number of history lines to be preserved. -1 for no limit.
-    'history_length' : 1000,
-    
-    # Logging configuration
-    'logging' : {
-        'version' : 1,
-        'loggers' : {
-            '' : {
-                'level' : 'NOTSET',
-                'handlers': [
-                    'console',
-                ],
-            },
-        },
-        'handlers' : {
-            'console' : {
-                'class' : 'logging.StreamHandler',
-                'formatter' : 'detailed',
-                'stream' : 'ext://sys.stderr',
-            },
-        },
-        'formatters' : {
-            'detailed' : {
-                'format' : '%(asctime)s %(name)s %(module)s line:%(lineno)d %(levelname)s %(message)s',
-            },
-        },
-    },
-}
+PROFILE_PATH = os.path.expanduser(os.path.join('~', '.brownthrower'))
 
 ################################################################################
 # PRIVATE                                                                      #
@@ -109,7 +68,7 @@ def _update_profile_list():
     global _default_profile
     _profile_list[:] = []
     try:
-        _profile_list[:] = os.walk(settings['paths']['profile']).next()[1]
+        _profile_list[:] = os.walk(PROFILE_PATH).next()[1]
     except StopIteration:
         pass
     
@@ -138,6 +97,8 @@ def init(options):
     global input, config, _options # @ReservedAssignment
     
     _options = options
+    _defaults.clear()
+    _defaults.update(yaml.safe_load(pkg_resources.resource_string('brownthrower', 'templates/settings.yaml'))) # @UndefinedVariable
     
     settings.clear()
     settings.update(_defaults)
@@ -166,7 +127,7 @@ def get_history_path(name):
     return os.path.join(get_path(name), 'history')
 
 def get_path(name):
-    return os.path.join(settings['paths']['profile'], name)
+    return os.path.join(PROFILE_PATH, name)
 
 def get_settings_path(name):
     return os.path.join(get_path(name), 'settings.yaml')

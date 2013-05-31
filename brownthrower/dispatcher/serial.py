@@ -333,7 +333,7 @@ def _parse_args(args = None):
                         help="run only the job identified by %(metavar)s")
     parser.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
                         help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
-    parser.add_argument('--profile', '-p', const='default', nargs='?', default='default', metavar='NAME',
+    parser.add_argument('--profile', '-p', default='default', metavar='NAME',
                         help="load the profile %(metavar)s at startup (default: 'default')")
     parser.add_argument('--version', '-v', action='version', 
                         version='%%(prog)s %s' % release.__version__)
