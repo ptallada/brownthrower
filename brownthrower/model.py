@@ -259,17 +259,20 @@ def sqlite_connection_begin_listener(conn):
 def init(db_url):
     global session_maker
     
-    url = make_url(db_url) 
-    
+    twophase = True
+    url = make_url(db_url)
+     
     if url.drivername == 'sqlite':
         # Disable automatic transaction handling to workaround faulty nested transactions
         engine = create_engine(url, connect_args={'isolation_level':None})
         event.listen(engine, 'begin', sqlite_connection_begin_listener)
+        twophase = False
     else:
         engine = create_engine(url)
     
     Base.metadata.create_all(bind=engine)
     session_maker = scoped_session(sessionmaker(
         bind = engine,
+        twophase = twophase,
         extension = ZopeTransactionExtension()
     ))

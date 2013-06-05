@@ -95,3 +95,5 @@ class DispatcherRun(Command):
             dispatcher().run(*items[1:])
         except Exception as e:
             error("The dispatcher threw an error: %s" % e)
+        except KeyboardInterrupt:
+            pass
