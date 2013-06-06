@@ -7,10 +7,12 @@ import logging
 import sys
 import textwrap
 import time
+import traceback
 import transaction
 import yaml
 
 from brownthrower import api, interface, model, release
+from brownthrower.api.profile import settings
 from contextlib import contextmanager
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -245,6 +247,8 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                         job.status = interface.constants.JobStatus.DONE
                         job.ts_ended = datetime.datetime.now()
                     
+                    log.info("Job %d finished successfully." % job.id)
+                    
                 else:
                     log.info("Executing epilog of job %d." % job.id)
                     
@@ -258,8 +262,10 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                         api.task.get_validator('output')(task, job.output)
                         job.status = interface.constants.JobStatus.DONE
                         job.ts_ended = datetime.datetime.now()
+            
+            log.info("Execution of job %d ended with status 'DONE'." % job.id)
         
-        except BaseException as e:
+        except BaseException:
             session = model.session_maker()
             try:
                 job = session.query(model.Job).filter_by(id = job.id).one()
@@ -282,7 +288,22 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
                     job.ts_started = job.ts_ended
                 
                 log.error("Execution of job %d ended with status '%s'." % (job.id, job.status))
-                log.debug(e)
+                
+                # Enter post-mortem
+                if job.status != interface.constants.JobStatus.CANCELLED and ('post_mortem' in settings):
+                    dbg = None
+                    if settings['post-mortem'] == 'pdb':
+                        import pdb
+                        dbg = pdb
+                    elif settings['post-mortem'] == 'ipdb':
+                        import ipdb
+                        dbg = ipdb
+                    
+                    ex = traceback.format_exc()
+                    log.debug(ex)
+                    
+                    tb = sys.exc_info()[2]
+                    dbg.post_mortem(tb)
         
         finally:
             transaction.commit()
@@ -333,6 +354,9 @@ def _parse_args(args = None):
                         help="run only the job identified by %(metavar)s")
     parser.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
                         help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
+    parser.add_argument('--post-mortem', const='pdb', nargs='?', default=argparse.SUPPRESS,
+                        help="enable post-mortem debugging (deactivated by default, 'pdb' if not specific framework requested)",
+                        choices=['ipdb', 'pdb'])
     parser.add_argument('--profile', '-p', default='default', metavar='NAME',
                         help="load the profile %(metavar)s at startup (default: 'default')")
     parser.add_argument('--version', '-v', action='version', 
