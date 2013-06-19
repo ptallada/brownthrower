@@ -66,7 +66,7 @@ class Job(Base):
     
     # FIXME: Optimize getting from identity_map
     # FIXME: Optimize locking in a single query
-    # TODO: Clear interface. Must include itself or not.
+    # TODO: Clear interface. Must include itself or not. Not it includes itself
     def ancestors(self, lockmode=False):
         cls = self.__class__
         session = object_session(self)

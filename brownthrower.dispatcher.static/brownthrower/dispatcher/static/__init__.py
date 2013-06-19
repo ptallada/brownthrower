@@ -201,12 +201,14 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
             ex = traceback.format_exc()
             log.debug(ex)
             
-            with transaction.manager:
-                job_status = api.dispatcher.handle_job_exception(preloaded_job.id, e)
-            log.warning("Job %d was aborted with status '%s'." % (preloaded_job.id, job_status))
-            
+            try:
+                api.dispatcher.handle_job_exception(preloaded_job, e)
+            finally:
+                transaction.commit()
+                log.warning("Job %d was aborted with status '%s'." % (preloaded_job.id, preloaded_job.status))
+                
             # Enter post-mortem
-            if post_mortem and job_status != interface.constants.JobStatus.CANCELLED:
+            if post_mortem and preloaded_job.status == interface.constants.JobStatus.FAILED:
                 self._enter_postmortem(post_mortem)
     
     def _run(self, job_id, loop, post_mortem):

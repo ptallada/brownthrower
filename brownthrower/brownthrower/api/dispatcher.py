@@ -243,23 +243,22 @@ def run_job(preloaded_job, task):
             job.status = interface.constants.JobStatus.DONE
             job.ts_ended = datetime.datetime.now()
 
-def handle_job_exception(job_id, e):
-    job_status = None
+def handle_job_exception(preloaded_job, e):
     try:
         raise e
     except interface.task.CancelledException:
-        job_status = interface.constants.JobStatus.CANCELLED
+        preloaded_job.status = interface.constants.JobStatus.CANCELLED
     except Exception:
-        job_status = interface.constants.JobStatus.FAILED
+        preloaded_job.status = interface.constants.JobStatus.FAILED
     except BaseException:
-        job_status = interface.constants.JobStatus.CANCELLED
+        preloaded_job.status = interface.constants.JobStatus.CANCELLED
         raise
     finally:
         session = model.session_maker()
-        job = session.query(model.Job).filter_by(id = job_id).one()
+        job = session.query(model.Job).filter_by(id = preloaded_job.id).one()
         ancestors = job.ancestors(lockmode='update')[1:]
         
-        job.status = job_status
+        job.status = preloaded_job.status
         for ancestor in ancestors:
             ancestor.update_status()
         
@@ -267,5 +266,3 @@ def handle_job_exception(job_id, e):
         # Set start time in case the job fail to validate
         if not job.ts_started:
             job.ts_started = job.ts_ended
-    
-    return job_status
