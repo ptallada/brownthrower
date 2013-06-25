@@ -93,8 +93,8 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
             log.info("Job %d has finished successfully and it is now in DONE state." % preloaded_job.id)
         
         except BaseException as e:
-            ex = traceback.format_exc()
-            log.debug(ex)
+            tb = traceback.format_exc()
+            log.debug(tb)
             
             try:
                 api.dispatcher.handle_job_exception(preloaded_job, e)

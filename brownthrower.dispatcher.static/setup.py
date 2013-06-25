@@ -10,6 +10,7 @@ install_requires = [
     'brownthrower',
     'glite >= 1.6.0',
     'logutils', # Only for Python <= 2.6
+    'repoze.sendmail',
     'setuptools',
     'transaction',
 ]
