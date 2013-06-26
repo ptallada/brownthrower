@@ -3,6 +3,7 @@
 
 import datetime
 import logging
+import transaction
 import yaml
 
 from brownthrower import interface, model
@@ -81,7 +82,7 @@ def get_runnable_job(job_id=None):
             return (job, ancestors)
         
         except (NoResultFound, AssertionError):
-            session.rollback()
+            transaction.abort()
 
 def process_job(job, ancestors):
     task = _validate_task(job)
