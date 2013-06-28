@@ -85,6 +85,8 @@ def get_runnable_job(job_id=None):
             transaction.abort()
 
 def process_job(job, ancestors):
+    session = model.session_maker()
+    
     task = _validate_task(job)
     
     job.status = interface.constants.JobStatus.PROCESSING
@@ -92,6 +94,9 @@ def process_job(job, ancestors):
     
     for ancestor in ancestors:
         ancestor.update_status()
+    
+    session.flush()
+    session.expunge(job)
     
     return task
 
@@ -103,9 +108,6 @@ def preload_job(job):
         model.Job.superjob == job,
         ~model.Job.children.any(), # @UndefinedVariable
     ).all()
-    
-    session.flush()
-    session.expunge(job)
     
     return job
 

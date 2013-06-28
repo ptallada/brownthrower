@@ -79,7 +79,7 @@ class SerialDispatcher(interface.dispatcher.Dispatcher):
         
         try:
             try:
-                task = api.dispatcher.process_job(job, ancestors)
+                task = api.dispatcher.process_job(preloaded_job, ancestors)
                 transaction.commit()
             except BaseException:
                 transaction.abort()
