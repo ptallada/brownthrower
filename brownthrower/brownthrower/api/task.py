@@ -86,7 +86,9 @@ def get_name(task):
 def get_validator(name):
     def validate(task, dataset):
         try:
-            data = yaml.safe_load(dataset)
+            data = None
+            if dataset:
+                data = yaml.safe_load(dataset)
             jsonschema.validate(data, json.loads(get_dataset(name, 'schema')(task)))
             get_checker(name)(task, data)
         except Exception as e:

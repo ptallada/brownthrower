@@ -98,7 +98,6 @@ def process_job(job, ancestors):
 def preload_job(job):
     session = model.session_maker()
     
-    #session.refresh(job)
     assert len(job.subjobs) >= 0
     job._leaf_subjobs = session.query(model.Job).filter(
         model.Job.superjob == job,
