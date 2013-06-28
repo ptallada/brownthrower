@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import collections
 import contextlib
 import email.message
 import glite.ce.job
 import logging
+import os
 import pkg_resources
 import repoze.sendmail.delivery
 import repoze.sendmail.mailer
@@ -20,6 +22,7 @@ import time
 from . import release
 from brownthrower import api, interface
 from brownthrower.api.profile import settings
+import shutil
 
 try:
     from logging import NullHandler
@@ -69,6 +72,8 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
                             choices=['dispatch', 'run'])
         parser.add_argument('--notify-failed', default=argparse.SUPPRESS, metavar='EMAIL',
                             help='report failed jobs to this address')
+        parser.add_argument('--archive-logs', default=argparse.SUPPRESS, metavar='PATH',
+                            help='store a copy of each job log in %(metavar)s')
         parser.add_argument('--profile', '-p', default='default', metavar='NAME',
                             help="load the profile %(metavar)s at startup (default: '%(default)s')")
         parser.add_argument('--version', '-v', action='version', 
@@ -107,14 +112,7 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
             
             yield fh.name
     
-    def _dispatch(self, pool_size, remote_path, ce_queue, notify_failed = None):
-        final_status = set([
-            'ABORTED',
-            'CANCELLED',
-            'DONE-OK',
-            'DONE-FAILED',
-        ])
-        
+    def _dispatch(self, pool_size, remote_path, ce_queue, notify_failed = None, archive_logs = None):
         options = [
             '-u', settings['database_url'],
             '--mode', 'run',
@@ -124,56 +122,72 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
         if notify_failed:
             options.extend(['--notify-failed', notify_failed])
         
+        if archive_logs:
+            options.extend(['--archive_logs', archive_logs])
+        
         arguments = ' '.join(options)
         
         job_ids = []
+        job_status = collections.defaultdict(int)
         
+        # FIXME: job_ids could be lost on KeyboardInterrupt
         try:
+            log.info("Launching the initial pilots...")
             for _ in range(pool_size):
                 with self._write_jdl(remote_path, arguments) as jdl_file:
                     job_ids.append(glite.ce.job.submit(jdl_file, endpoint=ce_queue))
-                    log.info("Launched a new job with id %s." % job_ids[-1])
+                    log.debug("Launched a new job with id %s." % job_ids[-1])
             
             while True:
-                for jobid in job_ids:
+                for st in glite.ce.job.CEJobStatus.processing:
+                    job_status[st] = 0
+                
+                for jobid in job_ids[:]:
                     status = glite.ce.job.status(endpoint=ce_queue.split('/')[0], jobid=jobid)
-                    log.info("Job %s is in status %s." % (jobid, status.attrs['Status']))
+                    job_status[status.attrs['Status']] += 1
+                    log.debug("Job %s is in status %s." % (jobid, status.attrs['Status']))
                     
-                    if status.attrs['Status'] in final_status:
+                    if status.attrs['Status'] in glite.ce.job.CEJobStatus.final:
                         job_ids.remove(jobid)
                         with self._write_jdl(remote_path, arguments) as jdl_file:
                             job_ids.append(glite.ce.job.submit(jdl_file, endpoint=ce_queue))
-                            log.info("Launched a new job with id %s." % job_ids[-1])
+                            log.debug("Launched a new job with id %s." % job_ids[-1])
+                
+                msg = ["Pilot summary:"]
+                for st in glite.ce.job.CEJobStatus.all:
+                    msg.append("%s(%d)" % (st, job_status[st]))
+                log.info(" ".join(msg))
                 
                 time.sleep(10)
-            
+        
         finally:
             log.warning("Shutting down pool. DO NOT INTERRUPT.")
-            for jobid in job_ids:
-                log.info("Cancelling job %s" % jobid)
-                try:
-                    glite.ce.job.cancel(jobid)
-                except Exception:
-                    pass
-            
             while job_ids:
-                my_jobids = job_ids[:]
-                for jobid in my_jobids:
-                    status = glite.ce.job.status(endpoint=ce_queue.split('/')[0], jobid=jobid)
-                    log.info("Job %s is in status %s." % (jobid, status.attrs['Status']))
-                    
-                    if status.attrs['Status'] in final_status:
-                        job_ids.remove(jobid)
-                
-                if not job_ids:
-                    break
-                
                 for jobid in job_ids:
-                    log.info("Cancelling job %s" % jobid)
+                    log.debug("Cancelling job %s" % jobid)
                     try:
                         glite.ce.job.cancel(jobid)
                     except Exception:
                         pass
+                
+                for st in glite.ce.job.CEJobStatus.processing:
+                    job_status[st] = 0
+                
+                for jobid in job_ids[:]:
+                    status = glite.ce.job.status(endpoint=ce_queue.split('/')[0], jobid=jobid)
+                    job_status[status.attrs['Status']] += 1
+                    log.debug("Job %s is in status %s." % (jobid, status.attrs['Status']))
+                    
+                    if status.attrs['Status'] in glite.ce.job.CEJobStatus.final:
+                        job_ids.remove(jobid)
+                
+                msg = ["Pilot summary:"]
+                for st in glite.ce.job.CEJobStatus.all:
+                    msg.append("%s(%d)" % (st, job_status[st]))
+                log.info(" ".join(msg))
+                
+                if not job_ids:
+                    break
                 
                 time.sleep(5)
     
@@ -223,7 +237,7 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
         tb = sys.exc_info()[2]
         dbg.post_mortem(tb)
     
-    def _run_job(self, post_mortem = None, job_id = None, notify_failed = None):
+    def _run_job(self, post_mortem = None, job_id = None, notify_failed = None, archive_logs = None):
         try:
             (job, ancestors) = api.dispatcher.get_runnable_job(job_id)
             preloaded_job = api.dispatcher.preload_job(job)
@@ -264,16 +278,33 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
                 
                 if post_mortem:
                     self._enter_postmortem(post_mortem)
+        
+        finally:
+            if archive_logs:
+                self._archive_log(archive_logs, preloaded_job)
     
-    def _run(self, job_id, loop, post_mortem, notify_failed):
+    def _setup_log_archiving(self):
+        self.root_logger = logging.getLogger()
+        self.handler = logging.handlers.WatchedFileHandler('job.log')
+        self.root_logger.addHandler(self.handler)
+    
+    def _archive_log(self, archive_logs, preloaded_job):
+        # TODO: use template for naming
+        shutil.copy('job.log', os.path.join(archive_logs, '%s_%d.log' % (preloaded_job.task, preloaded_job.id)))
+        os.unlink('job.log')
+    
+    def _run(self, job_id, loop, post_mortem, notify_failed, archive_logs = None):
+        if archive_logs:
+            self._setup_log_archiving()
+        
         if job_id:
-            self._run_job(post_mortem, job_id, notify_failed = notify_failed)
+            self._run_job(post_mortem, job_id, notify_failed = notify_failed, archive_logs = archive_logs)
             return
         
         while True:
             try:
                 while True:
-                    self._run_job(post_mortem, notify_failed = notify_failed)
+                    self._run_job(post_mortem, notify_failed = notify_failed, archive_logs = archive_logs)
             except api.dispatcher.NoRunnableJobFound:
                 pass
             
@@ -293,6 +324,7 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
         # General
         mode          = options.pop('mode')
         notify_failed = options.pop('notify_failed', None)
+        archive_logs  = options.pop('archive_logs', None)
         # Dispatch mode
         ce_queue    = options.pop('ce_queue', None)
         pool_size   = options.pop('pool_size', None)
@@ -314,9 +346,9 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
         
         try:
             if mode == 'dispatch':
-                self._dispatch(pool_size, remote_path, ce_queue, notify_failed)
+                self._dispatch(pool_size, remote_path, ce_queue, notify_failed, archive_logs)
             else:
-                self._run(job_id, loop, post_mortem, notify_failed)
+                self._run(job_id, loop, post_mortem, notify_failed, archive_logs)
         except KeyboardInterrupt:
             pass
         
