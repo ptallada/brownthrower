@@ -226,6 +226,7 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
     def _run_job(self, post_mortem = None, job_id = None, notify_failed = None):
         try:
             (job, ancestors) = api.dispatcher.get_runnable_job(job_id)
+            preloaded_job = api.dispatcher.preload_job(job)
             log.info("Job %d has been locked and it is being processed." % job.id)
         except BaseException:
             transaction.abort()
@@ -234,7 +235,6 @@ class StaticDispatcher(interface.dispatcher.Dispatcher):
         try:
             try:
                 task = api.dispatcher.process_job(job, ancestors)
-                preloaded_job = api.dispatcher.preload_job(job)
                 transaction.commit()
             except BaseException:
                 transaction.abort()
