@@ -104,7 +104,7 @@ class Job(Base):
         while len(pending):
             ancestors.insert(0, session.query(cls).filter_by(
                 id = pending.pop().id
-            ).with_lockmode(lockmode).one())
+            ).populate_existing().with_lockmode(lockmode).one())
         
         return ancestors
     
