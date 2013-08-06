@@ -10,6 +10,8 @@ from brownthrower.api.profile import settings
 class Job(Command):
     """\
     usage: job <command> [options]
+    
+    Create, configure, submit and remove jobs
     """
     
     def __init__(self, *args, **kwargs):
@@ -30,6 +32,8 @@ class Job(Command):
 class Task(Command):
     """\
     usage: task <command> [options]
+    
+    Display and configure available tasks
     """
     
     def __init__(self, *args, **kwargs):
@@ -55,6 +59,8 @@ class Dispatcher(Command):
 class Profile(Command):
     """\
     usage: profile <command> [options]
+    
+    Create, edit and remove configuration profiles
     """
     
     def __init__(self, *args, **kwargs):

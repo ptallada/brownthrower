@@ -11,6 +11,7 @@ import transaction
 
 from brownthrower import api, interface, model, release
 from brownthrower.api.profile import settings
+from tabulate import tabulate
 
 try:
     from logging import NullHandler
@@ -21,6 +22,9 @@ log = logging.getLogger('brownthrower.manager')
 log.addHandler(NullHandler())
 
 class Manager(cmd.Cmd):
+    """\
+    usage: <command> [options]
+    """
     
     def __init__(self, *args, **kwargs):
         cmd.Cmd.__init__(self, *args, **kwargs)
@@ -48,15 +52,17 @@ class Manager(cmd.Cmd):
             if subcmd:
                 return subcmd._help(items[1:])
         
-        print textwrap.dedent("""\
-        usage: <command> [options]
-        
-        Available commands:
-          job         create, configure, submit and remove jobs
-          profile     create, edit and remove configuration profiles
-          quit        exit this program
-          task        show information about the available tasks
-        """)
+        print textwrap.dedent(self.__doc__).strip()
+        print "\nAvailable commands:"
+        subcmds = {'quit' : 'Exit this program'}
+        subcmds.update(self._subcmds)
+        table = []
+        for name in sorted(subcmds.keys()):
+            if name == 'quit':
+                table.append([" ", name, subcmds[name]])
+            else:
+                table.append([" ", name, textwrap.dedent(subcmds[name].__doc__).strip().split('\n')[2]])
+        print tabulate(table, tablefmt="plain")
     
     def completedefault(self, text, line, begidx, endidx):
         items = line[:begidx].strip().split()
