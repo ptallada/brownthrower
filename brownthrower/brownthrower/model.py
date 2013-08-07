@@ -64,12 +64,13 @@ class Job(Base):
     # Proxies
     tag = association_proxy('tags', 'value', creator=lambda name, value: Tag(name=name, value=value))
     
-    # FIXME: Optimize getting from identity_map
-    # FIXME: Optimize locking in a single query
-    # TODO: Clear interface. Must include itself or not. Not it includes itself
     def ancestors(self, lockmode=False):
         cls = self.__class__
         session = object_session(self)
+        
+        # Flush pending changes. However, there shouldn't be any changes on the
+        # ancestor jobs as no concurrent modifications are allowed.
+        session.flush()
         
         ancestors = []
         job = self
@@ -92,20 +93,24 @@ class Job(Base):
                     )
             q_cte = q_base.union_all(q_rec)
             
-            pending = session.query(cls).select_from(q_cte).order_by(q_cte.c.level).all()
+            ancestors = session.query(cls).select_from(q_cte).order_by(q_cte.c.level).all()
         
         else: # Fallback for any other backend
-            pending = [job]
+            ancestors = [job]
             while job.superjob:
-                pending.append(job.superjob)
+                ancestors.append(job.superjob)
                 job = job.superjob
         
-        session.expire(self)
-        while len(pending):
-            ancestors.insert(0, session.query(cls).filter_by(
-                id = pending.pop().id
-            ).populate_existing().with_lockmode(lockmode).one())
+        # Expire all affected instances and reload them already locked
+        map(session.expire, ancestors)
+        locked = session.query(cls).filter(cls.id.in_(
+            [job.id for job in ancestors]
+        )).with_lockmode(lockmode).all()
         
+        # Check that no entry was deleted in the middle
+        assert len(ancestors) == len(locked)
+        
+        # Return correctly sorted list
         return ancestors
     
     def update_status(self):
