@@ -57,7 +57,7 @@ setup(
     # other arguments here...
     entry_points = {
         'console_scripts' : [
-            'manager = brownthrower.manager.__init__:main',
+            'brownthrower = brownthrower.manager.__init__:main',
         ],
     },
     
