@@ -58,6 +58,7 @@ setup(
     entry_points = {
         'console_scripts' : [
             'brownthrower = brownthrower.manager.__init__:main',
+            'runner.serial = brownthrower.runner.serial.__init__:main',
         ],
     },
     
