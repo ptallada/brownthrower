@@ -8,7 +8,6 @@ import sys
 import traceback
 
 from . import dataset
-from . import dispatcher
 from . import profile
 from . import task
 
