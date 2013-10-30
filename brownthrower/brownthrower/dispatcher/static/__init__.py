@@ -98,10 +98,11 @@ class StaticDispatcher(object):
     def _dispatch(self, pool_size, runner_path, runner_args, ce_queue, notify_failed = None, archive_logs = None):
         options = [
             '-u', settings['database_url'],
-            '--loop', '60'
-        ]
-        
-        arguments = ' '.join([runner_args, options])
+	]
+
+        options.append(runner_args)
+
+        arguments = ' '.join(options)
         
         job_ids = []
         job_status = collections.defaultdict(int)
