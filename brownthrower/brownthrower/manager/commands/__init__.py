@@ -3,7 +3,7 @@
 
 import textwrap
 
-from . import dispatcher, job, profile, task
+from . import job, profile, task
 from .base import Command
 from brownthrower.api.profile import settings
 
@@ -44,17 +44,6 @@ class Task(Command):
         self.add_subcmd('list',   task.TaskList())
         self.add_subcmd('output', task.TaskOutput())
         self.add_subcmd('show',   task.TaskShow())
-
-class Dispatcher(Command):
-    """\
-    usage: dispatcher <command> [options]
-    """
-    def __init__(self, dispatchers, *args, **kwargs):
-        super(Dispatcher, self).__init__(*args, **kwargs)
-        
-        self.add_subcmd('list', dispatcher.DispatcherList(dispatchers = dispatchers))
-        self.add_subcmd('run',  dispatcher.DispatcherRun( dispatchers = dispatchers))
-        self.add_subcmd('show', dispatcher.DispatcherShow(dispatchers = dispatchers))
 
 class Profile(Command):
     """\

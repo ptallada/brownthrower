@@ -38,7 +38,7 @@ class Manager(cmd.Cmd):
         # FIXME: Use api
         #self._dispatchers = api._dispatchers
         
-        from brownthrower.manager.commands import Dispatcher, Job, Profile, Task
+        from brownthrower.manager.commands import Job, Profile, Task
         
         #self._subcmds['dispatcher'] = Dispatcher(dispatchers = self._dispatchers)
         self._subcmds['job']        = Job()

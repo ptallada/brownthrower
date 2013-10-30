@@ -7,9 +7,11 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
+    'glite',
     'jsonschema',
     'logutils', # Only for Python <= 2.6
     'PyYAML',
+    'repoze.sendmail',
     'setuptools',
     'SQLAlchemy >= 0.8',
     'tabulate',
@@ -58,6 +60,8 @@ setup(
     entry_points = {
         'console_scripts' : [
             'brownthrower = brownthrower.manager.__init__:main',
+            'runner.serial = brownthrower.runner.serial.__init__:main',
+            'dispatcher.static = brownthrower.dispatcher.static.__init__:main',
         ],
     },
     
