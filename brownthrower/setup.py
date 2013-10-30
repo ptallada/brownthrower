@@ -7,9 +7,11 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
+    'glite',
     'jsonschema',
     'logutils', # Only for Python <= 2.6
     'PyYAML',
+    'repoze.sendmail',
     'setuptools',
     'SQLAlchemy >= 0.8',
     'tabulate',
