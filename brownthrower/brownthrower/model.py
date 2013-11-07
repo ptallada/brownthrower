@@ -102,10 +102,11 @@ class Job(Base):
                 job = job.superjob
         
         # Expire all affected instances and reload them already locked
+        ids = [job.id for job in ancestors]
         map(session.expire, ancestors)
-        locked = session.query(cls).filter(cls.id.in_(
-            [job.id for job in ancestors]
-        )).with_lockmode(lockmode).all()
+        locked = session.query(cls).filter(
+            cls.id.in_(ids)
+        ).with_lockmode(lockmode).all()
         
         # Check that no entry was deleted in the middle
         assert len(ancestors) == len(locked)
