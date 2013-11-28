@@ -70,6 +70,8 @@ class SerialRunner(object):
                             choices=['ipdb', 'pdb'])
         parser.add_argument('--profile', '-p', default='default', metavar='NAME',
                             help="load the profile %(metavar)s at startup (default: '%(default)s')")
+        parser.add_argument('--submit', '-s', action='store_true',
+                            help='in conjunction with --job-id, submit the job before executing')
         parser.add_argument('--version', '-v', action='version', 
                             version='%%(prog)s %s' % release.__version__)
         
@@ -357,8 +359,10 @@ class SerialRunner(object):
         tb = sys.exc_info()[2]
         dbg.post_mortem(tb)
     
-    def _run_job(self, post_mortem = None, job_id = None, notify_failed = None, archive_logs = None):
+    def _run_job(self, post_mortem = None, job_id = None, notify_failed = None, archive_logs = None, submit = False):
         try:
+            if submit:
+                api.task.submit(job_id)
             (job, ancestors) = self.get_runnable_job(job_id)
             preloaded_job = self.preload_job(job)
             log.info("Job %d has been locked and it is being processed." % job.id)
@@ -416,11 +420,13 @@ class SerialRunner(object):
     def run(self, args = []):
         options = self._parse_args(args)
         
+        
+        archive_logs  = options.pop('archive_logs', None)
         job_id = options.pop('job_id', None)
         loop = options.pop('loop', 0)
-        post_mortem = options.pop('post_mortem', None)
         notify_failed = options.pop('notify_failed', None)
-        archive_logs  = options.pop('archive_logs', None)
+        post_mortem = options.pop('post_mortem', None)
+        submit = options.pop('submit', False)
         
         api.init(options)
         
@@ -429,7 +435,7 @@ class SerialRunner(object):
                 self._setup_log_archiving()
             
             if job_id:
-                self._run_job(post_mortem, job_id, notify_failed = notify_failed, archive_logs = archive_logs)
+                self._run_job(post_mortem, job_id, notify_failed = notify_failed, archive_logs = archive_logs, submit = submit)
                 return
             
             while True:
