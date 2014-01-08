@@ -289,7 +289,7 @@ class SerialRunner(object):
                 job.status = interface.constants.JobStatus.DONE
                 job.ts_ended = datetime.datetime.now()
     
-    def handle_job_exception(self, preloaded_job, e):
+    def handle_job_exception(self, preloaded_job, e, tb):
         try:
             raise e
         except interface.task.CancelledException:
@@ -305,6 +305,8 @@ class SerialRunner(object):
             ancestors = job.ancestors(lockmode='update')[1:]
             
             job.status = preloaded_job.status
+            job.tag['last_traceback'] = tb
+            
             for ancestor in ancestors:
                 ancestor.update_status()
             
@@ -390,7 +392,7 @@ class SerialRunner(object):
             log.debug(tb)
             
             try:
-                self.handle_job_exception(preloaded_job, e)
+                self.handle_job_exception(preloaded_job, e, tb)
             finally:
                 transaction.commit()
                 log.warning("Job %d was aborted with status '%s'." % (preloaded_job.id, preloaded_job.status))
