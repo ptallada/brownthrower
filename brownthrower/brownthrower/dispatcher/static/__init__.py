@@ -89,10 +89,10 @@ class StaticDispatcher(object):
     def _dispatch(self, pool_size, runner_path, runner_args, ce_queue, notify_failed = None, archive_logs = None):
         options = [
             '-u', settings['database_url'],
-	]
-
+        ]
+        
         options.append(runner_args)
-
+        
         arguments = ' '.join(options)
         
         job_ids = []
@@ -181,7 +181,7 @@ class StaticDispatcher(object):
             self._dispatch(pool_size, runner_path, runner_args, ce_queue)
         except KeyboardInterrupt:
             pass
-        
+    
 def main(args = []):
     dispatcher = StaticDispatcher()
     dispatcher.main(args)
