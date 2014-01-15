@@ -4,24 +4,15 @@
 import argparse
 import collections
 import contextlib
-import email.message
 import glite.ce.job
 import logging
-import os
-import pkg_resources
-import repoze.sendmail.delivery
-import repoze.sendmail.mailer
 import string
 import sys
 import tempfile
-import textwrap
-import traceback
-import transaction
 import time
 
-from brownthrower import api, interface, release
+from brownthrower import api, release
 from brownthrower.api.profile import settings
-import shutil
 
 try:
     from logging import NullHandler
