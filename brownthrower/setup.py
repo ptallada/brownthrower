@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
-    'glite',
+    'glite>=1.8.0',
     'jsonschema',
     'logutils', # Only for Python <= 2.6
     'PyYAML',

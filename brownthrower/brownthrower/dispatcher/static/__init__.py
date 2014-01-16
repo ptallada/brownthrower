@@ -95,67 +95,80 @@ class StaticDispatcher(object):
         
         arguments = ' '.join(options)
         
-        job_ids = []
+        last_event = 0
+        pilots = {}
         job_status = collections.defaultdict(int)
-        
         # FIXME: job_ids could be lost on KeyboardInterrupt
         try:
+            last_event = glite.ce.last_event_id(ce_queue.split('/')[0])
+            
             log.info("Launching the initial pilots...")
             for _ in range(pool_size):
                 with self._write_jdl(runner_path, arguments) as jdl_file:
-                    job_ids.append(glite.ce.job.submit(jdl_file, endpoint=ce_queue))
-                    log.debug("Launched a new job with id %s." % job_ids[-1])
+                    pilot_id = glite.ce.job.submit(jdl_file, endpoint=ce_queue)
+                    pilots[pilot_id] = glite.ce.job.CEJobStatus.UNKNOWN
+                    log.debug("Launched a new job with id %s." % pilot_id)
             
             while True:
-                for st in glite.ce.job.CEJobStatus.processing:
-                    job_status[st] = 0
-                
-                for jobid in job_ids[:]:
-                    status = glite.ce.job.status(endpoint=ce_queue.split('/')[0], jobid=jobid)
-                    job_status[status.attrs['Status']] += 1
-                    log.debug("Job %s is in status %s." % (jobid, status.attrs['Status']))
+                for event in glite.ce.event_query(ce_queue.split('/')[0], last_event):
+                    if event['jobId'] in pilots:
+                        pilots[event['jobId']] = event['status']
+                        log.debug("Job %s is in status %s." % (event['jobId'], event['status']))
+                        
+                        if event['status'] in glite.ce.job.CEJobStatus.final:
+                            with self._write_jdl(runner_path, arguments) as jdl_file:
+                                pilot_id = glite.ce.job.submit(jdl_file, endpoint=ce_queue)
+                                pilots[pilot_id] = glite.ce.job.CEJobStatus.UNKNOWN
+                                log.debug("Launched a new job with id %s." % pilot_id)
                     
-                    if status.attrs['Status'] in glite.ce.job.CEJobStatus.final:
-                        job_ids.remove(jobid)
-                        with self._write_jdl(runner_path, arguments) as jdl_file:
-                            job_ids.append(glite.ce.job.submit(jdl_file, endpoint=ce_queue))
-                            log.debug("Launched a new job with id %s." % job_ids[-1])
+                    last_event = int(event['EventID'])
+                
+                # Count status
+                job_status.clear()
+                for status in pilots.itervalues():
+                    job_status[status] += 1
                 
                 msg = ["Pilot summary:"]
-                for st in glite.ce.job.CEJobStatus.all:
-                    msg.append("%s(%d)" % (st, job_status[st]))
+                for status, count in job_status.iteritems():
+                    msg.append("%s(%d)" % (status, count))
                 log.info(" ".join(msg))
                 
                 time.sleep(10)
         
         finally:
             log.warning("Shutting down pool. DO NOT INTERRUPT.")
-            while job_ids:
-                for jobid in job_ids:
-                    log.debug("Cancelling job %s" % jobid)
-                    try:
-                        glite.ce.job.cancel(jobid)
-                    except Exception:
-                        pass
-                
-                for st in glite.ce.job.CEJobStatus.processing:
-                    job_status[st] = 0
-                
-                for jobid in job_ids[:]:
-                    status = glite.ce.job.status(endpoint=ce_queue.split('/')[0], jobid=jobid)
-                    job_status[status.attrs['Status']] += 1
-                    log.debug("Job %s is in status %s." % (jobid, status.attrs['Status']))
+            while pilots:
+                for pilot_id, status in pilots.copy().iteritems():
+                    if status in glite.ce.job.CEJobStatus.final:
+                        del pilots[pilot_id]
                     
-                    if status.attrs['Status'] in glite.ce.job.CEJobStatus.final:
-                        job_ids.remove(jobid)
+                    else:
+                        log.debug("Cancelling job %s" % pilot_id)
+                        try:
+                            glite.ce.job.cancel(pilot_id)
+                        except Exception:
+                            pass
+                
+                for event in glite.ce.event_query(ce_queue.split('/')[0], last_event):
+                    if event['jobId'] in pilots:
+                        pilots[event['jobId']] = event['status']
+                        log.debug("Job %s is in status %s." % (event['jobId'], event['status']))
+                        
+                        if event['status'] in glite.ce.job.CEJobStatus.final:
+                            del pilots[event['jobId']]
+                
+                if not pilots:
+                    break
+                
+                # Count status
+                job_status.clear()
+                for status in pilots.itervalues():
+                    job_status[status] += 1
                 
                 msg = ["Pilot summary:"]
-                for st in glite.ce.job.CEJobStatus.all:
-                    msg.append("%s(%d)" % (st, job_status[st]))
+                for status, count in job_status.iteritems():
+                    msg.append("%s(%d)" % (status, count))
                 log.info(" ".join(msg))
-                
-                if not job_ids:
-                    break
                 
                 time.sleep(5)
     
