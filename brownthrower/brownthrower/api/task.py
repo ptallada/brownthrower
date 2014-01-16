@@ -26,8 +26,8 @@ def _validate_ep(entry):
     
     assert isinstance(task.__brownthrower_name__, basestring)
     
-    assert len(get_help(task)[0]) > 0
-    assert len(get_help(task)[1]) > 0
+    assert len(get_help(task)[0]) > 0, 'No short task documentation provided.'
+    assert len(get_help(task)[1]) > 0, 'No detailed task documentation provided.'
     
     for dataset in ['config', 'input', 'output']:
         assert isinstance(get_dataset(dataset, 'sample')(task), basestring)
