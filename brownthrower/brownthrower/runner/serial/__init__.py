@@ -161,7 +161,7 @@ class SerialRunner(object):
         
         return job
     
-    def _run_prolog(self, task, inp):
+    def _run_prolog(self, task, inp, job_id):
         """
         {
             'subjobs' : [
@@ -182,7 +182,7 @@ class SerialRunner(object):
         
         if hasattr(task, 'prolog'):
             try:
-                prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(inp))
+                prolog = task.prolog(tasks=api.get_tasks(), inp=yaml.safe_load(inp), job_id = job_id)
             except NotImplementedError:
                 pass
             else:
@@ -201,7 +201,7 @@ class SerialRunner(object):
         
         return subjobs
     
-    def _run_epilog(self, task, leaf_subjobs):
+    def _run_epilog(self, task, leaf_subjobs, job_id):
         """
         {
             'children' : [
@@ -217,7 +217,7 @@ class SerialRunner(object):
         """
         
         out = [yaml.safe_load(subjob.output) for subjob in leaf_subjobs]
-        epilog = task.epilog(tasks=api.get_tasks(), out=out)
+        epilog = task.epilog(tasks=api.get_tasks(), out=out, job_id = job_id)
         
         children = {}
         for child in epilog.get('children', []):
@@ -257,7 +257,7 @@ class SerialRunner(object):
         if not preloaded_job.subjobs:
             log.debug("Executing prolog of job %d." % preloaded_job.id)
             
-            subjobs = self._run_prolog(task, preloaded_job.input)
+            subjobs = self._run_prolog(task, preloaded_job.input, preloaded_job.id)
             if subjobs:
                 with self._locked(preloaded_job.id) as job:
                     job.subjobs.extend(subjobs.itervalues())
@@ -266,8 +266,7 @@ class SerialRunner(object):
             
             log.debug("Executing job %d." % preloaded_job.id)
             
-            context = interface.context.Context(job_id = preloaded_job.id)
-            out = context.run(task, inp=yaml.safe_load(preloaded_job.input))
+            out = task.run(inp=yaml.safe_load(preloaded_job.input), job_id=preloaded_job.id)
             
             with self._locked(preloaded_job.id) as job:
                 job.output = yaml.safe_dump(out, default_flow_style=False)
@@ -278,7 +277,7 @@ class SerialRunner(object):
         else:
             log.debug("Executing epilog of job %d." % preloaded_job.id)
             
-            (children, out) = self._run_epilog(task, preloaded_job._leaf_subjobs)
+            (children, out) = self._run_epilog(task, preloaded_job._leaf_subjobs, preloaded_job.id)
             
             with self._locked(preloaded_job.id) as job:
                 if children:

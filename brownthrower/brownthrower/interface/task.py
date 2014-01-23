@@ -51,7 +51,7 @@ class Task(object):
         """
         self.config = config
     
-    def prolog(self, tasks, inp):
+    def prolog(self, tasks, inp, job_id = None):
         """
         Prepares this Job for execution. When this method is called, it can
         safely assume that the 'inp' parameter has been checked previously and
@@ -90,12 +90,14 @@ class Task(object):
         @type tasks: dict
         @param inp:  list with the output of the parent jobs
         @type inp: dict
+        @param job_id: unique identifier for this job
+        @type job_id: int
         @return: a mapping representing the structure of the subjobs
         @rtype: mapping
         """
         raise NotImplementedError
     
-    def epilog(self, tasks, out):
+    def epilog(self, tasks, out, job_id = None):
         """
         Wraps up this Task for the end of its processing. When this method is
         called, it can safely assume that the 'config' and 'out' parameters have
@@ -129,21 +131,23 @@ class Task(object):
         @type config: dict
         @param out:  mapping with the output of the leaf Jobs
         @type out: dict
+        @param job_id: unique identifier for this job
+        @type job_id: int
         @return: a mapping with the output and the structure of the child jobs
         @rtype: dict
         """
         raise NotImplementedError
     
-    def run(self, runner, inp):
+    def run(self, inp, job_id):
         """
         Executes this Task. When this method is called, it can safely assume
         that the 'inp' parameter has been checked previously and that it is
         valid.
         
-        @param runner: helper to abstract from the execution environment
-        @type runner: L{Runner}
         @param inp:  list with the output of the parent jobs
         @type inp: list
+        @param job_id: unique identifier for this job
+        @type job_id: int
         @return: output to be delivered as input for child jobs
         """
         raise NotImplementedError
