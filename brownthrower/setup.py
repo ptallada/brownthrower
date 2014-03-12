@@ -13,7 +13,7 @@ install_requires = [
     'PyYAML',
     'repoze.sendmail',
     'setuptools',
-    'SQLAlchemy >= 0.8',
+    'SQLAlchemy >= 0.9 < 1.0',
     'tabulate',
     'termcolor',
     'transaction',
