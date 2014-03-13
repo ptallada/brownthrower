@@ -3,12 +3,11 @@
 
 import os
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 install_requires = [
     'argparse',
     'glite>=1.8.0',
-    'jsonschema',
     'logutils', # Only for Python <= 2.6
     'PyYAML',
     'repoze.sendmail',
@@ -30,10 +29,16 @@ execfile(os.path.join(here, 'brownthrower', 'release.py'))
 setup(
     name = 'brownthrower',
     version = __version__, # @UndefinedVariable
-    packages = find_packages(),
+    packages = [ 'brownthrower' ],
     namespace_packages = ['brownthrower'],
     
     install_requires = install_requires,
+    
+    test_suite = 'nose.collector',
+    tests_require = [
+        'nose',
+        'nose-testconfig',
+    ],
     
     description = "Framework for executing jobs with inter-dependencies",
     long_description = README,

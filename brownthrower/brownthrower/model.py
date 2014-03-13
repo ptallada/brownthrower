@@ -37,6 +37,8 @@ class Job(object):
         UniqueConstraint('super_id', 'id'),
         # Foreign keys
         ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        # Do not let subclasses redefine the model
+        {'keep_existing' : True}
     )
     
     # Columns

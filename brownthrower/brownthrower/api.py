@@ -64,11 +64,11 @@ class Job(Base, model.Job, interface.Job):
         cascade          = 'all, delete-orphan', passive_deletes = True)
     tags     = relationship('api.Tag',
         back_populates   = 'job',
-        collection_class = attribute_mapped_collection('name'),
+        collection_class = attribute_mapped_collection('_name'),
         cascade          = 'all, delete-orphan', passive_deletes = True)
     
     # Proxies
-    tag = association_proxy('tags', 'value', creator=lambda name, value: Tag(name=name, value=value))
+    tag = association_proxy('tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
     
     @hybrid_property
     def id(self):
@@ -120,7 +120,6 @@ class Job(Base, model.Job, interface.Job):
         @event.listens_for(cls.children, 'append')
         @event.listens_for(cls.children, 'remove')
         def _set_parent_children(parent, child, initiator):
-            print "_set_parent_children"
             parent_session = object_session(parent)
             child_session  = object_session(child)
             
@@ -143,7 +142,6 @@ class Job(Base, model.Job, interface.Job):
         
         @event.listens_for(cls.superjob, 'set')
         def _set_super_sub(subjob, superjob, old_superjob, initiator):
-            print "_set_super_sub"
             subjob_session   = object_session(subjob)
             
             if subjob_session:
@@ -155,6 +153,9 @@ class Job(Base, model.Job, interface.Job):
             
             # Superjob can be None when de-assigning
             if superjob:
+                if superjob is subjob:
+                    raise ValueError("Cannot set a super-sub dependency on itself!")
+                
                 superjob_session = object_session(superjob)
                 
                 if superjob_session:
@@ -362,6 +363,7 @@ class Job(Base, model.Job, interface.Job):
     def __init__(self, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         self._status = Job.Status.STASHED
+        self._task = self._bt_name
         self._ts_created = func.now()
 
 class Dependency(Base, model.Dependency):
