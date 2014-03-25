@@ -115,7 +115,7 @@ class Job(Base):
         return ancestors
     
     def update_status(self):
-        if not self.subjobs:
+        if not self.subjobs or self.status == constants.JobStatus.DONE:
             return
         
         substatus = set([subjob.status for subjob in self.subjobs])
