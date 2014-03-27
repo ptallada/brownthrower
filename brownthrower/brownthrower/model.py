@@ -9,7 +9,7 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.schema import (Column, ForeignKeyConstraint,
+from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
                                PrimaryKeyConstraint, UniqueConstraint)
 from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
@@ -32,11 +32,14 @@ class Job(object):
     __tablename__ = 'job'
     __table_args__ = (
         # Primary key
-        PrimaryKeyConstraint('id'),
+        PrimaryKeyConstraint('id', name='pk_job'),
         # Unique key
-        UniqueConstraint('super_id', 'id'),
+        UniqueConstraint('super_id', 'id', name='uq_job_super'),
         # Foreign keys
-        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT'),
+        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT', name='fk_job_super'),
+        # Indexes
+        Index('ix_job_status', 'status'),
+        Index('ix_job_task',   'task'),
         # Do not let subclasses redefine the model
         {'keep_existing' : True}
     )
@@ -67,12 +70,12 @@ class Dependency(object):
     __tablename__ = 'dependency'
     __table_args__ = (
         # Primary key
-        PrimaryKeyConstraint('parent_job_id', 'child_job_id'),
+        PrimaryKeyConstraint('parent_job_id', 'child_job_id', name='pk_dependency'),
         # Foreign keys
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_parent'),
+        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_child'),
+        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_parent'),
+        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_child'),
     )
     
     # Columns
@@ -92,9 +95,11 @@ class Tag(object):
     __tablename__ = 'tag'
     __table_args__ = (
         # Primary key
-        PrimaryKeyConstraint('job_id', 'name'),
+        PrimaryKeyConstraint('job_id', 'name', name = 'pk_tag'),
         # Foreign keys
-        ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE'),
+        ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name='fk_tag_job'),
+        # Indexes
+        Index('ix_tag_name_value', 'name', 'value'),
     )
     
     # Columns
