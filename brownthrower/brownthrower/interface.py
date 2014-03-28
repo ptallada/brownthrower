@@ -6,7 +6,7 @@ import logging
 log = logging.getLogger('brownthrower.interface')
 
 class Job(object):
-    
+    # FIXME: La signatura hauria de ser prolog(self)
     def prolog(self, tasks, inp, job_id = None):
         """
         Prepares this Job for execution. When this method is called, it can
@@ -53,6 +53,7 @@ class Job(object):
         """
         pass
     
+    # FIXME: La signatura hauria de ser epilog(self)
     def epilog(self, tasks, out, job_id = None):
         """
         Wraps up this Task for the end of its processing. When this method is
@@ -94,6 +95,7 @@ class Job(object):
         """
         pass
     
+    # FIXME: La signatura hauria de ser run(self)
     def run(self, inp, job_id):
         """
         Executes this Task. When this method is called, it can safely assume
