@@ -2,16 +2,18 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import textwrap
 
 from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.session import object_session
 
-from brownthrower import interface, model
+from . import interface, model
 
 log = logging.getLogger('brownthrower.api')
 
@@ -24,7 +26,24 @@ class InvalidStatusException(Exception):
     def __str__(self):
         return str(self.message)
 
+class Documented(DeclarativeMeta):
+    @property
+    def summary(self):
+        return self.__doc__.strip().split('\n')[0].strip()
+    
+    @property
+    def description(self):
+        return textwrap.dedent('\n'.join(self.__doc__.strip().split('\n')[1:])).strip()
+
 class Job(Base, model.Job, interface.Job):
+    """
+    Base class for user-defined Jobs.
+    
+    All Job subclasses must inherit from this class and override the methods
+    defined in brownthrower.interface.Job.
+    """
+    
+    __metaclass__ = Documented
     
     class Status(object):
         # Preparation phase. It is being configured and cannot be executed yet.
@@ -49,11 +68,13 @@ class Job(Base, model.Job, interface.Job):
     parents  = relationship('api.Job',
         back_populates   = 'children', secondary = 'dependency',
         primaryjoin      = 'Dependency._child_job_id == api.Job._id',
-        secondaryjoin    = 'api.Job._id == Dependency._parent_job_id')
+        secondaryjoin    = 'api.Job._id == Dependency._parent_job_id',
+        collection_class = set)
     children = relationship('api.Job',
         back_populates   = 'parents',  secondary = 'dependency',
         primaryjoin      = 'Dependency._parent_job_id == api.Job._id',
-        secondaryjoin    = 'api.Job._id == Dependency._child_job_id')
+        secondaryjoin    = 'api.Job._id == Dependency._child_job_id',
+        collection_class = set)
     superjob = relationship('api.Job',
         back_populates   = 'subjobs',
         primaryjoin      = 'api.Job._super_id == api.Job._id',
@@ -61,14 +82,24 @@ class Job(Base, model.Job, interface.Job):
     subjobs  = relationship('api.Job',
         back_populates   = 'superjob',
         primaryjoin      = 'api.Job._super_id == api.Job._id',
-        cascade          = 'all, delete-orphan', passive_deletes = True)
+        cascade          = 'all, delete-orphan', passive_deletes = True,
+        collection_class = set)
     tags     = relationship('api.Tag',
         back_populates   = 'job',
-        collection_class = attribute_mapped_collection('_name'),
-        cascade          = 'all, delete-orphan', passive_deletes = True)
+        cascade          = 'all, delete-orphan', passive_deletes = True,
+        collection_class = attribute_mapped_collection('_name'))
     
     # Proxies
     tag = association_proxy('tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
+    
+    def __init__(self, *args, **kwargs):
+        values = {
+            '_status' : Job.Status.STASHED,
+            '_task' : self._bt_name,
+            '_ts_created' : func.now(),
+        }
+        values.update(kwargs)
+        super(Job, self).__init__(*args, **values)
     
     @hybrid_property
     def id(self):
@@ -117,19 +148,19 @@ class Job(Base, model.Job, interface.Job):
     @classmethod
     def __declare_last__(cls):
         
-        @event.listens_for(cls.children, 'append')
-        @event.listens_for(cls.children, 'remove')
+        @event.listens_for(cls.children, 'append', propagate=True)
+        @event.listens_for(cls.children, 'remove', propagate=True)
         def _set_parent_children(parent, child, initiator):
             parent_session = object_session(parent)
             child_session  = object_session(child)
             
             if parent_session:
                 parent_session.flush()
-                parent_session.refresh(parent, lockmode='read')
+                parent_session.refresh(parent, ['_status'], lockmode='read')
             
             if child_session:
                 child_session.flush()
-                child_session.refresh(child, lockmode='read')
+                child_session.refresh(child, ['_status'], lockmode='read')
             
             if parent is child:
                 raise ValueError("Cannot set a parent-child dependency on itself!")
@@ -140,13 +171,13 @@ class Job(Base, model.Job, interface.Job):
             if parent.super_id or child.super_id or parent.superjob or child.superjob:
                 raise InvalidStatusException("A parent-child dependency can only be manually established/removed between top-level jobs.")
         
-        @event.listens_for(cls.superjob, 'set')
+        @event.listens_for(cls.superjob, 'set', propagate=True)
         def _set_super_sub(subjob, superjob, old_superjob, initiator):
             subjob_session   = object_session(subjob)
             
             if subjob_session:
                 subjob_session.flush()
-                subjob_session.refresh(subjob, lockmode='read')
+                subjob_session.refresh(subjob, ['_status'], lockmode='read')
             
             if subjob.status != Job.Status.STASHED:
                 raise InvalidStatusException("The subjob must be in the STASHED status.")
@@ -160,7 +191,7 @@ class Job(Base, model.Job, interface.Job):
                 
                 if superjob_session:
                     superjob_session.flush()
-                    superjob_session.refresh(superjob, lockmode='read')
+                    superjob_session.refresh(superjob, ['_status'], lockmode='read')
                 
                 if superjob.status != Job.Status.PROCESSING:
                     raise InvalidStatusException("The superjob must be in the PROCESSING status.")
@@ -319,10 +350,10 @@ class Job(Base, model.Job, interface.Job):
                 subjob._cancel()
             self._update_status()
         elif self.status == Job.Status.QUEUED:
-            self._status   = Job.Status.CANCELLED
-            self.ts_ended = func.now()
+            self._status  = Job.Status.CANCELLED
+            self._ts_ended = func.now()
         elif self.status == Job.Status.PROCESSING:
-            self._status   = Job.Status.CANCELLING
+            self._status  = Job.Status.CANCELLING
     
     def cancel(self):
         ancestors = self._ancestors(lockmode='update')[1:]
@@ -359,12 +390,6 @@ class Job(Base, model.Job, interface.Job):
         self._ts_queued = None
         self._ts_started = None
         self._ts_ended = None
-    
-    def __init__(self, *args, **kwargs):
-        super(Job, self).__init__(*args, **kwargs)
-        self._status = Job.Status.STASHED
-        self._task = self._bt_name
-        self._ts_created = func.now()
 
 class Dependency(Base, model.Dependency):
     pass
