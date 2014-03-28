@@ -52,7 +52,7 @@ class TestSuperSub(TestJobBase):
     @raises(ValueError)
     def test_add_self_as_subjob(self, **kwargs):
         j1 = TestCreate().test_empty(**kwargs)
-        j1.subjobs.append(j1)
+        j1.subjobs.add(j1)
     
     def test_set_processing_superjob_to_stashed_subjob(self, **kwargs):
         j1 = TestCreate().test_empty(**kwargs)
@@ -80,7 +80,7 @@ class TestSuperSub(TestJobBase):
         assert j1.status == bt.Job.Status.PROCESSING
         assert j2.status == bt.Job.Status.STASHED
          
-        j1.subjobs.append(j2)
+        j1.subjobs.add(j2)
         
         assert j2.superjob == j1
         assert j2 in j1.subjobs
@@ -107,7 +107,7 @@ class TestSuperSub(TestJobBase):
             j1._status = st_super
             j2._status = st_sub
             
-            j1.subjobs.append(j2)
+            j1.subjobs.add(j2)
         
         sts_super = [
             bt.Job.Status.CANCELLED,
@@ -137,12 +137,12 @@ class TestParents(TestJobBase):
     @raises(ValueError)
     def test_add_self_as_parent(self, **kwargs):
         j1 = TestCreate().test_empty(**kwargs)
-        j1.parents.append(j1)
+        j1.parents.add(j1)
     
     @raises(ValueError)
     def test_add_self_as_child(self, **kwargs):
         j1 = TestCreate().test_empty(**kwargs)
-        j1.children.append(j1)
+        j1.children.add(j1)
     
     def test_add_stashed_as_parent(self, **kwargs):
         j1 = TestCreate().test_empty(**kwargs)
@@ -150,7 +150,7 @@ class TestParents(TestJobBase):
         
         assert j2.status == bt.Job.Status.STASHED
         
-        j2.parents.append(j1)
+        j2.parents.add(j1)
         
         assert j1 in j2.parents
         assert j2 in j1.children
@@ -166,7 +166,7 @@ class TestParents(TestJobBase):
         
         assert j2.status == bt.Job.Status.STASHED
         
-        j1.children.append(j2)
+        j1.children.add(j2)
         
         assert j2 in j1.children
         assert j1 in j2.parents
@@ -183,7 +183,7 @@ class TestParents(TestJobBase):
             j2 = TestCreate().test_empty(**kwargs)
             j2._status = status
             
-            j2.parents.append(j1)
+            j2.parents.add(j1)
         
         @raises(bt.InvalidStatusException)
         def check_status_children(status):
@@ -191,7 +191,7 @@ class TestParents(TestJobBase):
             j2 = TestCreate().test_empty(**kwargs)
             j2._status = status
             
-            j1.children.append(j2)
+            j1.children.add(j2)
         
         status = [
             bt.Job.Status.CANCELLED,
