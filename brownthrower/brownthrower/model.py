@@ -5,15 +5,12 @@ import logging
 import yaml
 
 from sqlalchemy import event, types
-from sqlalchemy.engine import create_engine
+from sqlalchemy.engine import create_engine as sa_create_engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm import scoped_session
-from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
                                PrimaryKeyConstraint, UniqueConstraint)
 from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
-from zope.sqlalchemy import ZopeTransactionExtension # @UnresolvedImport
 
 log = logging.getLogger('brownthrower.model')
 
@@ -124,22 +121,14 @@ def _sqlite_connection_begin_listener(conn):
         # This is needed to emulate FOR UPDATE locks :(
         conn.execute("BEGIN EXCLUSIVE")
 
-def init(db_url):
-    twophase = True
+def create_engine(db_url):
     url = make_url(db_url)
      
     if url.drivername == 'sqlite':
         # Disable automatic transaction handling to workaround faulty nested transactions
-        engine = create_engine(url, connect_args={'isolation_level':None})
+        engine = sa_create_engine(url, connect_args={'isolation_level':None})
         event.listen(engine, 'begin', _sqlite_connection_begin_listener)
-        twophase = False
     else:
-        engine = create_engine(url)
+        engine = sa_create_engine(url)
     
-    session_maker = scoped_session(sessionmaker(
-        bind = engine,
-        twophase = twophase,
-        extension = ZopeTransactionExtension()
-    ))
-    
-    return session_maker
+    return engine

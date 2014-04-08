@@ -2,16 +2,43 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import textwrap
+
+from .api import Job
 
 log = logging.getLogger('brownthrower.interface')
 
-class Job(object):
-    # FIXME: La signatura hauria de ser prolog(self)
-    def prolog(self, tasks, inp, job_id = None):
+class DocumentedTask(type):
+    @property
+    def summary(self):
+        return self.__doc__.strip().split('\n')[0].strip()
+    
+    @property
+    def description(self):
+        return textwrap.dedent('\n'.join(self.__doc__.strip().split('\n')[1:])).strip()
+
+class BaseTask(object):
+    __metaclass__ = DocumentedTask
+    
+    _bt_name = None
+    
+    def __new__(cls, *args, **kwargs):
+        job = Job._init(task = cls._bt_name)
+        job._impl = cls
+        return job
+
+class Task(BaseTask):
+    """
+    Base class for user-defined Tasks.
+    
+    All Task subclasses must inherit from this class and override the methods
+    defined in brownthrower.interface.Task.
+    """
+    
+    @classmethod
+    def prolog(cls, job):
         """
-        Prepares this Job for execution. When this method is called, it can
-        safely assume that the 'inp' parameter has been checked previously and
-        that it is valid.
+        Prepares this Task for execution.
         
         Return a mapping with the following structure, or None if no subjobs are
         required:
@@ -42,19 +69,15 @@ class Job(object):
         mapping) representing the parent and the child sides, respectively, of a
         parent-child dependency.
         
-        @param tasks: mapping with all the registered Tasks available
-        @type tasks: dict
-        @param inp:  list with the output of the parent jobs
-        @type inp: dict
-        @param job_id: unique identifier for this job
-        @type job_id: int
+        @param job: corresponding job for this task
+        @type job: brownthrower.Job
         @return: a mapping representing the structure of the subjobs
         @rtype: mapping
         """
         pass
     
-    # FIXME: La signatura hauria de ser epilog(self)
-    def epilog(self, tasks, out, job_id = None):
+    @classmethod
+    def epilog(cls, job):
         """
         Wraps up this Task for the end of its processing. When this method is
         called, it can safely assume that the 'config' and 'out' parameters have
@@ -95,8 +118,8 @@ class Job(object):
         """
         pass
     
-    # FIXME: La signatura hauria de ser run(self)
-    def run(self, inp, job_id):
+    @classmethod
+    def run(cls, job):
         """
         Executes this Task. When this method is called, it can safely assume
         that the 'inp' parameter has been checked previously and that it is

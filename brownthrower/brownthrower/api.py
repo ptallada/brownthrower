@@ -2,18 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import textwrap
 
 from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, reconstructor
+from sqlalchemy.orm.attributes import manager_of_class
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.session import object_session
 
-from . import interface, model
+from . import model
 
 log = logging.getLogger('brownthrower.api')
 
@@ -26,24 +25,13 @@ class InvalidStatusException(Exception):
     def __str__(self):
         return str(self.message)
 
-class Documented(DeclarativeMeta):
-    @property
-    def summary(self):
-        return self.__doc__.strip().split('\n')[0].strip()
-    
-    @property
-    def description(self):
-        return textwrap.dedent('\n'.join(self.__doc__.strip().split('\n')[1:])).strip()
-
-class Job(Base, model.Job, interface.Job):
+class Job(Base, model.Job):
     """
     Base class for user-defined Jobs.
     
     All Job subclasses must inherit from this class and override the methods
     defined in brownthrower.interface.Job.
     """
-    
-    __metaclass__ = Documented
     
     class Status(object):
         # Preparation phase. It is being configured and cannot be executed yet.
@@ -66,26 +54,25 @@ class Job(Base, model.Job, interface.Job):
     
     # Relationships
     parents  = relationship('api.Job',
-        back_populates   = 'children', secondary = 'dependency',
-        primaryjoin      = 'Dependency._child_job_id == api.Job._id',
-        secondaryjoin    = 'api.Job._id == Dependency._parent_job_id',
-        collection_class = set)
+        back_populates    = 'children', secondary = 'dependency',
+        primaryjoin       = 'Dependency._child_job_id == api.Job._id',
+        secondaryjoin     = 'api.Job._id == Dependency._parent_job_id',
+        collection_class  = set)
     children = relationship('api.Job',
-        back_populates   = 'parents',  secondary = 'dependency',
-        primaryjoin      = 'Dependency._parent_job_id == api.Job._id',
-        secondaryjoin    = 'api.Job._id == Dependency._child_job_id',
-        collection_class = set)
+        back_populates    = 'parents',  secondary = 'dependency',
+        primaryjoin       = 'Dependency._parent_job_id == api.Job._id',
+        secondaryjoin     = 'api.Job._id == Dependency._child_job_id',
+        collection_class  = set)
     superjob = relationship('api.Job',
-        back_populates   = 'subjobs',
-        primaryjoin      = 'api.Job._super_id == api.Job._id',
-        remote_side      = 'api.Job._id')
+        back_populates    = 'subjobs',
+        primaryjoin       = 'api.Job._super_id == api.Job._id',
+        remote_side       = 'api.Job._id')
     subjobs  = relationship('api.Job',
-        back_populates   = 'superjob',
-        primaryjoin      = 'api.Job._super_id == api.Job._id',
-        cascade          = 'all, delete-orphan', passive_deletes = True,
-        collection_class = set)
+        back_populates    = 'superjob',
+        primaryjoin       = 'api.Job._super_id == api.Job._id',
+        cascade           = 'all, delete-orphan', passive_deletes = True,
+        collection_class  = set)
     tags     = relationship('api.Tag',
-        back_populates   = 'job',
         cascade          = 'all, delete-orphan', passive_deletes = True,
         collection_class = attribute_mapped_collection('_name'))
     
@@ -93,13 +80,28 @@ class Job(Base, model.Job, interface.Job):
     tag = association_proxy('tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
     
     def __init__(self, *args, **kwargs):
+        raise NotImplementedError
+    
+    @classmethod
+    def _init(cls, task):
         values = {
+            '_task' : task,
             '_status' : Job.Status.STASHED,
-            '_task' : self._bt_name,
             '_ts_created' : func.now(),
         }
-        values.update(kwargs)
-        super(Job, self).__init__(*args, **values)
+          
+        job = manager_of_class(cls).new_instance()
+        super(Job, job).__init__(**values)
+         
+        job._impl = None 
+        job._reconstruct()
+         
+        return job
+    
+    @reconstructor
+    def _reconstruct(self):
+        # TODO: self._impl = <search Task in task store>
+        pass
     
     @hybrid_property
     def id(self):
@@ -201,8 +203,9 @@ class Job(Base, model.Job, interface.Job):
         ancestors = []
         
         session = object_session(self)
-        
         if session and session.bind.url.drivername == 'postgresql':
+            session.flush()
+            
             l0 = literal_column('0').label('level')
             q_base = session.query(cls, l0).filter_by(
                  id = self.id
@@ -215,7 +218,12 @@ class Job(Base, model.Job, interface.Job):
             
             ancestors = session.query(cls).select_entity_from(
                 q_cte
-            ).order_by(q_cte.c.level).all()
+            ).order_by(q_cte.c.level).with_lockmode(lockmode)
+            
+            if lockmode:
+                ancestors = ancestors.populate_existing()
+            
+            ancestors = ancestors.all()
         
         else: # Fallback for any other backend
             job = self
@@ -224,18 +232,6 @@ class Job(Base, model.Job, interface.Job):
                 ancestors.append(job.superjob)
                 job = job.superjob
             return ancestors
-        
-        if session:
-            # Expire all affected instances and reload them already locked
-            session.flush()
-            ids = [job.id for job in ancestors]
-            map(session.expire, ancestors)
-            _ = session.query(cls).filter(
-                cls.id.in_(ids)
-            ).with_lockmode(lockmode).all()
-            
-            # Check that no entry was deleted in the middle
-            map(session.query(cls).get, ids)
         
         return ancestors
     
@@ -390,17 +386,49 @@ class Job(Base, model.Job, interface.Job):
         self._ts_queued = None
         self._ts_started = None
         self._ts_ended = None
+    
+    def clone(self):
+        session = object_session(self)
+        if session:
+            session.flush()
+            session.refresh(self, lockmode='read')
+        
+        job = self.__class__()
+        job._task     = self.task
+        job._config   = self.config
+        job._input    = self.input
+        job._parents  = self.parents
+        job._children = self.children
+        
+        return job
+    
+#     def _prolog(self):
+#         if self._impl:
+#             return self._impl.prolog(self)
+#         else:
+#             raise NotImplementedError
+#     
+#     def _run(self):
+#         if self._impl:
+#             return self._impl.run(self)
+#         else:
+#             raise NotImplementedError
+#     
+#     def _epilog(self):
+#         if self._impl:
+#             return self._impl.epilog(self)
+#         else:
+#             raise NotImplementedError
 
 class Dependency(Base, model.Dependency):
     pass
 
 class Tag(Base, model.Tag):
-    # Relationships
-    job = relationship('api.Job', back_populates = 'tags')
+    pass
     
-def init(db_url):
-    session_maker = model.init(db_url)
+def create_engine(db_url):
+    engine = model.create_engine(db_url)
     
-    Base.metadata.create_all(bind = session_maker.bind)
+    Base.metadata.create_all(bind = engine)
     
-    return session_maker
+    return engine

@@ -7,7 +7,8 @@ import pkg_resources
 import traceback
 
 from . import model
-from .api import Job, Dependency, Tag, InvalidStatusException, init
+from .api import Job, Dependency, Tag, InvalidStatusException, create_engine
+from .interface import Task
 
 try:
     from logging import NullHandler
@@ -22,7 +23,6 @@ class TaskStore(collections.Mapping):
     Read-only mapping interface with the available tasks. 
     """
     
-    # FIXME: brownthrower.task must be a constant
     def __init__(self, *args, **kwargs):
         """
         Create the list of available on initialization.
