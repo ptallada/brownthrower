@@ -4,12 +4,11 @@
 import brownthrower
 import errno
 import logging
-import pydoc
 import subprocess
 import tempfile
 import transaction
 
-from .base import Command, error, warn, success, strong
+from .base import Command, error, warn, success, strong, transactional_session
 
 from cStringIO import StringIO
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -118,8 +117,7 @@ class JobCreate(Command):
 #             return self.help(items)
         
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 task = brownthrower.tasks[items[0]]
                 
 #                 reference = {
@@ -177,8 +175,7 @@ class JobList(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 table = []
                 headers = (
                     'id', 'super_id',
@@ -222,32 +219,21 @@ class JobShow(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
-                out = StringIO()
                 
-                out.write("JOB DETAILS:\n")
-                out.write("============\n")
+                print strong("### JOB DETAILS:")
                 for field in ['id', 'super_id', 'task', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
-                    out.write(field.ljust(10) + ' : ' + str(getattr(job, field)) + "\n")
-                out.write("\n\n")
-                 
-                out.write("JOB CONFIG:\n")
-                out.write("===========\n")
-                out.write(job.config.strip() if job.config else '')
-                out.write("\n\n")
-                 
-                out.write("JOB INPUT:\n")
-                out.write("==========\n")
-                out.write(job.input.strip() if job.input else '')
-                out.write("\n\n")
-                
-                out.write("JOB OUTPUT:\n")
-                out.write("===========\n")
-                out.write(job.output.strip() if job.output else '')
-                
-                pydoc.pager(out.getvalue())
+                    print field.ljust(10) + ' : ' + str(getattr(job, field))
+                print
+                print strong("### JOB CONFIG:")
+                print job.config.strip() if job.config else '...'
+                print
+                print strong("### JOB INPUT:")
+                print job.input.strip()  if job.input  else '...'
+                print
+                print strong("### JOB OUTPUT:")
+                print job.output.strip() if job.output else '...'
          
         except Exception as e:
             try:
@@ -261,9 +247,9 @@ class JobShow(Command):
 
 class JobGraph(Command):
     """\
-    usage: job show <id>
+    usage: job graph <id>
      
-    Show detailed information about the job with the given id.
+    Show dependency information about the job with the given id.
     """
      
     def do(self, items):
@@ -271,56 +257,77 @@ class JobGraph(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).options(
                     joinedload(brownthrower.Job.parents),
                     joinedload(brownthrower.Job.children),
                     joinedload(brownthrower.Job.subjobs),
-                ).first()
-                 
-                if not job:
-                    error("Could not found the job with id %s." % items[0])
-                    return
-                 
-                print strong("JOB DETAILS:")
-                for field in ['id', 'super_id', 'task', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
-                    print field.ljust(10) + ' : ' + str(getattr(job, field))
-                 
-                print strong("\nJOB CONFIG:")
-                print job.config.strip() if job.config else ''
-                 
-                print strong("\nJOB INPUT:")
-                print job.input.strip()  if job.input  else ''
-                 
-                print strong("\nJOB OUTPUT:")
-                print job.output.strip() if job.output else ''
-                 
+                ).one()
+                
                 table = []
-                headers = ('kind', 'id', 'super_id', 'task', 'status', 'has config', 'has input', 'has output')
+                headers = ('kind', 'id', 'super_id', 'task', 'status', 'created', 'queued', 'started', 'ended')
                  
                 for parent in job.parents:
-                    table.append(['PARENT', parent.id, parent.super_id, parent.task, parent.status, parent.config != None, parent.input != None, parent.output != None])
-                table.append(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                    table.append([
+                        'PARENT', parent.id, parent.super_id, parent.task, parent.status,
+                        parent.ts_created.strftime('%Y-%m-%d %H:%M:%S') if parent.ts_created else None,
+                        parent.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if parent.ts_queued  else None,
+                        parent.ts_started.strftime('%Y-%m-%d %H:%M:%S') if parent.ts_started else None,
+                        parent.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if parent.ts_ended   else None,
+                    ])
+                table.append([
+                    '#####', job.id, job.super_id, job.task, job.status,
+                    job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
+                    job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued  else None,
+                    job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
+                    job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended   else None,
+                ])
                 for child in job.children:
-                    table.append(['CHILD', child.id, child.super_id, child.task, child.status, child.config != None, child.input != None, child.output != None])
-                 
-                print strong("\nPARENT/CHILD JOBS:")
+                    table.append([
+                        'CHILD', child.id, child.super_id, child.task, child.status,
+                        child.ts_created.strftime('%Y-%m-%d %H:%M:%S') if child.ts_created else None,
+                        child.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if child.ts_queued  else None,
+                        child.ts_started.strftime('%Y-%m-%d %H:%M:%S') if child.ts_started else None,
+                        child.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if child.ts_ended   else None,
+                    ])
+                
+                print strong("PARENT/CHILD JOBS:")
                 print tabulate(table, headers=headers)
                  
                 table = []
                 if job.superjob:
-                    table.append(['SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status, job.superjob.config != None, job.superjob.input != None, job.superjob.output != None])
-                table.append(['#####', job.id, job.super_id, job.task, job.status, job.config != None, job.input != None, job.output != None])
+                    table.append([
+                        'SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status,
+                        job.superjob.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.superjob.ts_created else None,
+                        job.superjob.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.superjob.ts_queued  else None,
+                        job.superjob.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.superjob.ts_started else None,
+                        job.superjob.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.superjob.ts_ended   else None,
+                    ])
+                table.append([
+                    '#####', job.id, job.super_id, job.task, job.status,
+                    job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
+                    job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued  else None,
+                    job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
+                    job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended   else None,
+                ])
                 for subjob in job.subjobs:
-                    table.append(['SUB', subjob.id, subjob.super_id, subjob.task, subjob.status, subjob.config != None, subjob.input != None, subjob.output != None])
-                 
-                print strong("\nSUPER/SUB JOBS:")
+                    table.append([
+                        'SUB', subjob.id, subjob.super_id, subjob.task, subjob.status,
+                        subjob.ts_created.strftime('%Y-%m-%d %H:%M:%S') if subjob.ts_created else None,
+                        subjob.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if subjob.ts_queued  else None,
+                        subjob.ts_started.strftime('%Y-%m-%d %H:%M:%S') if subjob.ts_started else None,
+                        subjob.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if subjob.ts_ended   else None,
+                    ])
+                
+                print
+                print strong("SUPER/SUB JOBS:")
                 print tabulate(table, headers=headers)
-         
+        
         except Exception as e:
             try:
                 raise
+            except NoResultFound:
+                error("The specified job does not exist.")
             except StatementError:
                 error("Could not complete the query to the database.")
             finally:
@@ -338,8 +345,7 @@ class JobRemove(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 job.remove()
              
@@ -363,7 +369,7 @@ class JobSubmit(Command):
     """\
     usage: job submit <id>
      
-    Mark the job with the given id as ready to be executed whenever there are resources available.
+    Mark the job with the given id as ready to be executed.
     """
      
     def do(self, items):
@@ -371,8 +377,7 @@ class JobSubmit(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 job.submit()
              
@@ -402,8 +407,7 @@ class JobReset(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 job.reset()
              
@@ -433,8 +437,7 @@ class JobLink(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 parent = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 child  = session.query(brownthrower.Job).filter_by(id = items[1]).one()
                 parent.children.add(child)
@@ -465,13 +468,12 @@ class JobUnlink(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 parent = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 child  = session.query(brownthrower.Job).filter_by(id = items[1]).one()
                 parent.children.remove(child)
                 
-                success("The parent-child dependency has been successfully removed.")
+            success("The parent-child dependency has been successfully removed.")
         
         except Exception as e:
             try:
@@ -495,8 +497,7 @@ class JobCancel(Command):
             return self.help(items)
          
         try:
-            session = self.session_maker()
-            with transaction.manager:
+            with transactional_session(self.session_maker) as session:
                 job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
                 job.cancel()
              
@@ -513,6 +514,40 @@ class JobCancel(Command):
                 error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
+
+class JobClone(Command):
+    """\
+    usage: job clone <id>
+     
+    Clone the job with the given id.
+    """
+     
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+         
+        try:
+            with transactional_session(self.session_maker) as session:
+                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                new = job.clone()
+                session.add(new)
+                session.flush()
+                new_id = new.id 
+            
+            success("Job %s has been cloned into a new job with id %d." % (items[0], new_id))
+        
+        except Exception as e:
+            try:
+                raise
+            except NoResultFound:
+                error("The specified job does not exist.")
+            except brownthrower.InvalidStatusException:
+                error(e.message)
+            except StatementError:
+                error("Could not complete the query to the database.")
+            finally:
+                log.debug(e)
+
 # 
 # class JobEdit(Command):
 #     """\
@@ -583,38 +618,4 @@ class JobCancel(Command):
 #                 error("Could not complete the query to the database.")
 #             finally:
 #                 log.debug(e)
-# 
-# class JobOutput(Command):
-#     """\
-#     usage: job output <id>
-#     
-#     Show the output of the finished job with the given id.
-#     """
-#     
-#     def do(self, items):
-#         if len(items) != 1:
-#             return self.help(items)
-#         
-#         try:
-#             session = model.session_maker()
-#             with transaction.manager:
-#                 job = session.query(model.Job).filter_by(id = items[0]).one()
-#                 
-#                 if job.status != constants.JobStatus.DONE:
-#                     error("This job is not finished yet.")
-#                     return
-#                 
-#                 job_output = job.output
-#             
-#             viewer = subprocess.Popen([settings['pager']], stdin=subprocess.PIPE)
-#             viewer.communicate(input=job_output)
-#         
-#         except Exception as e:
-#             try:
-#                 raise
-#             except NoResultFound:
-#                 error("The specified job does not exist.")
-#             except StatementError:
-#                 error("Could not complete the query to the database.")
-#             finally:
-#                 log.debug(e)
+

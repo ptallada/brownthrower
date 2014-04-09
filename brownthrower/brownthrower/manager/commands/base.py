@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import contextlib
 import termcolor
 import textwrap
 
@@ -75,3 +76,23 @@ class Command(object):
     def do(self, items):
         # Show usage by default
         self.help(items)
+
+# https://gist.github.com/obeattie/210032
+@contextlib.contextmanager
+def transactional_session(session_cls, **kwargs):
+    """\
+    Context manager which provides transaction management for the nested block.
+    A transaction is started when the block is entered, and then either
+    committed if the block exits without incident, or rolled back if an error is
+    raised.
+    """
+    session = session_cls(**kwargs)
+    try:
+        yield session
+    except:
+        # Roll back if the nested block raised an error
+        session.rollback()
+        raise
+    else:
+        # Commit if it didn't (so flow ran off the end of the try block)
+        session.commit()

@@ -18,9 +18,10 @@ class Job(Command):
         super(Job, self).__init__(*args, **kwargs)
 
         self.add_subcmd('cancel', job.JobCancel())
+        self.add_subcmd('clone',  job.JobClone())
         self.add_subcmd('create', job.JobCreate())
 #        self.add_subcmd('edit',   job.JobEdit())
-#        self.add_subcmd('graph',  job.JobGraph())
+        self.add_subcmd('graph',  job.JobGraph())
         self.add_subcmd('link',   job.JobLink())
         self.add_subcmd('list',   job.JobList())
 #        self.add_subcmd('output', job.JobOutput())

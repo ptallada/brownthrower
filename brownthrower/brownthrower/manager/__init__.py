@@ -12,6 +12,8 @@ import sys
 import brownthrower
 import brownthrower.release
 # from brownthrower.api.profile import settings
+from sqlalchemy.orm import scoped_session
+from sqlalchemy.orm.session import sessionmaker
 from tabulate import tabulate
 
 log = logging.getLogger('brownthrower.manager')
@@ -21,9 +23,10 @@ class Manager(cmd.Cmd):
     usage: <command> [options]
     """
     
-    def __init__(self, session_maker, *args, **kwargs):
+    def __init__(self, engine, *args, **kwargs):
         cmd.Cmd.__init__(self, *args, **kwargs)
-        self._session_maker = session_maker
+        
+        self._session_maker = scoped_session(sessionmaker(engine))
         self._subcmds     = {}
         
         self.prompt = '(brownthrower): '
@@ -115,12 +118,13 @@ def main(args = None):
     )
     options = _parse_args(args)
     db_url = options.get('database_url')
-    session_maker = brownthrower.init(db_url)
+    
+    engine = brownthrower.create_engine(db_url)
     
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
     
-    manager = Manager(session_maker)
+    manager = Manager(engine)
     try:
         manager.cmdloop()
     except KeyboardInterrupt:
