@@ -22,7 +22,7 @@ class BaseTask(object):
     
     _bt_name = None
     
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls):
         job = Job._init(task = cls._bt_name)
         job._impl = cls
         return job
