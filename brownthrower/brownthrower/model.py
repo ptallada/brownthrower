@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import yaml
 
-from sqlalchemy import event, types
+from sqlalchemy import event
 from sqlalchemy.engine import create_engine as sa_create_engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import DBAPIError
@@ -14,17 +13,6 @@ from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
 
 log = logging.getLogger('brownthrower.model')
-
-class YamlText(types.TypeDecorator):
-    impl = types.Text
-    
-    def process_bind_param(self, value, dialect):
-        if value :
-            return yaml.safe_dump(value, default_flow_style=False)
-    
-    def process_result_value(self, value, dialect):
-        if value:
-            return yaml.safe_load(value)
 
 class Job(object):
     __tablename__ = 'job'
@@ -47,9 +35,9 @@ class Job(object):
     _super_id   = Column('super_id',   Integer,    nullable=True)
     _task       = Column('task',       String(50), nullable=False)
     _status     = Column('status',     String(20), nullable=False)
-    _config     = Column('config',     YamlText,   nullable=True)
-    _input      = Column('input',      YamlText,   nullable=True)
-    _output     = Column('output',     YamlText,   nullable=True)
+    _config     = Column('config',     Text,       nullable=True)
+    _input      = Column('input',      Text,       nullable=True)
+    _output     = Column('output',     Text,       nullable=True)
     _ts_created = Column('ts_created', DateTime,   nullable=False, default=functions.now())
     _ts_queued  = Column('ts_queued',  DateTime,   nullable=True)
     _ts_started = Column('ts_started', DateTime,   nullable=True)

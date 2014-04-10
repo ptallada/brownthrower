@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import yaml
 
 from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -119,17 +120,23 @@ class Job(Base, model.Job):
     def status(self):
         return self._status
     
-    @hybrid_property
-    def config(self):
-        return self._config
+    def get_config(self):
+        return yaml.safe_load(self._config)
     
-    @hybrid_property
-    def input(self):
-        return self._input
+    def get_input(self):
+        return yaml.safe_load(self._input)
     
-    @hybrid_property
-    def output(self):
-        return self._output
+    def get_output(self):
+        return yaml.safe_load(self._output)
+    
+    def set_config(self, value):
+        self._config = yaml.safe_dump(value, default_flow_style=False)
+    
+    def set_input(self, value):
+        self._input  = yaml.safe_dump(value, default_flow_style=False)
+    
+    def set_output(self, value):
+        self._output = yaml.safe_dump(value, default_flow_style=False)
     
     @hybrid_property
     def ts_created(self):
