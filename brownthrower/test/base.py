@@ -34,7 +34,6 @@ class BaseTest(object):
         if self._use_session:
             self.session.add_all(instances)
             self.session.flush()
-            self.session.expire_all()
         
         yield self.session
 

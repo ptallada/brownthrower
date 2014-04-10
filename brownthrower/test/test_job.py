@@ -26,6 +26,18 @@ class TestCreate(TestJobBase):
     @raises(TypeError)
     def test_args(self, **kwargs):
         ExampleTask(somecolumn = 'somevalue')
+    
+    def test_clone(self, **kwargs):
+        j1 = self.test_empty(**kwargs)
+        
+        with self.in_session([j1]):
+            j2 = j1.clone()
+            assert isinstance(j2, bt.Job)
+            assert j2.status == bt.Job.Status.STASHED
+            assert j2.ts_created is not None
+            print repr(j2)
+            print str(j2)
+            return j2
 
 class TestSuperSub(TestJobBase):
     @raises(ValueError)
@@ -231,4 +243,10 @@ class TestCreateSession(TestCreate):
     _use_session = True
     
 class TestSuperSubSession(TestSuperSub):
+    _use_session = True
+
+class TestParentsSession(TestParents):
+    _use_session = True
+
+class TestTagSession(TestTag):
     _use_session = True
