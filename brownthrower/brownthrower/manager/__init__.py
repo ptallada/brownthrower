@@ -9,8 +9,7 @@ import textwrap
 import sys
 # import transaction
 
-import brownthrower
-import brownthrower.release
+import brownthrower as bt
 # from brownthrower.api.profile import settings
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import sessionmaker
@@ -103,7 +102,7 @@ def _parse_args(args = None):
     #parser.add_argument('--pager', default=argparse.SUPPRESS, metavar='COMMAND',
     #                    help='use %(metavar)s to display large chunks of text')
     parser.add_argument('--version', '-v', action='version', 
-                        version='%%(prog)s %s' % brownthrower.release.__version__)
+                        version='%%(prog)s %s' % bt.release.__version__)
     
     options = vars(parser.parse_args(args))
     
@@ -114,12 +113,12 @@ def main(args = None):
         args = sys.argv[1:]
     
     print "brownthrower manager v{version} is loading...".format(
-        version = brownthrower.release.__version__
+        version = bt.release.__version__
     )
     options = _parse_args(args)
     db_url = options.get('database_url')
     
-    engine = brownthrower.create_engine(db_url)
+    engine = bt.create_engine(db_url)
     
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)

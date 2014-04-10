@@ -153,17 +153,6 @@ class Job(Base, model.Job):
         @event.listens_for(cls.children, 'append', propagate=True)
         @event.listens_for(cls.children, 'remove', propagate=True)
         def _set_parent_children(parent, child, initiator):
-            parent_session = object_session(parent)
-            child_session  = object_session(child)
-            
-            if parent_session:
-                parent_session.flush()
-                parent_session.refresh(parent, ['_status'], lockmode='read')
-            
-            if child_session:
-                child_session.flush()
-                child_session.refresh(child, ['_status'], lockmode='read')
-            
             if parent is child:
                 raise ValueError("Cannot set a parent-child dependency on itself!")
             
@@ -175,12 +164,6 @@ class Job(Base, model.Job):
         
         @event.listens_for(cls.superjob, 'set', propagate=True)
         def _set_super_sub(subjob, superjob, old_superjob, initiator):
-            subjob_session   = object_session(subjob)
-            
-            if subjob_session:
-                subjob_session.flush()
-                subjob_session.refresh(subjob, ['_status'], lockmode='read')
-            
             if subjob.status != Job.Status.STASHED:
                 raise InvalidStatusException("The subjob must be in the STASHED status.")
             
@@ -189,26 +172,21 @@ class Job(Base, model.Job):
                 if superjob is subjob:
                     raise ValueError("Cannot set a super-sub dependency on itself!")
                 
-                superjob_session = object_session(superjob)
-                
-                if superjob_session:
-                    superjob_session.flush()
-                    superjob_session.refresh(superjob, ['_status'], lockmode='read')
-                
                 if superjob.status != Job.Status.PROCESSING:
                     raise InvalidStatusException("The superjob must be in the PROCESSING status.")
     
-    def _ancestors(self, lockmode=False):
+    def _ancestors(self):
         cls = self.__class__
         ancestors = []
         
         session = object_session(self)
         if session and session.bind.url.drivername == 'postgresql':
+            # Needed to get super_id
             session.flush()
             
             l0 = literal_column('0').label('level')
             q_base = session.query(cls, l0).filter_by(
-                 id = self.id
+                 id = self.super_id
             ).cte(recursive = True)
             l1 = literal_column('level + 1').label('level')
             q_rec = session.query(cls, l1).filter(
@@ -218,20 +196,13 @@ class Job(Base, model.Job):
             
             ancestors = session.query(cls).select_entity_from(
                 q_cte
-            ).order_by(q_cte.c.level).with_lockmode(lockmode)
-            
-            if lockmode:
-                ancestors = ancestors.populate_existing()
-            
-            ancestors = ancestors.all()
+            ).order_by(q_cte.c.level).all()
         
         else: # Fallback for any other backend
             job = self
-            ancestors.append(job)
             while job.superjob:
                 ancestors.append(job.superjob)
                 job = job.superjob
-            return ancestors
         
         return ancestors
     
@@ -295,8 +266,6 @@ class Job(Base, model.Job):
             self._ts_queued = func.now()
     
     def submit(self):
-        ancestors = self._ancestors(lockmode='update')[1:]
-        
         if self.status not in [
             Job.Status.CANCELLED,
             Job.Status.FAILED,
@@ -306,7 +275,7 @@ class Job(Base, model.Job):
         
         self._submit()
         
-        for ancestor in ancestors:
+        for ancestor in self._ancestors():
             ancestor._update_status()
     
     def _remove(self):
@@ -323,9 +292,7 @@ class Job(Base, model.Job):
             session.delete(self)
     
     def remove(self):
-        ancestors = self._ancestors(lockmode='update')[1:]
-        
-        if ancestors:
+        if self.superjob:
             raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
         
         if self.status not in [
@@ -352,8 +319,6 @@ class Job(Base, model.Job):
             self._status  = Job.Status.CANCELLING
     
     def cancel(self):
-        ancestors = self._ancestors(lockmode='update')[1:]
-        
         if self.status not in [
             Job.Status.FAILING,
             Job.Status.PROCESSING,
@@ -363,13 +328,11 @@ class Job(Base, model.Job):
         
         self._cancel()
         
-        for ancestor in ancestors:
+        for ancestor in self._ancestors():
             ancestor._update_status()
     
     def reset(self):
-        ancestors = self._ancestors(lockmode='update')[1:]
-        
-        if ancestors:
+        if self.superjob:
             raise InvalidStatusException("This job is not a top-level job and cannot be returned to the stash.")
         
         if self.subjobs:
@@ -388,13 +351,7 @@ class Job(Base, model.Job):
         self._ts_ended = None
     
     def clone(self):
-        session = object_session(self)
-        if session:
-            session.flush()
-            session.refresh(self, lockmode='read')
-        
-        job = self.__class__()
-        job._task     = self.task
+        job = self._init(self.task)
         job._config   = self.config
         job._input    = self.input
         job._parents  = self.parents

@@ -7,6 +7,7 @@ import yaml
 from sqlalchemy import event, types
 from sqlalchemy.engine import create_engine as sa_create_engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
                                PrimaryKeyConstraint, UniqueConstraint)
 from sqlalchemy.sql import functions
@@ -129,6 +130,19 @@ def create_engine(db_url):
         engine = sa_create_engine(url, connect_args={'isolation_level':None})
         event.listen(engine, 'begin', _sqlite_connection_begin_listener)
     else:
-        engine = sa_create_engine(url)
+        engine = sa_create_engine(url, isolation_level="SERIALIZABLE")
     
     return engine
+
+_CONCURRENT_UPDATE_ERROR = '(TransactionRollbackError) could not serialize access due to concurrent update\n'
+def retry_on_serializable_error(fn):
+    def wrapper(*args, **kwargs):
+        while True:
+            try:
+                return fn(*args, **kwargs)
+            except DBAPIError as e:
+                if e.message == _CONCURRENT_UPDATE_ERROR:
+                    continue
+                else:
+                    raise
+    return wrapper

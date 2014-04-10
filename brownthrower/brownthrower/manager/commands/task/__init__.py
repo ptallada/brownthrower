@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-import brownthrower
+import brownthrower as bt
 import logging
 import textwrap
 
@@ -28,13 +28,13 @@ class TaskList(Command):
         if len(items) > 0:
             return self.help(items)
         
-        if len(brownthrower.tasks) == 0:
+        if len(bt.tasks) == 0:
             warn("There are no tasks currently registered in this environment.")
             return
         
         table = []
-        for name in sorted(brownthrower.tasks.keys()):
-            table.append([name, brownthrower.tasks[name].__module__, brownthrower.tasks[name].summary])
+        for name in sorted(bt.tasks.keys()):
+            table.append([name, bt.tasks[name].__module__, bt.tasks[name].summary])
         
         print tabulate(table, headers=['name', 'module', 'summary'])
 
@@ -48,7 +48,7 @@ class TaskShow(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in brownthrower.tasks.iterkeys()
+                        for key in bt.tasks.iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -58,7 +58,7 @@ class TaskShow(Command):
             return self.help(items)
         
         try:
-            task = brownthrower.tasks[items[0]]
+            task = bt.tasks[items[0]]
             print task.summary
             print
             print task.description

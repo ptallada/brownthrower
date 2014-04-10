@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import brownthrower
+import brownthrower as bt
 import errno
 import logging
 import subprocess
 import tempfile
-import transaction
 
 from .base import Command, error, warn, success, strong, transactional_session
 
 from cStringIO import StringIO
-from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate
@@ -50,7 +49,7 @@ class JobCreate(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in brownthrower.tasks.iterkeys()
+                        for key in bt.tasks.iterkeys()
                         if key.startswith(text)]
             
             return matching
@@ -116,10 +115,16 @@ class JobCreate(Command):
 #         ):
 #             return self.help(items)
         
-        try:
+        @bt.retry_on_serializable_error
+        def _add(job):
             with transactional_session(self.session_maker) as session:
-                task = brownthrower.tasks[items[0]]
-                
+                session.add(job)
+                session.flush()
+                return job.id
+        
+        try:
+            task = bt.tasks[items[0]]
+            
 #                 reference = {
 #                     'config' : self._profile['config'].get_default(items[0]) or 'sample',
 #                     'input'  : self._profile['input' ].get_default(items[0]) or 'sample',
@@ -139,12 +144,11 @@ class JobCreate(Command):
 #                     path = self._profile[dataset].get_dataset_path(items[0], name)
 #                     contents[dataset] = open(path, 'r').read()
                 
-                job = task()
-                session.add(job)
-                session.flush()
-#                 job.config = contents['config']
-#                 job.input  = contents['input']
-                job_id = job.id 
+                
+            job = task()
+#             job.config = contents['config']
+#             job.input  = contents['input']
+            job_id = _add(job)
             
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
@@ -155,8 +159,6 @@ class JobCreate(Command):
             #    error("No configuration profile is active at this time. Please, switch into one.")
             #except api.task.UnavailableException:
             #    error("The task '%s' is not available in this environment." % e.task)
-            except StatementError:
-                error("The job could not be created.")
             except IOError:
                 if e.errno != errno.ENOENT:
                     raise
@@ -176,13 +178,18 @@ class JobList(Command):
          
         try:
             with transactional_session(self.session_maker) as session:
+                jobs = session.query(bt.Job).order_by(bt.Job.id).all()
+                
+                if not jobs:
+                    warn("No jobs found were found.")
+                    return
+                
                 table = []
                 headers = (
                     'id', 'super_id',
                     'task', 'status',
                     'created', 'queued', 'started', 'ended'
-                )            
-                jobs = session.query(brownthrower.Job).order_by(brownthrower.Job.id).all()
+                )
                 for job in jobs:
                     table.append([
                         job.id, job.super_id,
@@ -192,18 +199,12 @@ class JobList(Command):
                         job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
                         job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended else None,
                     ])
-                 
-                if not jobs:
-                    warn("No jobs found were found.")
-                    return
-             
+            
             print tabulate(table, headers=headers)
-         
+        
         except Exception as e:
             try:
                 raise
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -220,7 +221,7 @@ class JobShow(Command):
          
         try:
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = items[0]).one()
                 
                 print strong("### JOB DETAILS:")
                 for field in ['id', 'super_id', 'task', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
@@ -234,14 +235,12 @@ class JobShow(Command):
                 print
                 print strong("### JOB OUTPUT:")
                 print job.output.strip() if job.output else '...'
-         
+        
         except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -258,10 +257,10 @@ class JobGraph(Command):
          
         try:
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).options(
-                    joinedload(brownthrower.Job.parents),
-                    joinedload(brownthrower.Job.children),
-                    joinedload(brownthrower.Job.subjobs),
+                job = session.query(bt.Job).filter_by(id = items[0]).options(
+                    joinedload(bt.Job.parents),
+                    joinedload(bt.Job.children),
+                    joinedload(bt.Job.subjobs),
                 ).one()
                 
                 table = []
@@ -328,8 +327,6 @@ class JobGraph(Command):
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -343,25 +340,27 @@ class JobRemove(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _remove(job_id):
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.remove()
+        
+        try:
+            _remove(items[0])
              
             success("The job has been successfully removed.")
-         
+        
         except Exception as e:
             try:
                 raise
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
             except NoResultFound:
                 error("The specified job does not exist.")
             except IntegrityError:
                 error("Some dependencies prevent this job from being deleted.")
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -375,11 +374,15 @@ class JobSubmit(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _submit(job_id):
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.submit()
+        
+        try:
+            _submit(items[0])
              
             success("The job has been successfully marked as ready for execution.")
          
@@ -388,10 +391,8 @@ class JobSubmit(Command):
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
  
@@ -405,23 +406,25 @@ class JobReset(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _reset(job_id):
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.reset()
+        
+        try:
+            _reset(items[0])
              
             success("The job has been successfully returned to the stash.")
-         
+        
         except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -435,24 +438,26 @@ class JobLink(Command):
     def do(self, items):
         if len(items) != 2:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _link(parent_id, child_id):
             with transactional_session(self.session_maker) as session:
-                parent = session.query(brownthrower.Job).filter_by(id = items[0]).one()
-                child  = session.query(brownthrower.Job).filter_by(id = items[1]).one()
+                parent = session.query(bt.Job).filter_by(id = parent_id).one()
+                child  = session.query(bt.Job).filter_by(id = child_id).one()
                 parent.children.add(child)
-             
+        
+        try:
+            _link(items[0], items[1])
+            
             success("The parent-child dependency has been successfully established.")
-             
+        
         except Exception as e:
             try:
                 raise
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
             except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -466,13 +471,17 @@ class JobUnlink(Command):
     def do(self, items):
         if len(items) != 2:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _unlink(parent_id, child_id):
             with transactional_session(self.session_maker) as session:
-                parent = session.query(brownthrower.Job).filter_by(id = items[0]).one()
-                child  = session.query(brownthrower.Job).filter_by(id = items[1]).one()
+                parent = session.query(bt.Job).filter_by(id = parent_id).one()
+                child  = session.query(bt.Job).filter_by(id = child_id).one()
                 parent.children.remove(child)
-                
+        
+        try:
+            _unlink(items[0], items[1])
+            
             success("The parent-child dependency has been successfully removed.")
         
         except Exception as e:
@@ -480,8 +489,6 @@ class JobUnlink(Command):
                 raise
             except NoResultFound:
                 error("One of the specified jobs does not exist.")
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -495,23 +502,25 @@ class JobCancel(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _cancel(job_id):
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.cancel()
+        
+        try:
+            _cancel(items[0])
              
             success("The job has been marked to be cancelled as soon as possible.")
-         
+        
         except Exception as e:
             try:
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
@@ -525,14 +534,18 @@ class JobClone(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
-        try:
+        
+        @bt.retry_on_serializable_error
+        def _clone(job_id):
             with transactional_session(self.session_maker) as session:
-                job = session.query(brownthrower.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(id = job_id).one()
                 new = job.clone()
                 session.add(new)
                 session.flush()
-                new_id = new.id 
+                return new.id
+        
+        try:
+            new_id = _clone(items[0])
             
             success("Job %s has been cloned into a new job with id %d." % (items[0], new_id))
         
@@ -541,10 +554,8 @@ class JobClone(Command):
                 raise
             except NoResultFound:
                 error("The specified job does not exist.")
-            except brownthrower.InvalidStatusException:
+            except bt.InvalidStatusException:
                 error(e.message)
-            except StatementError:
-                error("Could not complete the query to the database.")
             finally:
                 log.debug(e)
 
