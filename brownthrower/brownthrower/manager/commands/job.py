@@ -6,14 +6,15 @@ import errno
 import logging
 import subprocess
 import tempfile
+import textwrap
 
 from .base import Command, error, warn, success, strong, transactional_session
 
-from cStringIO import StringIO
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate
+import yaml
 
 try:
     from logging import NullHandler
@@ -559,74 +560,118 @@ class JobClone(Command):
             finally:
                 log.debug(e)
 
-# 
-# class JobEdit(Command):
-#     """\
-#     usage: job edit { 'input' | 'config' } <id>
-#     
-#     Edit the specified dataset of the job with the given id.
-#     """
-#     
-#     def complete(self, text, items):
-#         if not items:
-#             matching = [attr
-#                         for attr in ['config', 'input']
-#                         if attr.startswith(text)]
-#             return matching
-#     
-#     def do(self, items):
-#         if (
-#             (len(items) != 2) or
-#             (items[0] not in ['config', 'input'])
-#         ):
-#             return self.help(items)
-#         
-#         try:
-#             session = model.session_maker()
-#             with transaction.manager:
-#                 job = session.query(model.Job).filter_by(id = items[1]).with_lockmode('update').one()
-#                 
-#                 if job.status != constants.JobStatus.STASHED:
-#                     error("This job is not editable in its current status.")
-#                     return
-#                 
-#                 task = api.get_task(job.task)
-#                 
-#                 sample   = api.task.get_dataset(items[0], 'sample')(task)
-#                 validate = api.task.get_validator(items[0])
-#                 
-#                 current_value = getattr(job, items[0])
-#                 if not current_value:
-#                     current_value = sample
-#                 
-#                 with tempfile.NamedTemporaryFile("w+") as fh:
-#                     fh.write(current_value)
-#                     fh.flush()
-#                     
-#                     subprocess.check_call([settings['editor'], fh.name])
-#                     
-#                     fh.seek(0)
-#                     new_value = fh.read()
-#                 
-#                 validate(task, new_value)
-#                 
-#                 setattr(job, items[0], new_value)
-#             
-#             success("The job dataset has been successfully modified.")
-#             
-#         except Exception as e:
-#             try:
-#                 raise
-#             except api.task.UnavailableException:
-#                 error("The task '%s' is not available in this environment." % e.task)
-#             except NoResultFound:
-#                 error("The specified job does not exist.")
-#             except EnvironmentError:
-#                 error("Unable to open the temporary dataset buffer.")
-#             except api.task.ValidationException:
-#                 error("The new value for the %s is not valid." % items[0])
-#             except StatementError:
-#                 error("Could not complete the query to the database.")
-#             finally:
-#                 log.debug(e)
+class JobEdit(Command):
+    """\
+    usage: job edit { 'input' | 'config' } <id>
+      
+    Edit the specified dataset of the job with the given id.
+    """
+      
+    def complete(self, text, items):
+        if not items:
+            matching = [attr
+                        for attr in ['config', 'input']
+                        if attr.startswith(text)]
+            return matching
+      
+    def do(self, items):
+        if (
+            (len(items) != 2) or
+            (items[0] not in ['config', 'input'])
+        ):
+            return self.help(items)
+        
+        def _open_in_editor(data):
+            with tempfile.NamedTemporaryFile("w+") as fh:
+                fh.write(data)
+                fh.flush()
+                
+                subprocess.check_call(['nano', fh.name])
+                
+                fh.seek(0)
+                return fh.read()
+        
+        def _edit_dataset(value):
+            current_value = value
+            while True:
+                new_value = _open_in_editor(current_value)
+                try:
+                    _ = bt.Job.parse_dataset(new_value)
+                    return new_value
+                except yaml.YAMLError as e:
+                    warn("Syntax error detected:")
+                    print e
+                    print textwrap.dedent("""\
+                    Available options:
+                      r) Revert changes and edit again
+                      c) Continue editing to fix the error
+                      a) Discard all changes and abort edit
+                    """
+                    )
+                    while True:
+                        option = raw_input("Please select an option (r, c, a): ")
+                        if option not in ['r', 'c', 'a']:
+                            continue
+                        elif option == 'r':
+                            current_value = value
+                        elif option == 'c':
+                            current_value = new_value
+                        elif option == 'a':
+                            return value
+                        break
+        
+        def _edit(dataset, job_id):
+            while True:
+                try:
+                    with transactional_session(self.session_maker) as session:
+                        job = session.query(bt.Job).filter_by(id = job_id).one()
+                        job.assert_editable_dataset(dataset)
+                        
+                        current_value = job.get_sample(dataset)
+                        if job.has_dataset(dataset):
+                            current_value = job.get_dataset(dataset)
+                        
+                        new_value = _edit_dataset(current_value)
+                        if new_value == current_value:
+                            return False
+                        else:
+                            job.set_raw_dataset(dataset, new_value)
+                            return True
+                
+                except bt.model.DBAPIError as e:
+                    if bt.is_serializable_error(e):
+                        warn("This job has received a concurrent modification.")
+                        print textwrap.dedent("""\
+                        Available options:
+                          r) Refresh the new values and edit again
+                          a) Discard changes and abort
+                        """)
+                        while True:
+                            option = raw_input("Please select an option (r, a): ")
+                            if option not in ['r', 'a']:
+                                continue
+                            elif option == 'a':
+                                return False
+                            break
+        
+        try:
+            changed = _edit(items[0], items[1])
+            if changed:
+                success("The job has been successfully modified.")
+            else:
+                warn("No changes were made.")
+         
+        except Exception as e:
+            try:
+                raise
+            #except api.task.UnavailableException:
+            #    error("The task '%s' is not available in this environment." % e.task)
+            except NoResultFound:
+                error("The specified job does not exist.")
+            except bt.InvalidStatusException:
+                error(e.message)
+            except EnvironmentError:
+                error("Unable to open the temporary dataset buffer.")
+            finally:
+                log.debug(e)
 

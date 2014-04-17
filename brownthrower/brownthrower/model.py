@@ -26,8 +26,6 @@ class Job(object):
         # Indexes
         Index('ix_job_status', 'status'),
         Index('ix_job_task',   'task'),
-        # Do not let subclasses redefine the model
-        {'keep_existing' : True}
     )
     
     # Columns
@@ -123,13 +121,16 @@ def create_engine(db_url):
     return engine
 
 _CONCURRENT_UPDATE_ERROR = '(TransactionRollbackError) could not serialize access due to concurrent update\n'
+def is_serializable_error(exc):
+    return exc.message == _CONCURRENT_UPDATE_ERROR
+
 def retry_on_serializable_error(fn):
     def wrapper(*args, **kwargs):
         while True:
             try:
                 return fn(*args, **kwargs)
             except DBAPIError as e:
-                if e.message == _CONCURRENT_UPDATE_ERROR:
+                if is_serializable_error(e):
                     continue
                 else:
                     raise

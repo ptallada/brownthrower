@@ -9,7 +9,7 @@ import traceback
 from . import model, release
 from .api import Job, Dependency, Tag, InvalidStatusException, create_engine
 from .interface import Task
-from .model import retry_on_serializable_error
+from .model import retry_on_serializable_error, is_serializable_error
 
 try:
     from logging import NullHandler

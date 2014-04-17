@@ -89,10 +89,8 @@ def transactional_session(session_cls, **kwargs):
     session = session_cls(**kwargs)
     try:
         yield session
+        session.commit()
     except:
         # Roll back if the nested block raised an error
         session.rollback()
         raise
-    else:
-        # Commit if it didn't (so flow ran off the end of the try block)
-        session.commit()

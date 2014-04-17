@@ -73,36 +73,36 @@ class Job(Base, model.Job):
         primaryjoin       = 'api.Job._super_id == api.Job._id',
         cascade           = 'all, delete-orphan', passive_deletes = True,
         collection_class  = set)
-    tags     = relationship('api.Tag',
+    _tags     = relationship('api.Tag',
         cascade          = 'all, delete-orphan', passive_deletes = True,
         collection_class = attribute_mapped_collection('_name'))
     
     # Proxies
-    tag = association_proxy('tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
+    tag = association_proxy('_tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
     
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError
-    
-    @classmethod
-    def _init(cls, task):
+    def __init__(self, task, impl = None):
         values = {
             '_task' : task,
             '_status' : Job.Status.STASHED,
             '_ts_created' : func.now(),
         }
           
-        job = manager_of_class(cls).new_instance()
-        super(Job, job).__init__(**values)
-         
-        job._impl = None 
-        job._reconstruct()
-         
-        return job
+        super(Job, self).__init__(**values)
+        self._reconstruct()
+        
+        if impl:
+            if impl._bt_name != task:
+                raise ValueError("Mismatch between task name and implementer class.")
+            if self._impl and self._impl != impl:
+                raise ValueError("Mismatch between internal implementer task and the provided one.")
+            
+            self.set_dataset('config', impl.config_sample())
+            self.set_dataset('input', impl.input_sample())
     
     @reconstructor
     def _reconstruct(self):
         # TODO: self._impl = <search Task in task store>
-        pass
+        self._impl = None
     
     @hybrid_property
     def id(self):
@@ -119,24 +119,6 @@ class Job(Base, model.Job):
     @hybrid_property
     def status(self):
         return self._status
-    
-    def get_config(self):
-        return yaml.safe_load(self._config)
-    
-    def get_input(self):
-        return yaml.safe_load(self._input)
-    
-    def get_output(self):
-        return yaml.safe_load(self._output)
-    
-    def set_config(self, value):
-        self._config = yaml.safe_dump(value, default_flow_style=False)
-    
-    def set_input(self, value):
-        self._input  = yaml.safe_dump(value, default_flow_style=False)
-    
-    def set_output(self, value):
-        self._output = yaml.safe_dump(value, default_flow_style=False)
     
     @hybrid_property
     def ts_created(self):
@@ -358,31 +340,68 @@ class Job(Base, model.Job):
         self._ts_ended = None
     
     def clone(self):
-        job = self._init(self.task)
-        job._config   = self.config
-        job._input    = self.input
-        job._parents  = self.parents
-        job._children = self.children
+        job = self._init(self.task, self._impl)
+        job._config   = self._config
+        job._input    = self._input
+        job.parents  = self.parents
+        job.children = self.children
         
         return job
     
-#     def _prolog(self):
-#         if self._impl:
-#             return self._impl.prolog(self)
-#         else:
-#             raise NotImplementedError
-#     
-#     def _run(self):
-#         if self._impl:
-#             return self._impl.run(self)
-#         else:
-#             raise NotImplementedError
-#     
-#     def _epilog(self):
-#         if self._impl:
-#             return self._impl.epilog(self)
-#         else:
-#             raise NotImplementedError
+    def get_sample(self, dataset):
+        if dataset not in ['config', 'input']:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+        
+        meth = '%s_sample' % dataset
+        if self._impl:
+            return getattr(self._impl, meth)()
+        else:
+            return ''
+    
+    def has_dataset(self, dataset):
+        if dataset not in ['config', 'input', 'output']:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+        attr = "_%s" % dataset
+        
+        return getattr(self, attr) != None
+    
+    @classmethod
+    def parse_dataset(cls, value):
+        return yaml.safe_load(value)
+    
+    def get_dataset(self, dataset):
+        return Job.parse_dataset(self.get_raw_dataset(dataset))
+    
+    def get_raw_dataset(self, dataset):
+        if dataset not in ['config', 'input', 'output']:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+        attr = "_%s" % dataset
+        return getattr(self, attr)
+    
+    def assert_editable_dataset(self, dataset):
+        if dataset in ['config', 'input']:
+            if self.status != Job.Status.STASHED:
+                raise InvalidStatusException("A Job's %s can only be modified when STASHED." % dataset)
+        elif dataset in ['output']:
+            if self.status != Job.Status.PROCESSING:
+                raise InvalidStatusException("A Job's %s can only be modified when PROCESSING." % dataset)
+        else:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+    
+    def set_dataset(self, dataset, value):
+        self.set_raw_dataset(dataset, yaml.safe_dump(value, default_flow_style=False))
+    
+    def set_raw_dataset(self, dataset, value):
+        if dataset not in ['config', 'input', 'output']:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+        
+        self.assert_editable_dataset(dataset)
+        attr = "_%s" % dataset
+        _ = Job.parse_dataset(value) # Check syntax
+        setattr(self, attr, value)
+    
+    def run(self):
+        pass
 
 class Dependency(Base, model.Dependency):
     pass

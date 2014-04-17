@@ -22,10 +22,9 @@ class BaseTask(object):
     
     _bt_name = None
     
-    def __new__(cls):
-        job = Job._init(task = cls._bt_name)
-        job._impl = cls
-        return job
+    @classmethod
+    def create_job(cls):
+        return Job(task = cls._bt_name, impl = cls)
 
 class Task(BaseTask):
     """
@@ -133,8 +132,8 @@ class Task(BaseTask):
         """
         pass
     
-    @property
-    def config_sample(self):
+    @classmethod
+    def config_sample(cls):
         """
         Return a working configuration sample, that may be used as default.
         
@@ -144,24 +143,14 @@ class Task(BaseTask):
         @return: A YAML string containing the requested sample
         @rtype: basestring
         """
-        pass
+        return ''
     
-    @property
-    def input_sample(self):
+    @classmethod
+    def input_sample(cls):
         """
         Return a working input sample.
         
         @return: A YAML string containing the requested sample
         @rtype: basestring
         """
-        pass
-    
-    @property
-    def output_sample(self):
-        """
-        Return a working output sample.
-        
-        @return: A YAML string containing the requested sample
-        @rtype: basestring
-        """
-        pass
+        return ''
