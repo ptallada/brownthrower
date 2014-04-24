@@ -140,17 +140,15 @@ class Task(BaseTask):
         Users are expected to use these settings and only override those that do
         not fit their needs.
         
-        @return: A YAML string containing the requested sample
-        @rtype: basestring
+        @rtype: object
         """
-        return ''
+        return None
     
     @classmethod
     def input_sample(cls):
         """
-        Return a working input sample.
+        Return a working input sample, that may be used as default.
         
-        @return: A YAML string containing the requested sample
-        @rtype: basestring
+        @rtype: object
         """
-        return ''
+        return None

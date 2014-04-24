@@ -123,6 +123,10 @@ def main(args = None):
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
     
+    # TODO: Add debugging option
+    #from pysrc import pydevd
+    #pydevd.settrace()
+    
     manager = Manager(engine)
     try:
         manager.cmdloop()

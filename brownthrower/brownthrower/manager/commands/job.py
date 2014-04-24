@@ -7,6 +7,7 @@ import logging
 import subprocess
 import tempfile
 import textwrap
+import yaml
 
 from .base import Command, error, warn, success, strong, transactional_session
 
@@ -14,7 +15,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate
-import yaml
 
 try:
     from logging import NullHandler
@@ -592,31 +592,31 @@ class JobEdit(Command):
                 return fh.read()
         
         def _edit_dataset(value):
-            current_value = value
+            original_value = yaml.safe_dump(value, default_flow_style=False)
+            current_value = original_value
             while True:
                 new_value = _open_in_editor(current_value)
                 try:
-                    _ = bt.Job.parse_dataset(new_value)
-                    return new_value
+                    return yaml.safe_load(new_value)
                 except yaml.YAMLError as e:
                     warn("Syntax error detected:")
                     print e
                     print textwrap.dedent("""\
                     Available options:
-                      r) Revert changes and edit again
-                      c) Continue editing to fix the error
-                      a) Discard all changes and abort edit
+                      u) Undo all changes and edit again
+                      r) Return to editor and continue editing
+                      d) Discard all changes and abort
                     """
                     )
                     while True:
-                        option = raw_input("Please select an option (r, c, a): ")
-                        if option not in ['r', 'c', 'a']:
+                        option = raw_input("Please select an option (u, r, d): ")
+                        if option not in ['u', 'r', 'd']:
                             continue
+                        elif option == 'u':
+                            current_value = original_value
                         elif option == 'r':
-                            current_value = value
-                        elif option == 'c':
                             current_value = new_value
-                        elif option == 'a':
+                        elif option == 'd':
                             return value
                         break
         
@@ -627,16 +627,14 @@ class JobEdit(Command):
                         job = session.query(bt.Job).filter_by(id = job_id).one()
                         job.assert_editable_dataset(dataset)
                         
-                        current_value = job.get_sample(dataset)
-                        if job.has_dataset(dataset):
+                        if job.get_raw_dataset(dataset):
                             current_value = job.get_dataset(dataset)
+                        else:
+                            current_value = job.get_sample(dataset)
                         
                         new_value = _edit_dataset(current_value)
-                        if new_value == current_value:
-                            return False
-                        else:
-                            job.set_raw_dataset(dataset, new_value)
-                            return True
+                        job.set_dataset(dataset, new_value)
+                        return current_value != new_value
                 
                 except bt.model.DBAPIError as e:
                     if bt.is_serializable_error(e):
@@ -644,13 +642,13 @@ class JobEdit(Command):
                         print textwrap.dedent("""\
                         Available options:
                           r) Refresh the new values and edit again
-                          a) Discard changes and abort
+                          d) Discard all changes and abort
                         """)
                         while True:
-                            option = raw_input("Please select an option (r, a): ")
-                            if option not in ['r', 'a']:
+                            option = raw_input("Please select an option (r, d): ")
+                            if option not in ['r', 'd']:
                                 continue
-                            elif option == 'a':
+                            elif option == 'd':
                                 return False
                             break
         
@@ -660,7 +658,7 @@ class JobEdit(Command):
                 success("The job has been successfully modified.")
             else:
                 warn("No changes were made.")
-         
+        
         except Exception as e:
             try:
                 raise

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import contextlib
 import logging
 import yaml
 
@@ -9,7 +10,6 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, reconstructor
-from sqlalchemy.orm.attributes import manager_of_class
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.session import object_session
 
@@ -358,25 +358,19 @@ class Job(Base, model.Job):
         else:
             return ''
     
-    def has_dataset(self, dataset):
-        if dataset not in ['config', 'input', 'output']:
-            raise ValueError("The value '%s' is not a valid dataset." % dataset)
-        attr = "_%s" % dataset
-        
-        return getattr(self, attr) != None
-    
-    @classmethod
-    def parse_dataset(cls, value):
-        return yaml.safe_load(value)
-    
-    def get_dataset(self, dataset):
-        return Job.parse_dataset(self.get_raw_dataset(dataset))
+    ############################
+    # DATASET AGNOSTIC METHODS #
+    ############################
     
     def get_raw_dataset(self, dataset):
         if dataset not in ['config', 'input', 'output']:
             raise ValueError("The value '%s' is not a valid dataset." % dataset)
         attr = "_%s" % dataset
         return getattr(self, attr)
+    
+    def get_dataset(self, dataset):
+        value = self.get_raw_dataset(dataset) or ''
+        return yaml.safe_load(value)
     
     def assert_editable_dataset(self, dataset):
         if dataset in ['config', 'input']:
@@ -389,17 +383,52 @@ class Job(Base, model.Job):
             raise ValueError("The value '%s' is not a valid dataset." % dataset)
     
     def set_dataset(self, dataset, value):
-        self.set_raw_dataset(dataset, yaml.safe_dump(value, default_flow_style=False))
-    
-    def set_raw_dataset(self, dataset, value):
-        if dataset not in ['config', 'input', 'output']:
-            raise ValueError("The value '%s' is not a valid dataset." % dataset)
-        
         self.assert_editable_dataset(dataset)
+        data = yaml.safe_dump(value, default_flow_style=False)
         attr = "_%s" % dataset
-        _ = Job.parse_dataset(value) # Check syntax
-        setattr(self, attr, value)
+        setattr(self, attr, data)
     
+    @contextlib.contextmanager
+    def edit_dataset(self, dataset):
+        self.assert_editable_dataset(dataset)
+        value = self.get_dataset(dataset)
+        yield value
+        self.set_dataset(dataset, value)
+    
+    ############################
+    # DATASET CONCRETE METHODS #
+    ############################
+    
+    @hybrid_property
+    def raw_config(self):
+        return self.get_raw_dataset('config')
+    
+    @hybrid_property
+    def raw_input(self):
+        return self.get_raw_dataset('input')
+    
+    @hybrid_property
+    def raw_output(self):
+        return self.get_raw_dataset('output')
+    
+    def get_config(self):
+        return self.get_dataset('config')
+    
+    def get_input(self):
+        return self.get_dataset('input')
+    
+    def get_output(self):
+        return self.get_dataset('output')
+    
+    def edit_config(self):
+        self.edit_dataset('config')
+     
+    def edit_input(self):
+        self.edit_dataset('input')
+     
+    def edit_output(self):
+        self.edit_dataset('output')
+     
     def run(self):
         pass
 
