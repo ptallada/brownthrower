@@ -10,7 +10,7 @@ import tempfile
 import textwrap
 import yaml
 
-from .base import Command, error, warn, success, strong, transactional_session
+from .base import Command, error, warn, success, strong
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -119,7 +119,7 @@ class JobCreate(Command):
         
         @bt.retry_on_serializable_error
         def _add(job):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 session.add(job)
                 session.flush()
                 return job.id
@@ -179,7 +179,7 @@ class JobList(Command):
             return self.help(items)
          
         try:
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 jobs = session.query(bt.Job).order_by(bt.Job.id).all()
                 
                 if not jobs:
@@ -222,7 +222,7 @@ class JobShow(Command):
             return self.help(items)
          
         try:
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = items[0]).one()
                 
                 print strong("### JOB DETAILS:")
@@ -258,7 +258,7 @@ class JobGraph(Command):
             return self.help(items)
          
         try:
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = items[0]).options(
                     joinedload(bt.Job.parents),
                     joinedload(bt.Job.children),
@@ -345,7 +345,7 @@ class JobRemove(Command):
         
         @bt.retry_on_serializable_error
         def _remove(job_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.remove()
         
@@ -379,7 +379,7 @@ class JobSubmit(Command):
         
         @bt.retry_on_serializable_error
         def _submit(job_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.submit()
         
@@ -411,7 +411,7 @@ class JobReset(Command):
         
         @bt.retry_on_serializable_error
         def _reset(job_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.reset()
         
@@ -443,7 +443,7 @@ class JobLink(Command):
         
         @bt.retry_on_serializable_error
         def _link(parent_id, child_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 parent = session.query(bt.Job).filter_by(id = parent_id).one()
                 child  = session.query(bt.Job).filter_by(id = child_id).one()
                 parent.children.add(child)
@@ -476,7 +476,7 @@ class JobUnlink(Command):
         
         @bt.retry_on_serializable_error
         def _unlink(parent_id, child_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 parent = session.query(bt.Job).filter_by(id = parent_id).one()
                 child  = session.query(bt.Job).filter_by(id = child_id).one()
                 parent.children.remove(child)
@@ -507,7 +507,7 @@ class JobCancel(Command):
         
         @bt.retry_on_serializable_error
         def _cancel(job_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 job.cancel()
         
@@ -539,7 +539,7 @@ class JobClone(Command):
         
         @bt.retry_on_serializable_error
         def _clone(job_id):
-            with transactional_session(self.session_maker) as session:
+            with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 new = job.clone()
                 session.add(new)
@@ -631,7 +631,7 @@ class JobEdit(Command):
         def _edit(dataset, job_id):
             while True:
                 try:
-                    with transactional_session(self.session_maker) as session:
+                    with bt.transactional_session(self.session_maker) as session:
                         job = session.query(bt.Job).filter_by(id = job_id).one()
                         job.assert_editable_dataset(dataset)
                         

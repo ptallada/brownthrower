@@ -68,6 +68,10 @@ setup(
             'runner.serial = brownthrower.runner.serial.__init__:main',
             'dispatcher.static = brownthrower.dispatcher.static.__init__:main',
         ],
+        'brownthrower.task' : [
+            # math
+            'random = brownthrower.examples.random:Random',
+        ],
     },
     
     include_package_data=True,

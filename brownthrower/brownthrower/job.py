@@ -7,17 +7,20 @@ import yaml
 
 from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, reconstructor
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.session import object_session
+from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
+                               PrimaryKeyConstraint, UniqueConstraint)
+from sqlalchemy.sql import functions
+from sqlalchemy.types import DateTime, Integer, String, Text
 
 from . import model
+from .dependency import Dependency # @UnusedImport
+from .tag import Tag
 
-log = logging.getLogger('brownthrower.api')
-
-Base = declarative_base()
+log = logging.getLogger('brownthrower.job')
 
 class InvalidStatusException(Exception):
     def __init__(self, message=None):
@@ -26,13 +29,90 @@ class InvalidStatusException(Exception):
     def __str__(self):
         return str(self.message)
 
-class Job(Base, model.Job):
+class TaskNotAvailableException(Exception):
+    def __init__(self, task):
+        self.message = "Task '%s' is not available in this environment." % task
+        
+    def __str__(self):
+        return str(self.message)
+
+class Job(model.Base):
     """
     Base class for user-defined Jobs.
     
     All Job subclasses must inherit from this class and override the methods
     defined in brownthrower.interface.Job.
     """
+    
+    ###########################################################################
+    # KEYS AND INDEXES                                                        #
+    ###########################################################################
+    
+    __tablename__ = 'job'
+    __table_args__ = (
+        # Primary key
+        PrimaryKeyConstraint('id', name='pk_job'),
+        # Unique key
+        UniqueConstraint('super_id', 'id', name='uq_job_super'),
+        # Foreign keys
+        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT', name='fk_job_super'),
+        # Indexes
+        Index('ix_job_status', 'status'),
+        Index('ix_job_task',   'task'),
+    )
+    
+    ###########################################################################
+    # COLUMNS                                                                 #
+    ###########################################################################
+    
+    _id         = Column('id',         Integer,    nullable=False)
+    _super_id   = Column('super_id',   Integer,    nullable=True)
+    _task       = Column('task',       String(50), nullable=False)
+    _status     = Column('status',     String(20), nullable=False)
+    _config     = Column('config',     Text,       nullable=True)
+    _input      = Column('input',      Text,       nullable=True)
+    _output     = Column('output',     Text,       nullable=True)
+    _ts_created = Column('ts_created', DateTime,   nullable=False, default=functions.now())
+    _ts_queued  = Column('ts_queued',  DateTime,   nullable=True)
+    _ts_started = Column('ts_started', DateTime,   nullable=True)
+    _ts_ended   = Column('ts_ended',   DateTime,   nullable=True)
+    
+    ###########################################################################
+    # RELATIONSHIPS                                                           #
+    ###########################################################################
+    
+    parents  = relationship('Job',
+        back_populates    = 'children', secondary = 'dependency',
+        primaryjoin       = 'Dependency._child_job_id == Job._id',
+        secondaryjoin     = 'Job._id == Dependency._parent_job_id',
+        collection_class  = set)
+    children = relationship('Job',
+        back_populates    = 'parents',  secondary = 'dependency',
+        primaryjoin       = 'Dependency._parent_job_id == Job._id',
+        secondaryjoin     = 'Job._id == Dependency._child_job_id',
+        collection_class  = set)
+    superjob = relationship('Job',
+        back_populates    = 'subjobs',
+        primaryjoin       = 'Job._super_id == Job._id',
+        remote_side       = 'Job._id')
+    subjobs  = relationship('Job',
+        back_populates    = 'superjob',
+        primaryjoin       = 'Job._super_id == Job._id',
+        cascade           = 'all, delete-orphan', passive_deletes = True,
+        collection_class  = set)
+    _tags    = relationship('Tag',
+        cascade           = 'all, delete-orphan', passive_deletes = True,
+        collection_class  = attribute_mapped_collection('_name'))
+    
+    ###########################################################################
+    # PROXIES                                                                 #
+    ###########################################################################
+    
+    tag = association_proxy('_tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
+    
+    ###########################################################################
+    # STATUS                                                                  #
+    ###########################################################################
     
     class Status(object):
         # Preparation phase. It is being configured and cannot be executed yet.
@@ -53,32 +133,9 @@ class Job(Base, model.Job):
         # The job did not finish succesfully.
         FAILED      = 'FAILED'
     
-    # Relationships
-    parents  = relationship('api.Job',
-        back_populates    = 'children', secondary = 'dependency',
-        primaryjoin       = 'Dependency._child_job_id == api.Job._id',
-        secondaryjoin     = 'api.Job._id == Dependency._parent_job_id',
-        collection_class  = set)
-    children = relationship('api.Job',
-        back_populates    = 'parents',  secondary = 'dependency',
-        primaryjoin       = 'Dependency._parent_job_id == api.Job._id',
-        secondaryjoin     = 'api.Job._id == Dependency._child_job_id',
-        collection_class  = set)
-    superjob = relationship('api.Job',
-        back_populates    = 'subjobs',
-        primaryjoin       = 'api.Job._super_id == api.Job._id',
-        remote_side       = 'api.Job._id')
-    subjobs  = relationship('api.Job',
-        back_populates    = 'superjob',
-        primaryjoin       = 'api.Job._super_id == api.Job._id',
-        cascade           = 'all, delete-orphan', passive_deletes = True,
-        collection_class  = set)
-    _tags     = relationship('api.Tag',
-        cascade          = 'all, delete-orphan', passive_deletes = True,
-        collection_class = attribute_mapped_collection('_name'))
-    
-    # Proxies
-    tag = association_proxy('_tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
+    ###########################################################################
+    # CONSTRUCTORS AND SPECIAL METHODS                                        #
+    ###########################################################################
     
     def __init__(self, task, impl = None):
         values = {
@@ -104,6 +161,19 @@ class Job(Base, model.Job):
         # TODO: self._impl = <search Task in task store>
         self._impl = None
     
+    def __repr__(self):
+        return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
+            self.__class__.__name__,
+            repr(self._id),
+            repr(self._super_id),
+            repr(self._task),
+            repr(self._status),
+        )
+    
+    ###########################################################################
+    # DESCRIPTORS                                                             #
+    ###########################################################################
+    
     @hybrid_property
     def id(self):
         return self._id
@@ -121,6 +191,18 @@ class Job(Base, model.Job):
         return self._status
     
     @hybrid_property
+    def raw_config(self):
+        return self._config
+    
+    @hybrid_property
+    def raw_input(self):
+        return self._input
+    
+    @hybrid_property
+    def raw_output(self):
+        return self._output
+    
+    @hybrid_property
     def ts_created(self):
         return self._ts_created
     
@@ -135,6 +217,10 @@ class Job(Base, model.Job):
     @hybrid_property
     def ts_ended(self):
         return self._ts_ended
+    
+    ###########################################################################
+    # COLLECTION EVENTS                                                       #
+    ###########################################################################
     
     @classmethod
     def __declare_last__(cls):
@@ -163,6 +249,10 @@ class Job(Base, model.Job):
                 
                 if superjob.status != Job.Status.PROCESSING:
                     raise InvalidStatusException("The superjob must be in the PROCESSING status.")
+    
+    ###########################################################################
+    # STATUS MUTATION                                                         #
+    ###########################################################################
     
     def _ancestors(self):
         cls = self.__class__
@@ -340,7 +430,7 @@ class Job(Base, model.Job):
         self._ts_ended = None
     
     def clone(self):
-        job = self._init(self.task, self._impl)
+        job = Job(self.task, self._impl)
         job._config   = self._config
         job._input    = self._input
         job.parents  = self.parents
@@ -348,24 +438,14 @@ class Job(Base, model.Job):
         
         return job
     
-    def get_sample(self, dataset):
-        if dataset not in ['config', 'input']:
-            raise ValueError("The value '%s' is not a valid dataset." % dataset)
-        
-        meth = '%s_sample' % dataset
-        if self._impl:
-            return getattr(self._impl, meth)()
-        else:
-            return ''
-    
-    ############################
-    # DATASET AGNOSTIC METHODS #
-    ############################
+    ###########################################################################
+    # DATASET ACCESS AND MUTATION                                             #
+    ###########################################################################
     
     def get_raw_dataset(self, dataset):
         if dataset not in ['config', 'input', 'output']:
             raise ValueError("The value '%s' is not a valid dataset." % dataset)
-        attr = "_%s" % dataset
+        attr = "raw_%s" % dataset
         return getattr(self, attr)
     
     def get_dataset(self, dataset):
@@ -395,22 +475,6 @@ class Job(Base, model.Job):
         yield value
         self.set_dataset(dataset, value)
     
-    ############################
-    # DATASET CONCRETE METHODS #
-    ############################
-    
-    @hybrid_property
-    def raw_config(self):
-        return self.get_raw_dataset('config')
-    
-    @hybrid_property
-    def raw_input(self):
-        return self.get_raw_dataset('input')
-    
-    @hybrid_property
-    def raw_output(self):
-        return self.get_raw_dataset('output')
-    
     def get_config(self):
         return self.get_dataset('config')
     
@@ -422,25 +486,23 @@ class Job(Base, model.Job):
     
     def edit_config(self):
         self.edit_dataset('config')
-     
+    
     def edit_input(self):
         self.edit_dataset('input')
-     
+    
     def edit_output(self):
         self.edit_dataset('output')
-     
-    def run(self):
-        pass
-
-class Dependency(Base, model.Dependency):
-    pass
-
-class Tag(Base, model.Tag):
-    pass
     
-def create_engine(db_url):
-    engine = model.create_engine(db_url)
+    ###########################################################################
+    # TASK                                                                    #
+    ###########################################################################
     
-    Base.metadata.create_all(bind = engine)
-    
-    return engine
+    def get_sample(self, dataset):
+        if dataset not in ['config', 'input']:
+            raise ValueError("The value '%s' is not a valid dataset." % dataset)
+        
+        meth = '%s_sample' % dataset
+        if self._impl:
+            return getattr(self._impl, meth)()
+        else:
+            return ''

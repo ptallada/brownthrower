@@ -13,7 +13,7 @@ class TestJobBase(BaseTest):
 
 class TestCreate(TestJobBase):
     def test_empty(self, **kwargs):
-        j = ExampleTask(**kwargs)
+        j = ExampleTask.create_job(**kwargs)
         
         with self.in_session([j]):
             assert isinstance(j, bt.Job)

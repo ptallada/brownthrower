@@ -1,103 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import contextlib
 import logging
 
 from sqlalchemy import event
 from sqlalchemy.engine import create_engine as sa_create_engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
-                               PrimaryKeyConstraint, UniqueConstraint)
-from sqlalchemy.sql import functions
-from sqlalchemy.types import DateTime, Integer, String, Text
+
+from sqlalchemy.ext.declarative import declarative_base
 
 log = logging.getLogger('brownthrower.model')
 
-class Job(object):
-    __tablename__ = 'job'
-    __table_args__ = (
-        # Primary key
-        PrimaryKeyConstraint('id', name='pk_job'),
-        # Unique key
-        UniqueConstraint('super_id', 'id', name='uq_job_super'),
-        # Foreign keys
-        ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT', name='fk_job_super'),
-        # Indexes
-        Index('ix_job_status', 'status'),
-        Index('ix_job_task',   'task'),
-    )
-    
-    # Columns
-    _id         = Column('id',         Integer,    nullable=False)
-    _super_id   = Column('super_id',   Integer,    nullable=True)
-    _task       = Column('task',       String(50), nullable=False)
-    _status     = Column('status',     String(20), nullable=False)
-    _config     = Column('config',     Text,       nullable=True)
-    _input      = Column('input',      Text,       nullable=True)
-    _output     = Column('output',     Text,       nullable=True)
-    _ts_created = Column('ts_created', DateTime,   nullable=False, default=functions.now())
-    _ts_queued  = Column('ts_queued',  DateTime,   nullable=True)
-    _ts_started = Column('ts_started', DateTime,   nullable=True)
-    _ts_ended   = Column('ts_ended',   DateTime,   nullable=True)
-    
-    def __repr__(self):
-        return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
-            self.__class__.__name__,
-            repr(self._id),
-            repr(self._super_id),
-            repr(self._task),
-            repr(self._status),
-        )
-
-class Dependency(object):
-    __tablename__ = 'dependency'
-    __table_args__ = (
-        # Primary key
-        PrimaryKeyConstraint('parent_job_id', 'child_job_id', name='pk_dependency'),
-        # Foreign keys
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_parent'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_child'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_parent'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_child'),
-    )
-    
-    # Columns
-    _super_id      = Column('super_id',      Integer, nullable=True)
-    _parent_job_id = Column('parent_job_id', Integer, nullable=False)
-    _child_job_id  = Column('child_job_id',  Integer, nullable=False)
-    
-    def __repr__(self):
-        return u"%s(super_id=%s, parent_job_id=%s, child_job_id=%s)" % (
-            self.__class__.__name__,
-            repr(self._super_id),
-            repr(self._parent_job_id),
-            repr(self._child_job_id),
-        )
-
-class Tag(object):
-    __tablename__ = 'tag'
-    __table_args__ = (
-        # Primary key
-        PrimaryKeyConstraint('job_id', 'name', name = 'pk_tag'),
-        # Foreign keys
-        ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name='fk_tag_job'),
-        # Indexes
-        Index('ix_tag_name_value', 'name', 'value'),
-    )
-    
-    # Columns
-    _job_id = Column('job_id', Integer,    nullable=False)
-    _name   = Column('name',   String(20), nullable=False)
-    _value  = Column('value',  Text,       nullable=True)
-    
-    def __repr__(self):
-        return u"%s(job_id=%s, name=%s, value=%s)" % (
-            self.__class__.__name__,
-            repr(self._job_id),
-            repr(self._name),
-            repr(self._value),
-        )
+Base = declarative_base()
 
 def _sqlite_connection_begin_listener(conn):
     if conn.engine.name == 'sqlite':
@@ -118,20 +34,38 @@ def create_engine(db_url):
     else:
         engine = sa_create_engine(url, isolation_level="SERIALIZABLE")
     
+    Base.metadata.create_all(bind = engine)
+    
     return engine
 
-_CONCURRENT_UPDATE_ERROR = '(TransactionRollbackError) could not serialize access due to concurrent update\n'
 def is_serializable_error(exc):
-    return exc.message == _CONCURRENT_UPDATE_ERROR
+    return exc.orig.pgcode == '40001'
 
 def retry_on_serializable_error(fn):
     def wrapper(*args, **kwargs):
         while True:
             try:
-                return fn(*args, **kwargs)
+                value = fn(*args, **kwargs)
+                return value
             except DBAPIError as e:
-                if is_serializable_error(e):
-                    continue
-                else:
+                if not is_serializable_error(e):
                     raise
     return wrapper
+
+# https://gist.github.com/obeattie/210032
+@contextlib.contextmanager
+def transactional_session(session_cls, **kwargs):
+    """\
+    Context manager which provides transaction management for the nested block.
+    A transaction is started when the block is entered, and then either
+    committed if the block exits without incident, or rolled back if an error is
+    raised.
+    """
+    session = session_cls(**kwargs)
+    try:
+        yield session
+        session.commit()
+    except:
+        # Roll back if the nested block raised an error
+        session.rollback()
+        raise
