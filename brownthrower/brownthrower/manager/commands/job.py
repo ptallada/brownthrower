@@ -4,6 +4,7 @@
 import brownthrower as bt
 import errno
 import logging
+import readline
 import subprocess
 import tempfile
 import textwrap
@@ -229,13 +230,13 @@ class JobShow(Command):
                     print field.ljust(10) + ' : ' + str(getattr(job, field))
                 print
                 print strong("### JOB CONFIG:")
-                print job.config.strip() if job.config else '...'
+                print job.raw_config.strip() if job.raw_config else '...'
                 print
                 print strong("### JOB INPUT:")
-                print job.input.strip()  if job.input  else '...'
+                print job.raw_input.strip()  if job.raw_input  else '...'
                 print
                 print strong("### JOB OUTPUT:")
-                print job.output.strip() if job.output else '...'
+                print job.raw_output.strip() if job.raw_output else '...'
         
         except Exception as e:
             try:
@@ -581,6 +582,13 @@ class JobEdit(Command):
         ):
             return self.help(items)
         
+        def _input(msg):
+            readline.parse_and_bind('set disable-completion on')
+            entry = raw_input(msg)
+            readline.parse_and_bind('set disable-completion off')
+            readline.remove_history_item(readline.get_current_history_length()-1)
+            return entry
+        
         def _open_in_editor(data):
             with tempfile.NamedTemporaryFile("w+") as fh:
                 fh.write(data)
@@ -609,7 +617,7 @@ class JobEdit(Command):
                     """
                     )
                     while True:
-                        option = raw_input("Please select an option (u, r, d): ")
+                        option = _input("Please select an option (u, r, d): ")
                         if option not in ['u', 'r', 'd']:
                             continue
                         elif option == 'u':
@@ -645,7 +653,7 @@ class JobEdit(Command):
                           d) Discard all changes and abort
                         """)
                         while True:
-                            option = raw_input("Please select an option (r, d): ")
+                            option = _input("Please select an option (r, d): ")
                             if option not in ['r', 'd']:
                                 continue
                             elif option == 'd':
