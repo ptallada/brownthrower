@@ -3,6 +3,7 @@
 
 import contextlib
 import logging
+import traceback
 import yaml
 
 from sqlalchemy import event, func, literal_column
@@ -120,16 +121,10 @@ class Job(model.Base):
         # The job has been configured and its dependencies are already set.
         # It will be executed as soon as possible.
         QUEUED      = 'QUEUED'
-        # The user has asked to cancel this job.
-        CANCELLING  = 'CANCELLING'
-        # The job has been interrupted. No inner job has failed.
-        CANCELLED   = 'CANCELLED'
         # The job is being processed.
         PROCESSING  = 'PROCESSING'
         # The job has finished successfully.
         DONE        = 'DONE'
-        # The job is still being processed and some inner job has failed.
-        FAILING     = 'FAILING'
         # The job did not finish succesfully.
         FAILED      = 'FAILED'
     
@@ -297,39 +292,15 @@ class Job(model.Base):
         
         elif set([
             Job.Status.DONE,
-            Job.Status.CANCELLED,
-        ]) >= substatus:
-            self._status = Job.Status.CANCELLED
-            self._ts_ended = func.now()
-        
-        elif set([
-            Job.Status.DONE,
-            Job.Status.CANCELLED,
             Job.Status.FAILED,
         ]) >= substatus:
             self._status = Job.Status.FAILED
             self._ts_ended = func.now()
         
-        elif set([
-            Job.Status.DONE,
-            Job.Status.CANCELLED,
-            Job.Status.FAILED,
-            Job.Status.CANCELLING,
-        ]) >= substatus:
-            self._status = Job.Status.CANCELLING
-        
-        elif set([
-            Job.Status.DONE,
-            Job.Status.CANCELLED,
-            Job.Status.CANCELLING,
-            Job.Status.PROCESSING,
-            Job.Status.QUEUED,
-        ]) >= substatus:
+        else:
             self._status = Job.Status.PROCESSING
             if not self.ts_started:
                 self._ts_started = func.now()
-        else:
-            self._status = Job.Status.FAILING
     
     def _submit(self):
         if self.subjobs:
@@ -337,7 +308,6 @@ class Job(model.Base):
                 subjob._submit()
             self.update_status()
         elif self.status in [
-            Job.Status.CANCELLED,
             Job.Status.FAILED,
             Job.Status.STASHED,
         ]:
@@ -346,9 +316,9 @@ class Job(model.Base):
     
     def submit(self):
         if self.status not in [
-            Job.Status.CANCELLED,
             Job.Status.FAILED,
             Job.Status.STASHED,
+            Job.Status.PROCESSING,
         ]:
             raise InvalidStatusException("This job cannot be submitted in its current status.")
         
@@ -358,6 +328,7 @@ class Job(model.Base):
             ancestor._update_status()
     
     def _remove(self):
+        # FIXME: We sould not be using session here...
         session = object_session(self)
         if self.subjobs:
             for subjob in self.subjobs:
@@ -366,7 +337,6 @@ class Job(model.Base):
         elif self.status in [
             Job.Status.STASHED,
             Job.Status.FAILED,
-            Job.Status.CANCELLED,
         ]:
             session.delete(self)
     
@@ -375,7 +345,6 @@ class Job(model.Base):
             raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
         
         if self.status not in [
-            Job.Status.CANCELLED,
             Job.Status.FAILED,
             Job.Status.STASHED,
         ]:
@@ -391,17 +360,12 @@ class Job(model.Base):
             for subjob in self.subjobs:
                 subjob._cancel()
             self._update_status()
-        elif self.status == Job.Status.QUEUED:
-            self._status  = Job.Status.CANCELLED
-            self._ts_ended = func.now()
-        elif self.status == Job.Status.PROCESSING:
-            self._status  = Job.Status.CANCELLING
+        else:
+            raise NotImplementedError
     
     def cancel(self):
         if self.status not in [
-            Job.Status.FAILING,
             Job.Status.PROCESSING,
-            Job.Status.QUEUED,
         ]:
             raise InvalidStatusException("This job cannot be cancelled in its current status.")
         
@@ -418,7 +382,6 @@ class Job(model.Base):
             raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
         
         if self.status not in [
-            Job.Status.CANCELLED,
             Job.Status.FAILED,
             Job.Status.QUEUED,
         ]:
@@ -484,14 +447,17 @@ class Job(model.Base):
     def get_output(self):
         return self.get_dataset('output')
     
+    def set_config(self, value):
+        self.set_dataset('config', value)
+    
+    def set_input(self, value):
+        self.set_dataset('input', value)
+    
     def edit_config(self):
         self.edit_dataset('config')
     
     def edit_input(self):
         self.edit_dataset('input')
-    
-    def edit_output(self):
-        self.edit_dataset('output')
     
     ###########################################################################
     # TASK                                                                    #
@@ -506,3 +472,69 @@ class Job(model.Base):
             return getattr(self._impl, meth)()
         else:
             return ''
+    
+    def assert_is_available(self):
+        if not self._impl:
+            raise TaskNotAvailableException(self.task)
+    
+    def process(self):
+        self.assert_is_available()
+        if self.status != Job.Status.QUEUED:
+            raise InvalidStatusException("Only jobs in QUEUED status can be processed.")
+        if any([parent.status != Job.Status.DONE for parent in self.parents]):
+            raise InvalidStatusException("This job cannot be executed because not all of its parents have finished.")
+        # Moving job into PROCESSING state
+        self._status = Job.Status.PROCESSING
+        self._ts_started = func.now()
+        self._output = None
+        for ancestor in self._ancestors():
+            ancestor._update_status()
+    
+    def prolog(self):
+        self.assert_is_available()
+        if self.status != Job.Status.PROCESSING:
+            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if self.subjobs:
+            raise InvalidStatusException("Cannot execute prolog on jobs that have subjobs.")
+        # Execute prolog implementation
+        return self._impl.prolog(self)
+    
+    def run(self):
+        self.assert_is_available()
+        if self.status != Job.Status.PROCESSING:
+            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if self.subjobs:
+            raise InvalidStatusException("Cannot execute run on jobs that have subjobs.")
+        if self.raw_output:
+            raise InvalidStatusException("Cannot execute a job that already has an output.")
+        # Execute run implementation 
+        value = self._impl.run(self)
+        self.set_dataset('output', value)
+        return value
+    
+    def epilog(self):
+        self.assert_is_available()
+        if self.status != Job.Status.PROCESSING:
+            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if not self.subjobs:
+            raise InvalidStatusException("Cannot execute epilog on jobs that have no subjobs.")
+        # Execute epilog implementation
+        (children, value) = self._impl.epilog(self)
+        self.set_dataset('output', value)
+        return children
+    
+    def finish(self, exc):
+        self.assert_is_available()
+        if self.status != Job.Status.PROCESSING:
+            raise InvalidStatusException("Only jobs in PROCESSING status can be finished.")
+        if not self.raw_output:
+            raise InvalidStatusException("Cannot finish a job that has no output.")
+        self._ts_ended = func.now()
+        if not exc:
+            self._status = Job.Status.DONE
+        else:
+            self._status = Job.Status.FAILED
+            self.tag['last_traceback'] = traceback.format_exc()
+        
+        for ancestor in self._ancestors():
+            ancestor._update_status()
