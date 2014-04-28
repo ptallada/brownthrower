@@ -62,6 +62,8 @@ def transactional_session(session_cls, **kwargs):
     raised.
     """
     session = session_cls(**kwargs)
+    session.rollback()
+    session = session_cls(**kwargs)
     try:
         yield session
         session.commit()
@@ -69,3 +71,5 @@ def transactional_session(session_cls, **kwargs):
         # Roll back if the nested block raised an error
         session.rollback()
         raise
+    finally:
+        session.close()
