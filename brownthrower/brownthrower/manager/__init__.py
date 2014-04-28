@@ -26,7 +26,7 @@ class Manager(cmd.Cmd):
         cmd.Cmd.__init__(self, *args, **kwargs)
         
         self._session_maker = scoped_session(sessionmaker(engine))
-        self._subcmds     = {}
+        self._subcmds = {}
         
         self.prompt = '(brownthrower): '
     
