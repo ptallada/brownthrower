@@ -20,6 +20,7 @@ from sqlalchemy.types import DateTime, Integer, String, Text
 from . import model
 from .dependency import Dependency # @UnusedImport
 from .tag import Tag
+from .taskstore import tasks
 
 log = logging.getLogger('brownthrower.job')
 
@@ -153,8 +154,7 @@ class Job(model.Base):
     
     @reconstructor
     def _reconstruct(self):
-        # TODO: self._impl = <search Task in task store>
-        self._impl = None
+        self._impl = tasks.get(self.task, None)
     
     def __repr__(self):
         return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
@@ -478,7 +478,7 @@ class Job(model.Base):
             raise TaskNotAvailableException(self.task)
     
     def process(self):
-        self.assert_is_available()
+        self.assert_is_available() # TODO: Strictly, it doesnt have to be called
         if self.status != Job.Status.QUEUED:
             raise InvalidStatusException("Only jobs in QUEUED status can be processed.")
         if any([parent.status != Job.Status.DONE for parent in self.parents]):
@@ -524,11 +524,8 @@ class Job(model.Base):
         return children
     
     def finish(self, exc):
-        self.assert_is_available()
         if self.status != Job.Status.PROCESSING:
             raise InvalidStatusException("Only jobs in PROCESSING status can be finished.")
-        if not self.raw_output:
-            raise InvalidStatusException("Cannot finish a job that has no output.")
         self._ts_ended = func.now()
         if not exc:
             self._status = Job.Status.DONE

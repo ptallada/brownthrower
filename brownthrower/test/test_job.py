@@ -118,21 +118,15 @@ class TestSuperSub(TestJobBase):
                 j1.subjobs.add(j2)
         
         sts_super = [
-            bt.Job.Status.CANCELLED,
-            bt.Job.Status.CANCELLING,
             bt.Job.Status.DONE,
             bt.Job.Status.FAILED,
-            bt.Job.Status.FAILING,
             bt.Job.Status.STASHED,
             bt.Job.Status.QUEUED,
         ]
         
         sts_sub = [
-            bt.Job.Status.CANCELLED,
-            bt.Job.Status.CANCELLING,
             bt.Job.Status.DONE,
             bt.Job.Status.FAILED,
-            bt.Job.Status.FAILING,
             bt.Job.Status.PROCESSING,
             bt.Job.Status.QUEUED,
         ]
@@ -211,11 +205,8 @@ class TestParents(TestJobBase):
                 j1.children.add(j2)
         
         status = [
-            bt.Job.Status.CANCELLED,
-            bt.Job.Status.CANCELLING,
             bt.Job.Status.DONE,
             bt.Job.Status.FAILED,
-            bt.Job.Status.FAILING,
             bt.Job.Status.PROCESSING,
             bt.Job.Status.QUEUED,
         ]

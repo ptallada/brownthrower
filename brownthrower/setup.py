@@ -66,11 +66,10 @@ setup(
         'console_scripts' : [
             'brownthrower = brownthrower.manager.__init__:main',
             'runner.serial = brownthrower.runner.serial.__init__:main',
-            'dispatcher.static = brownthrower.dispatcher.static.__init__:main',
+            #'dispatcher.static = brownthrower.dispatcher.static.__init__:main',
         ],
         'brownthrower.task' : [
-            # math
-            'random = brownthrower.examples.random:Random',
+            'random = brownthrower.examples.math:Random',
         ],
     },
     

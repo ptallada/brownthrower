@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import brownthrower
+import brownthrower as bt
 
-class Random(brownthrower.Task):
+class Random(bt.Task):
     """
     Return a random float.
     
@@ -13,9 +13,10 @@ class Random(brownthrower.Task):
     
     _bt_name = 'random'
     
-    def run(self):
+    @classmethod
+    def run(cls, job):
         import random
         
-        print self.config
-        print self.input
+        print job.get_config()
+        print job.get_input()
         return random.random()

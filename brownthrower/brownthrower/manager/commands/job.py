@@ -210,6 +210,34 @@ class JobList(Command):
             finally:
                 log.debug(e)
 
+class JobTags(Command):
+    """\
+    usage: job tags <id>
+     
+    Show all information about the tags of the job with the given id.
+    """
+     
+    def do(self, items):
+        if len(items) != 1:
+            return self.help(items)
+         
+        try:
+            with bt.transactional_session(self.session_maker) as session:
+                job = session.query(bt.Job).filter_by(id = items[0]).one()
+                
+                for name, value in job.tag.iteritems():
+                    print strong("### %s:" % name)
+                    print value
+                    print
+        
+        except Exception as e:
+            try:
+                raise
+            except NoResultFound:
+                error("The specified job does not exist.")
+            finally:
+                log.debug(e)
+
 class JobShow(Command):
     """\
     usage: job show <id>

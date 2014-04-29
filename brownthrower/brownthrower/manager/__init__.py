@@ -112,20 +112,21 @@ def main(args = None):
     if not args:
         args = sys.argv[1:]
     
-    print "brownthrower manager v{version} is loading...".format(
-        version = bt.release.__version__
-    )
     options = _parse_args(args)
-    db_url = options.get('database_url')
     
-    engine = bt.create_engine(db_url)
+    # TODO: Add debugging option
+    from pysrc import pydevd
+    pydevd.settrace()
     
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
     
-    # TODO: Add debugging option
-    #from pysrc import pydevd
-    #pydevd.settrace()
+    print "brownthrower manager v{version} is loading...".format(
+        version = bt.release.__version__
+    )
+    
+    db_url = options.get('database_url')
+    engine = bt.create_engine(db_url)
     
     manager = Manager(engine)
     try:
