@@ -22,8 +22,25 @@ class Manager(cmd.Cmd):
     usage: <command> [options]
     """
     
-    def __init__(self, engine, *args, **kwargs):
-        cmd.Cmd.__init__(self, *args, **kwargs)
+    def _parse_args(self, args = None):
+        parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
+        parser.add_argument('--database-url', '-u', default="sqlite:///", metavar='URL',
+            help="use the settings in %(metavar)s to establish the database connection (default: '%(default)s')")
+        parser.add_argument('--help', '-h', action='help',
+            help='show this help message and exit')
+        parser.add_argument('--version', '-v', action='version', 
+            version='%%(prog)s %s' % bt.release.__version__)
+        
+        options = vars(parser.parse_args(args))
+        
+        return options
+    
+    def __init__(self, args):
+        cmd.Cmd.__init__(self)
+        
+        options = self._parse_args(args)
+        db_url = options.get('database_url')
+        engine = bt.create_engine(db_url)
         
         self._session_maker = scoped_session(sessionmaker(engine))
         self._subcmds = {}
@@ -86,49 +103,18 @@ class Manager(cmd.Cmd):
     def postloop(self):
         print
 
-def _parse_args(args = None):
-    parser = argparse.ArgumentParser(prog='manager', add_help=False)
-    parser.add_argument('--database-url', '-u', default="sqlite:///", metavar='URL',
-                        help="use the settings in %(metavar)s to establish the database connection (default: '%(default)s')")
-    #parser.add_argument('--debug', '-d', const='pdb', nargs='?', default=argparse.SUPPRESS,
-    #                    help="enable debugging framework (deactivated by default, '%(const)s' if no specific framework is requested)",
-    #                    choices=['pydevd', 'ipdb', 'rpdb', 'pdb'])
-    #parser.add_argument('--editor', default=argparse.SUPPRESS, metavar='COMMAND',
-    #                    help='use %(metavar)s to edit text files')
-    parser.add_argument('--help', '-h', action='help',
-                        help='show this help message and exit')
-    #parser.add_argument('--history-length', type=int, default=argparse.SUPPRESS, metavar='NUMBER',
-    #                    help='preserve as many as %(metavar)s lines of history')
-    #parser.add_argument('--pager', default=argparse.SUPPRESS, metavar='COMMAND',
-    #                    help='use %(metavar)s to display large chunks of text')
-    parser.add_argument('--version', '-v', action='version', 
-                        version='%%(prog)s %s' % bt.release.__version__)
-    
-    options = vars(parser.parse_args(args))
-    
-    return options
-
 def main(args = None):
     if not args:
         args = sys.argv[1:]
     
-    options = _parse_args(args)
-    
     # TODO: Add debugging option
-    from pysrc import pydevd
-    pydevd.settrace()
+    #from pysrc import pydevd
+    #pydevd.settrace()
     
     logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
     
-    print "brownthrower manager v{version} is loading...".format(
-        version = bt.release.__version__
-    )
-    
-    db_url = options.get('database_url')
-    engine = bt.create_engine(db_url)
-    
-    manager = Manager(engine)
+    manager = Manager(args)
     try:
         manager.cmdloop()
     except KeyboardInterrupt:

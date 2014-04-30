@@ -219,7 +219,6 @@ class Job(model.Base):
     
     @classmethod
     def __declare_last__(cls):
-        
         @event.listens_for(cls.children, 'append', propagate=True)
         @event.listens_for(cls.children, 'remove', propagate=True)
         def _set_parent_children(parent, child, initiator):

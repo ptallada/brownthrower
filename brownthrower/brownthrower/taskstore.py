@@ -31,22 +31,33 @@ class TaskStore(collections.Mapping):
         if isinstance(entry, pkg_resources.EntryPoint):
             log.info("Loading task «%s» from module «%s»" % (entry.name, entry.module_name))
             try:
-                entry = entry.load()
-                entry._bt_name = key
+                task = entry.load()
+                if task._bt_name == None:
+                    task._bt_name = key
+                
+                if task._bt_name != key:
+                    raise RuntimeError("Task from '%s' has an inconsistent name ('%s'<>'%s')" % (entry.module, task._bt_name, key))
+                
                 log.debug("Task '%s' successfully initialized" % key)
+                
+                return task
             
-            except Exception:
+            except Exception as e:
                 try:
                     raise
-                except (ImportError, SyntaxError):
-                    log.debug("Could not load task '%s' from module '%s', disabling it." % (entry.name, entry.module_name))
-                    del self._tasks[key]
-                    return self._tasks.__getitem__(key)
+                except ImportError:
+                    log.warning("Could not import task '%s' from module '%s', disabling it." % (entry.name, entry.module_name))
+                except SyntaxError:
+                    log.warning("Syntax error in task '%s' from module '%s', disabling it." % (entry.name, entry.module_name))
+                except RuntimeError:
+                    log.warning(e.message)
                 finally:
                     ex = traceback.format_exc()
                     log.debug(ex)
-        
-        return entry
+                    del self._tasks[key]
+                    return self._tasks.__getitem__(key)
+        else:
+            return entry
     
     def __iter__(self):
         return self._tasks.__iter__()

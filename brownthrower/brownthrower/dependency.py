@@ -16,6 +16,7 @@ class Dependency(model.Base):
         # Primary key
         PrimaryKeyConstraint('parent_job_id', 'child_job_id', name='pk_dependency'),
         # Foreign keys
+        # FIXME: This constraints are not useful for top-level jobs
         ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_parent'),
         ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_child'),
         ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_parent'),

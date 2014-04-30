@@ -147,7 +147,7 @@ class JobCreate(Command):
 #                     contents[dataset] = open(path, 'r').read()
                 
                 
-            job = task()
+            job = task.create_job()
 #             job.config = contents['config']
 #             job.input  = contents['input']
             job_id = _add(job)
