@@ -39,7 +39,10 @@ def create_engine(db_url):
     return engine
 
 def is_serializable_error(exc):
-    return exc.orig.pgcode == '40001'
+    if hasattr(exc.orig, 'pgcode'): 
+        return exc.orig.pgcode == '40001'
+    else:
+        return False
 
 def retry_on_serializable_error(fn):
     def wrapper(*args, **kwargs):
