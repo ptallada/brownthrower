@@ -126,7 +126,7 @@ class Job(model.Base):
         PROCESSING  = 'PROCESSING'
         # The job has finished successfully.
         DONE        = 'DONE'
-        # The job did not finish succesfully.
+        # The job did not finish successfully.
         FAILED      = 'FAILED'
     
     ###########################################################################
