@@ -34,7 +34,10 @@ class TaskList(Command):
         
         table = []
         for name in sorted(bt.tasks.keys()):
-            table.append([name, bt.tasks[name].__module__, bt.tasks[name].summary])
+            try:
+                table.append([name, bt.tasks[name].__module__, bt.tasks[name].summary])
+            except KeyError:
+                pass
         
         print tabulate(table, headers=['name', 'module', 'summary'])
 
