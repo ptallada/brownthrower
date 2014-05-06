@@ -34,6 +34,7 @@ def create_engine(db_url):
     else:
         engine = sa_create_engine(url, isolation_level="SERIALIZABLE")
     
+    # FIXME: Do not create anything here. Move Base to bt.__init__. Write install script
     Base.metadata.create_all(bind = engine)
     
     return engine
