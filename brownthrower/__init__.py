@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""\
+Brownthrower main module documentation
+"""
 
 import contextlib
 import logging
@@ -31,8 +34,13 @@ log = logging.getLogger('brownthrower')
 log.addHandler(NullHandler())
 
 tasks = taskstore.TaskStore()
+"""Global task container, implemented as a read-only dict."""
 
 class Dependency(Base):
+    """\
+    Main class Dependency documentation text
+    """
+    
     __tablename__ = 'dependency'
     __table_args__ = (
         # Primary key
@@ -59,6 +67,10 @@ class Dependency(Base):
         )
 
 class InvalidStatusException(Exception):
+    """\
+    Exception that is raised when an invalid status
+    """
+    
     def __init__(self, message=None):
         self.message = message
         
@@ -66,6 +78,10 @@ class InvalidStatusException(Exception):
         return str(self.message)
 
 class TaskNotAvailableException(Exception):
+    """\
+    Exception raised when a task is not available
+    """
+    
     def __init__(self, task):
         self.message = "Task '%s' is not available in this environment." % task
         
@@ -122,20 +138,28 @@ class Job(Base):
         primaryjoin       = 'Dependency._child_job_id == Job._id',
         secondaryjoin     = 'Job._id == Dependency._parent_job_id',
         collection_class  = set)
+    """parents relationship"""
+    
     children = relationship('Job',
         back_populates    = 'parents',  secondary = 'dependency',
         primaryjoin       = 'Dependency._parent_job_id == Job._id',
         secondaryjoin     = 'Job._id == Dependency._child_job_id',
         collection_class  = set)
+    """children relationship"""
+    
     superjob = relationship('Job',
         back_populates    = 'subjobs',
         primaryjoin       = 'Job._super_id == Job._id',
         remote_side       = 'Job._id')
+    """superjob relationship"""
+    
     subjobs  = relationship('Job',
         back_populates    = 'superjob',
         primaryjoin       = 'Job._super_id == Job._id',
         cascade           = 'all, delete-orphan', passive_deletes = True,
         collection_class  = set)
+    """subjobs relationship"""
+    
     _tags    = relationship('Tag',
         cascade           = 'all, delete-orphan', passive_deletes = True,
         collection_class  = attribute_mapped_collection('_name'))
@@ -145,23 +169,29 @@ class Job(Base):
     ###########################################################################
     
     tag = association_proxy('_tags', '_value', creator=lambda name, value: Tag(_name=name, _value=value))
+    """tag association proxy"""
     
     ###########################################################################
     # STATUS                                                                  #
     ###########################################################################
     
     class Status(object):
-        # Preparation phase. It is being configured and cannot be executed yet.
+        """\
+        statsu class
+        """
         STASHED     = 'STASHED'
-        # The job has been configured and its dependencies are already set.
-        # It will be executed as soon as possible.
+        """Preparation phase. It is being configured and cannot be executed yet."""
         QUEUED      = 'QUEUED'
-        # The job is being processed.
+        """\
+        The job has been configured and its dependencies are already set.
+        It will be executed as soon as possible.
+        """
         PROCESSING  = 'PROCESSING'
-        # The job has finished successfully.
+        """The job is being processed."""
         DONE        = 'DONE'
-        # The job did not finish successfully.
+        """The job has finished successfully."""
         FAILED      = 'FAILED'
+        """The job did not finish successfully."""
     
     ###########################################################################
     # CONSTRUCTORS AND SPECIAL METHODS                                        #
@@ -602,22 +632,26 @@ class DocumentedTask(type):
     def description(self):
         return textwrap.dedent('\n'.join(self.__doc__.strip().split('\n')[1:])).strip()
 
-class BaseTask(object):
+class Task(object):
+    """
+    Base class for user-defined Tasks.
+    
+    All Task subclasses must inherit from this class and override, as needed,
+    the following methods:
+     * :meth:`prolog`
+     * :meth:`epilog`
+     * :meth:`run`
+    """
     __metaclass__ = DocumentedTask
     
     _bt_name = None
     
     @classmethod
     def create_job(cls):
+        """\
+        Create a :class:`Job` instance corresponding to this Task.
+        """
         return Job(task = cls._bt_name, impl = cls)
-
-class Task(BaseTask):
-    """
-    Base class for user-defined Tasks.
-    
-    All Task subclasses must inherit from this class and override the methods
-    defined in brownthrower.interface.Task.
-    """
     
     @classmethod
     def prolog(cls, job):
