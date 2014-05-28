@@ -4,7 +4,7 @@
 import brownthrower as bt
 import errno
 import logging
-import readline
+import readline # @UnresolvedImport
 import subprocess
 import tempfile
 import textwrap
