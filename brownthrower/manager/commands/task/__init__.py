@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 import brownthrower as bt
 import logging
 import textwrap
@@ -35,11 +34,11 @@ class TaskList(Command):
         table = []
         for name in sorted(bt.tasks.keys()):
             try:
-                table.append([name, bt.tasks[name].__module__, bt.tasks[name].summary])
+                table.append([name, bt.tasks[name].__module__])
             except KeyError:
                 pass
         
-        print tabulate(table, headers=['name', 'module', 'summary'])
+        print tabulate(table, headers=['name', 'module'])
 
 class TaskShow(Command):
     """\

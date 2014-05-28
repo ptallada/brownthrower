@@ -13,7 +13,7 @@ import yaml
 from .base import Command, error, warn, success, strong
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer
 from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate
 
@@ -180,7 +180,11 @@ class JobList(Command):
          
         try:
             with bt.transactional_session(self.session_maker) as session:
-                jobs = session.query(bt.Job).order_by(bt.Job.id).all()
+                jobs = session.query(bt.Job).options(
+                    defer('_input'),
+                    defer('_config'),
+                    defer('_output'),
+                ).order_by(bt.Job.id).all()
                 
                 if not jobs:
                     warn("No jobs found were found.")
@@ -291,6 +295,9 @@ class JobGraph(Command):
                     joinedload(bt.Job.parents),
                     joinedload(bt.Job.children),
                     joinedload(bt.Job.subjobs),
+                    defer('_input'),
+                    defer('_config'),
+                    defer('_output'),
                 ).one()
                 
                 table = []

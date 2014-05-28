@@ -64,19 +64,12 @@ class SerialRunner(object):
                 # Retrieve job
                 job = session.query(bt.Job).filter_by(id = job_id).one()
                 if not job.subjobs:
-                    subjobs = job.prolog()
-                    if subjobs:
-                        print "warning: deprecated"
-                        #TODO: create subjobs using compat code
-                        return
-                    
-                    else:
+                    job.prolog()
+                    if not job.subjobs:
                         job.run()
+                
                 else:
-                    children = job.epilog()
-                    if children:
-                        print "warning: deprecated"
-                        #TODO: create children using compat code
+                    job.epilog()
         
         @bt.retry_on_serializable_error
         def _finish(job_id, exc):

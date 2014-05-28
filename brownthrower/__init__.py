@@ -8,6 +8,7 @@ import contextlib
 import logging
 import textwrap
 import traceback
+import warnings
 import yaml
 
 from sqlalchemy import event, func, literal_column
@@ -35,6 +36,25 @@ log.addHandler(NullHandler())
 
 tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
+
+def deprecated(func):
+    """
+    This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emmitted
+    when the function is used.
+    """
+    def newFunc(*args, **kwargs):
+        warnings.warn(
+            "Call to deprecated function %s." % func.__name__,
+            category=DeprecationWarning, stacklevel=2
+        )
+        return func(*args, **kwargs)
+    
+    newFunc.__name__ = func.__name__
+    newFunc.__doc__ = func.__doc__
+    newFunc.__dict__.update(func.__dict__)
+    
+    return newFunc
 
 class Dependency(Base):
     """\
@@ -179,18 +199,18 @@ class Job(Base):
         """\
         statsu class
         """
-        STASHED     = 'STASHED'
+        STASHED = 'STASHED'
         """Preparation phase. It is being configured and cannot be executed yet."""
-        QUEUED      = 'QUEUED'
+        QUEUED = 'QUEUED'
         """\
         The job has been configured and its dependencies are already set.
         It will be executed as soon as possible.
         """
-        PROCESSING  = 'PROCESSING'
+        PROCESSING = 'PROCESSING'
         """The job is being processed."""
-        DONE        = 'DONE'
+        DONE = 'DONE'
         """The job has finished successfully."""
-        FAILED      = 'FAILED'
+        FAILED = 'FAILED'
         """The job did not finish successfully."""
     
     ###########################################################################
@@ -526,6 +546,65 @@ class Job(Base):
     # TASK                                                                    #
     ###########################################################################
     
+    @deprecated
+    def _create_subjobs(self, subtasks):
+        """
+        {
+            'subjobs' : [
+                Task_A(config),
+                Task_B(config),
+                Task_B(config),
+            ],
+            'input' : {
+                task_M : <input>,
+                task_N : <input>,
+            }
+            'links' : [
+                ( task_X, task_Y ),
+            ]
+        }
+        """
+        subjobs = {}
+        for task in subtasks.get('subjobs', []):
+            subjobs[task] = task.create_job()
+            subjobs[task].set_config = task.config
+        
+        for (task, inp) in subtasks.get('input', {}).iteritems():
+            subjobs[task].set_input(inp)
+        
+        for link in subtasks.get('links', []):
+            subjobs[link[0]].children.append(subjobs[link[1]])
+        
+        return subjobs.values()
+    
+    @deprecated
+    def _create_childjobs(self, childtasks):
+        """
+        {
+            'children' : {
+                Task_A(config),
+                Task_B(config),
+                Task_B(config),
+            },
+            'links' : [
+                ( task_X, task_Y ),
+            ]
+            'output' : <output>
+        }
+        """
+        children = {}
+        for task in childtasks.get('children', []):
+            children[task] = task.create_job()
+            children[task].set_config = task.config
+        
+        for (task, inp) in childtasks.get('input', {}).iteritems():
+            children[task].set_input(inp)
+        
+        for link in childtasks.get('links', []):
+            children[link[0]].children.append(children[link[1]])
+        
+        return children.values()
+    
     def get_sample(self, dataset):
         if dataset not in ['config', 'input']:
             raise ValueError("The value '%s' is not a valid dataset." % dataset)
@@ -560,7 +639,12 @@ class Job(Base):
         if self.subjobs:
             raise InvalidStatusException("Cannot execute prolog on jobs that have subjobs.")
         # Execute prolog implementation
-        return self._impl.prolog(self)
+        subtasks =  self._impl.prolog(self)
+        if subtasks:
+            subjobs = self._create_subjobs(subtasks)
+            self.subjobs.extend(subjobs)
+            for job in subjobs:
+                job.submit()
     
     def run(self):
         self.assert_is_available()
@@ -571,9 +655,7 @@ class Job(Base):
         if self.raw_output:
             raise InvalidStatusException("Cannot execute a job that already has an output.")
         # Execute run implementation 
-        value = self._impl.run(self)
-        self.set_dataset('output', value)
-        return value
+        self.set_dataset('output', self._impl.run(self))
     
     def epilog(self):
         self.assert_is_available()
@@ -582,9 +664,24 @@ class Job(Base):
         if not self.subjobs:
             raise InvalidStatusException("Cannot execute epilog on jobs that have no subjobs.")
         # Execute epilog implementation
-        (children, value) = self._impl.epilog(self)
-        self.set_dataset('output', value)
-        return children
+        value = self._impl.epilog(self)
+        if isinstance(value, dict) and 'children' in value and 'links' in value:
+            # Create child jobs
+            children = self._create_childubjobs(value)
+            self.children.extend(children)
+            for job in children:
+                job.submit()
+            
+            if 'output' in value:
+                self.set_dataset('output', value['output'])
+            else:
+                self.set_dataset('output', [
+                    job.output
+                    for job in self.subjobs
+                    if not job.children
+                ])
+        else:
+            self.set_dataset('output', value)
     
     def finish(self, exc):
         if self.status != Job.Status.PROCESSING:
@@ -623,15 +720,6 @@ class Tag(Base):
             repr(self._value),
         )
 
-class DocumentedTask(type):
-    @property
-    def summary(self):
-        return self.__doc__.strip().split('\n')[0].strip()
-    
-    @property
-    def description(self):
-        return textwrap.dedent('\n'.join(self.__doc__.strip().split('\n')[1:])).strip()
-
 class Task(object):
     """
     Base class for user-defined Tasks.
@@ -642,9 +730,12 @@ class Task(object):
      * :meth:`epilog`
      * :meth:`run`
     """
-    __metaclass__ = DocumentedTask
     
     _bt_name = None
+    
+    @deprecated
+    def __init__(self, config):
+        self.config = config
     
     @classmethod
     def create_job(cls):

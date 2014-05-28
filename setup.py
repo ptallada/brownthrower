@@ -10,13 +10,10 @@ install_requires = [
     'glite>=1.8.0',
     'logutils', # Only for Python <= 2.6
     'PyYAML',
-    'repoze.sendmail',
     'setuptools',
     'SQLAlchemy >=0.9, <1.0',
     'tabulate',
     'termcolor',
-    'transaction',
-    'zope.sqlalchemy',
 ]
 
 # Read README and CHANGES files for the long description
