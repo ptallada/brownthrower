@@ -18,8 +18,8 @@ class SerialRunner(object):
     
     def _parse_args(self, args = None):
         parser = argparse.ArgumentParser(prog='runner.serial', add_help=False)
-        parser.add_argument('--database-url', '-u', default="sqlite:///", metavar='URL',
-                            help="use the settings in %(metavar)s to establish the database connection (default: '%(default)s')")
+        parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+            help="use the settings in %(metavar)s to establish the database connection")
         parser.add_argument('--help', '-h', action='help',
             help='show this help message and exit')
         

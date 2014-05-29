@@ -5,12 +5,9 @@ import argparse
 import cmd
 import logging
 import textwrap
-# import signal
 import sys
-# import transaction
 
 import brownthrower as bt
-# from brownthrower.api.profile import settings
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import sessionmaker
 from tabulate import tabulate
@@ -24,8 +21,8 @@ class Manager(cmd.Cmd):
     
     def _parse_args(self, args = None):
         parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
-        parser.add_argument('--database-url', '-u', default="sqlite:///", metavar='URL',
-            help="use the settings in %(metavar)s to establish the database connection (default: '%(default)s')")
+        parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+            help="use the settings in %(metavar)s to establish the database connection")
         parser.add_argument('--help', '-h', action='help',
             help='show this help message and exit')
         parser.add_argument('--version', '-v', action='version', 
