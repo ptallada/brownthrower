@@ -4,6 +4,7 @@
 import contextlib
 import logging
 
+from functools import wraps
 from sqlalchemy import event
 from sqlalchemy.engine import create_engine as sa_create_engine
 from sqlalchemy.engine.url import make_url
@@ -46,6 +47,7 @@ def is_serializable_error(exc):
         return False
 
 def retry_on_serializable_error(fn):
+    @wraps(fn)
     def wrapper(*args, **kwargs):
         while True:
             try:
