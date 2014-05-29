@@ -96,11 +96,11 @@ class StaticDispatcher(object):
         engine = bt.create_engine(self._db_url)
         self._session_maker = scoped_session(sessionmaker(engine))
         
-        options = [
+        arguments = [
             '-u', self._db_url,
         ]
-        options.append(options.pop('runner_args'))
-        self._runner_args = ' '.join(options)
+        arguments.append(options.pop('runner_args'))
+        self._runner_args = ' '.join(arguments)
         
         self._ce_queue      = options.pop('ce_queue')
         self._pool_size     = options.pop('pool_size')
@@ -128,6 +128,8 @@ class StaticDispatcher(object):
         with self._write_jdl(self._runner_path, self._runner_args) as jdl_file:
             pilot_id = glite.ce.job.submit(jdl_file, endpoint=self._ce_queue)
             self._pilots[pilot_id] = glite.ce.job.CEJobStatus.UNKNOWN
+        
+        return pilot_id
     
     def _update_status(self):
         finished = 0
