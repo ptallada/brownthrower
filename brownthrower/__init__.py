@@ -567,15 +567,15 @@ class Job(Base):
         subjobs = {}
         for task in subtasks.get('subjobs', []):
             subjobs[task] = task.create_job()
-            subjobs[task].set_config = task.config
+            subjobs[task].set_config(task.config)
         
         for (task, inp) in subtasks.get('input', {}).iteritems():
             subjobs[task].set_input(inp)
         
         for link in subtasks.get('links', []):
-            subjobs[link[0]].children.append(subjobs[link[1]])
+            subjobs[link[0]].children.add(subjobs[link[1]])
         
-        return subjobs.values()
+        return set(subjobs.values())
     
     @deprecated
     def _create_childjobs(self, childtasks):
@@ -601,9 +601,9 @@ class Job(Base):
             children[task].set_input(inp)
         
         for link in childtasks.get('links', []):
-            children[link[0]].children.append(children[link[1]])
+            children[link[0]].children.add(children[link[1]])
         
-        return children.values()
+        return set(children.values())
     
     def get_sample(self, dataset):
         if dataset not in ['config', 'input']:
@@ -642,7 +642,7 @@ class Job(Base):
         subtasks =  self._impl.prolog(self)
         if subtasks:
             subjobs = self._create_subjobs(subtasks)
-            self.subjobs.extend(subjobs)
+            self.subjobs |= subjobs
             for job in subjobs:
                 job.submit()
     
@@ -668,7 +668,7 @@ class Job(Base):
         if isinstance(value, dict) and 'children' in value and 'links' in value:
             # Create child jobs
             children = self._create_childubjobs(value)
-            self.children.extend(children)
+            self.children |= children
             for job in children:
                 job.submit()
             
