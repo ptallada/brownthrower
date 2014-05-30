@@ -4,7 +4,9 @@
 import argparse
 import brownthrower as bt
 import logging
+import signal
 import sys
+import threading
 import time
 import traceback
 
@@ -38,6 +40,13 @@ class SerialRunner(object):
         
         return options
     
+    def _system_exit(self, *args, **kwargs):
+        if self._lock.acquire(False):
+            log.warning("Caught signal. Terminating...")
+            sys.exit(1)
+        else:
+            log.warning("Caught signal. Terminating already in progress...")
+    
     def __init__(self, args):
         options = self._parse_args(args)
         db_url = options.get('database_url')
@@ -49,6 +58,11 @@ class SerialRunner(object):
         self._notify_failed = options.pop('notify_failed', None)
         self._post_mortem   = options.pop('post_mortem', None)
         self._submit        = options.pop('submit', False)
+        
+        self._lock = threading.Lock()
+        
+        signal.signal(signal.SIGINT,  self._system_exit)
+        signal.signal(signal.SIGTERM, self._system_exit)
     
     def _run_job(self, job_id, submit=False):
         @bt.retry_on_serializable_error

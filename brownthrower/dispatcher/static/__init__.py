@@ -6,9 +6,11 @@ import collections
 import contextlib
 import glite.ce.job
 import logging
+import signal
 import string
 import sys
 import tempfile
+import threading
 import time
 
 from functools import wraps
@@ -50,7 +52,7 @@ def retry(tries):
                     value = fn(*args, **kwargs)
                     return value
                 except Exception as e:
-                    log.warning("Exception «%s» caugth while calling %s. Retrying..." % (e, fn))
+                    log.warning("Exception «%s» caught while calling %s. Retrying..." % (e, fn))
             
             value = fn(*args, **kwargs)
             return value
@@ -89,6 +91,13 @@ class StaticDispatcher(object):
         
         return options
     
+    def _system_exit(self, *args, **kwargs):
+        if self._lock.acquire(False):
+            log.warning("Caught signal. Terminating...")
+            sys.exit(1)
+        else:
+            log.warning("Caught signal. Terminating already in progress...")
+    
     def __init__(self, args):
         options = self._parse_args(args)
         
@@ -108,6 +117,14 @@ class StaticDispatcher(object):
         
         self._pilots = {}
         self._last_event = 0
+        self._lock = threading.Lock()
+        
+        signal.signal(signal.SIGINT,  self._system_exit)
+        signal.signal(signal.SIGTERM, self._system_exit)
+    
+    @retry(tries = 3)
+    def _init_status(self):
+        self._last_event = glite.ce.last_event_id(self._ce_queue.split('/')[0])
     
     @contextlib.contextmanager
     def _write_jdl(self, executable, arguments):
@@ -131,6 +148,7 @@ class StaticDispatcher(object):
         
         return pilot_id
     
+    @retry(tries = 3)
     def _update_status(self):
         finished = 0
         
@@ -173,7 +191,7 @@ class StaticDispatcher(object):
     
     def main(self):
         try:
-            self._last_event = glite.ce.last_event_id(self._ce_queue.split('/')[0])
+            self._init_status()
             
             log.info("Launching the initial pilots...")
             for _ in range(self._pool_size):
