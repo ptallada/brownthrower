@@ -232,9 +232,6 @@ class Job(Base):
                 raise ValueError("Mismatch between task name and implementer class.")
             if self._impl and self._impl != impl:
                 raise ValueError("Mismatch between internal implementer task and the provided one.")
-            
-            self.set_dataset('config', impl.config_sample())
-            self.set_dataset('input', impl.input_sample())
     
     @reconstructor
     def _reconstruct(self):
@@ -605,16 +602,6 @@ class Job(Base):
         
         return set(children.values())
     
-    def get_sample(self, dataset):
-        if dataset not in ['config', 'input']:
-            raise ValueError("The value '%s' is not a valid dataset." % dataset)
-        
-        meth = '%s_sample' % dataset
-        if self._impl:
-            return getattr(self._impl, meth)()
-        else:
-            return ''
-    
     def assert_is_available(self):
         if not self._impl:
             raise TaskNotAvailableException(self.task)
@@ -841,24 +828,3 @@ class Task(object):
         @return: output to be delivered as input for child jobs
         """
         pass
-    
-    @classmethod
-    def config_sample(cls):
-        """
-        Return a working configuration sample, that may be used as default.
-        
-        Users are expected to use these settings and only override those that do
-        not fit their needs.
-        
-        @rtype: object
-        """
-        return None
-    
-    @classmethod
-    def input_sample(cls):
-        """
-        Return a working input sample, that may be used as default.
-        
-        @rtype: object
-        """
-        return None

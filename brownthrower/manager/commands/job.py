@@ -634,8 +634,9 @@ class JobEdit(Command):
                 fh.seek(0)
                 return fh.read()
         
-        def _edit_dataset(value):
-            original_value = yaml.safe_dump(value, default_flow_style=False)
+        def _edit_dataset(task, value):
+            doc = '# ' + '\n# '.join(textwrap.dedent(task.__doc__).splitlines()) + '\n'
+            original_value = doc + yaml.safe_dump(value, default_flow_style=False)
             current_value = original_value
             while True:
                 new_value = _open_in_editor(current_value)
@@ -670,12 +671,10 @@ class JobEdit(Command):
                         job = session.query(bt.Job).filter_by(id = job_id).one()
                         job.assert_editable_dataset(dataset)
                         
-                        if job.get_raw_dataset(dataset):
-                            current_value = job.get_dataset(dataset)
-                        else:
-                            current_value = job.get_sample(dataset)
+                        current_value = job.get_dataset(dataset)
                         
-                        new_value = _edit_dataset(current_value)
+                        # FIXME: Use of private attribute
+                        new_value = _edit_dataset(job._impl, current_value)
                         job.set_dataset(dataset, new_value)
                         return current_value != new_value
                 
