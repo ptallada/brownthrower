@@ -643,6 +643,7 @@ class Job(Base):
             raise InvalidStatusException("Cannot execute a job that already has an output.")
         # Execute run implementation 
         self.set_dataset('output', self._impl.run(self))
+        self._status = Job.Status.DONE
     
     def epilog(self):
         self.assert_is_available()
@@ -669,14 +670,13 @@ class Job(Base):
                 ])
         else:
             self.set_dataset('output', value)
+        self._status = Job.Status.DONE
     
     def finish(self, exc):
         if self.status != Job.Status.PROCESSING:
             raise InvalidStatusException("Only jobs in PROCESSING status can be finished.")
         self._ts_ended = func.now()
-        if not exc:
-            self._status = Job.Status.DONE
-        else:
+        if exc:
             self._status = Job.Status.FAILED
             self.tag['last_traceback'] = traceback.format_exc()
         
