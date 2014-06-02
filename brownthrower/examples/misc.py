@@ -4,7 +4,7 @@
 import brownthrower as bt
 
 class Pipe(bt.Task):
-    """
+    """\
     Return the received input.
     
     Example task that returns a the received input as output, without any transformation.
@@ -17,10 +17,12 @@ class Pipe(bt.Task):
         return job.get_input()
 
 class Sleep(bt.Task):
-    """
+    """\
     Sleep an determined amount of seconds.
     
     Example task that takes an integer as a input and sleeps that amount of seconds.
+    
+    Example input: 5
     """
     
     _bt_name = 'sleep'

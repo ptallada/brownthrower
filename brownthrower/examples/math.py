@@ -4,7 +4,7 @@
 import brownthrower as bt
 
 class Random(bt.Task):
-    """
+    """\
     Return a random float.
     
     Example task that returns a random floating-point number in the range
