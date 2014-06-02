@@ -27,7 +27,7 @@ setup(
     name = 'brownthrower',
     version = __version__, # @UndefinedVariable
     packages = [ 'brownthrower' ],
-    namespace_packages = ['brownthrower'],
+    #namespace_packages = ['brownthrower'],
     
     install_requires = install_requires,
     
