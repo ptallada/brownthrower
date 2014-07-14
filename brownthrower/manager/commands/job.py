@@ -285,7 +285,7 @@ class JobTags(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             finally:
                 log.debug(e)
@@ -321,7 +321,7 @@ class JobShow(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             finally:
                 log.debug(e)
@@ -410,7 +410,7 @@ class JobGraph(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             finally:
                 log.debug(e)
@@ -442,7 +442,7 @@ class JobRemove(Command):
                 raise
             except bt.InvalidStatusException:
                 error(e.message)
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except IntegrityError:
                 error("Some dependencies prevent this job from being deleted.")
@@ -474,7 +474,7 @@ class JobSubmit(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except bt.InvalidStatusException:
                 error(e.message)
@@ -506,7 +506,7 @@ class JobReset(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except bt.InvalidStatusException:
                 error(e.message)
@@ -541,7 +541,7 @@ class JobLink(Command):
                 raise
             except bt.InvalidStatusException:
                 error(e.message)
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("One of the specified jobs does not exist.")
             finally:
                 log.debug(e)
@@ -572,7 +572,7 @@ class JobUnlink(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("One of the specified jobs does not exist.")
             finally:
                 log.debug(e)
@@ -602,7 +602,7 @@ class JobCancel(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except bt.InvalidStatusException:
                 error(e.message)
@@ -637,7 +637,7 @@ class JobClone(Command):
         except Exception as e:
             try:
                 raise
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except bt.InvalidStatusException:
                 error(e.message)
@@ -726,6 +726,8 @@ class JobEdit(Command):
                         job.set_dataset(dataset, new_value)
                         return current_value != new_value
                 
+                except DataError:
+                    raise
                 except bt.model.DBAPIError as e:
                     if bt.is_serializable_error(e):
                         warn("This job has received a concurrent modification.")
@@ -754,7 +756,7 @@ class JobEdit(Command):
                 raise
             #except api.task.UnavailableException:
             #    error("The task '%s' is not available in this environment." % e.task)
-            except NoResultFound:
+            except DataError, NoResultFound:
                 error("The specified job does not exist.")
             except bt.InvalidStatusException:
                 error(e.message)
