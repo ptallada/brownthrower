@@ -68,8 +68,6 @@ def transactional_session(session_cls, **kwargs):
     raised.
     """
     session = session_cls(**kwargs)
-    session.rollback()
-    session = session_cls(**kwargs)
     try:
         yield session
         session.commit()
