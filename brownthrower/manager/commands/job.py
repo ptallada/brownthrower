@@ -127,7 +127,7 @@ class JobCreate(Command):
                 return job.id
         
         try:
-            task = bt.tasks[items[0]]
+            job = bt.Job(task = items[0])
             
 #                 reference = {
 #                     'config' : self._profile['config'].get_default(items[0]) or 'sample',
@@ -149,7 +149,6 @@ class JobCreate(Command):
 #                     contents[dataset] = open(path, 'r').read()
                 
                 
-            job = task.create_job()
 #             job.config = contents['config']
 #             job.input  = contents['input']
             job_id = _add(job)
