@@ -5,6 +5,7 @@ import brownthrower as bt
 import errno
 import logging
 import readline # @UnresolvedImport
+import pyparsing as pp
 import subprocess
 import tempfile
 import textwrap
@@ -12,9 +13,10 @@ import yaml
 
 from .base import Command, error, warn, success, strong
 
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.orm import joinedload, defer
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import literal
 from tabulate import tabulate
 
 try:
@@ -169,22 +171,65 @@ class JobCreate(Command):
 
 class JobList(Command):
     """\
-    usage: job list
+    usage: job list [ filter ... ]
      
     Show a list of all the jobs registered in the database.
+    
+    The results can be filtered applying restrictions to the value of the
+    different columns. The syntax of a filter is:
+    
+    <field><operator><value>
+    
+    Note that there is no space between each component.
+    Allowed values for field are [id, super_id, task, status]
+    Supported operators are [<, <=, =, !=, >=, >]
+    
+    Examples:
+        id>1234
+        status!=DONE
+        task=myjob
     """
-     
+    
+    class JobFilter(object):
+        field = (
+            pp.Literal('id')       |
+            pp.Literal('super_id') |
+            pp.Literal('task')     |
+            pp.Literal('status')
+        ).setResultsName('field')
+        
+        operator = (
+            pp.Literal('<' ) |
+            pp.Literal('<=') |
+            pp.Literal('=' ) |
+            pp.Literal('!=') |
+            pp.Literal('>=') |
+            pp.Literal('>' )
+        ).setResultsName('operator')
+        
+        value = pp.Word(pp.alphanums).setResultsName('value')
+        
+        grammar = field + operator + value
+        
+        @classmethod
+        def parse(cls, items):
+            criteria = literal(True)
+            for item in items:
+                filter_ = cls.grammar.parseString(item)
+                criteria &= getattr(bt.Job, filter_.field).op(filter_.operator)(filter_.value)
+            
+            return criteria
+    
     def do(self, items):
-        if len(items) != 0:
-            return self.help(items)
-         
         try:
+            crit = self.JobFilter.parse(items)
+            
             with bt.transactional_session(self.session_maker) as session:
                 jobs = session.query(bt.Job).options(
                     defer('_input'),
                     defer('_config'),
                     defer('_output'),
-                ).order_by(bt.Job.id).all()
+                ).filter(crit).order_by(bt.Job.id).all()
                 
                 if not jobs:
                     warn("No jobs found were found.")
@@ -211,6 +256,10 @@ class JobList(Command):
         except Exception as e:
             try:
                 raise
+            except pp.ParseException:
+                error("One of the filters has the wrong syntax.")
+            except DataError:
+                error("One of the values whas the wrong type for the field.")
             finally:
                 log.debug(e)
 

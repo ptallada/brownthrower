@@ -9,6 +9,7 @@ install_requires = [
     'argparse',
     'glite>=1.8.0',
     'logutils', # Only for Python <= 2.6
+    'pyparsing',
     'PyYAML',
     'setuptools',
     'SQLAlchemy >=0.9, <1.0',
