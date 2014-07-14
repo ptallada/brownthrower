@@ -227,7 +227,7 @@ class StaticDispatcher(object):
                 
                 time.sleep(10)
 
-def main(args = None):
+def main(args=None):
     if not args:
         args = sys.argv[1:]
     
@@ -245,4 +245,4 @@ def main(args = None):
         print
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(sys.argv))

@@ -144,7 +144,7 @@ class SerialRunner(object):
                 finally:
                     log.debug(e)
 
-def main(args = None):
+def main(args=None):
     if not args:
         args = sys.argv[1:]
     
@@ -162,4 +162,4 @@ def main(args = None):
         print
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(sys.argv))
