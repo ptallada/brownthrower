@@ -673,8 +673,6 @@ class Job(Base):
         self._status = Job.Status.DONE
     
     def finish(self, exc):
-        if self.status != Job.Status.PROCESSING:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be finished.")
         self._ts_ended = func.now()
         if exc:
             self._status = Job.Status.FAILED
