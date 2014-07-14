@@ -477,7 +477,6 @@ class Job(Base):
         job._config   = self._config
         job._input    = self._input
         job.parents  = self.parents
-        job.children = self.children
         
         return job
     
