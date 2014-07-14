@@ -40,6 +40,8 @@ class TaskStore(collections.Mapping):
                 
                 log.debug("Task '%s' successfully initialized" % key)
                 
+                self._tasks[key] = task
+                
                 return task
             
             except Exception as e:
