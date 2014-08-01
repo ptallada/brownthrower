@@ -85,7 +85,7 @@ def _load_tasks(entry_point):
             except (AttributeError, AssertionError):
                 log.warning("Task '%s' does not properly implement the interface." % entry.module_name)
             except task.ValidationException:
-                log.warning("Failed to validate %s dataset from task '%s'." % (e.dataset, task.get_name(e.task)))
+                log.warning("Failed to validate %s dataset from task '%s'." % (e.dataset, e.task))
             except ImportError:
                 log.warning("Unable to import task from '%s'." % entry.module_name)
             finally:
