@@ -197,7 +197,7 @@ class Job(Base):
     
     class Status(object):
         """\
-        statsu class
+        status class
         """
         STASHED = 'STASHED'
         """Preparation phase. It is being configured and cannot be executed yet."""
@@ -235,6 +235,7 @@ class Job(Base):
     
     @reconstructor
     def _reconstruct(self):
+        # rename to 'task' and make a r/o descriptor
         self._impl = tasks.get(self.task, None)
     
     def __repr__(self):
@@ -258,6 +259,7 @@ class Job(Base):
     def super_id(self):
         return self._super_id
     
+    # TODO: rename to 'name'
     @hybrid_property
     def task(self):
         return self._task
