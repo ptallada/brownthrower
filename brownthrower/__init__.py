@@ -16,6 +16,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, reconstructor
 from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.orm.exc import DetachedInstanceError
 from sqlalchemy.orm.session import object_session
 from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
                                PrimaryKeyConstraint, UniqueConstraint)
@@ -410,17 +411,19 @@ class Job(Base):
             ancestor._update_status()
     
     def _remove(self):
-        # FIXME: We sould not be using session here...
         session = object_session(self)
-        if self.subjobs:
-            for subjob in self.subjobs:
-                subjob._remove()
-            session.delete(self)
-        elif self.status in [
-            Job.Status.STASHED,
-            Job.Status.FAILED,
-        ]:
-            session.delete(self)
+        if session:
+            if self.subjobs:
+                for subjob in self.subjobs:
+                    subjob._remove()
+                session.delete(self)
+            elif self.status in [
+                Job.Status.STASHED,
+                Job.Status.FAILED,
+            ]:
+                session.delete(self)
+        else:
+            raise DetachedInstanceError()
     
     def remove(self):
         if self.superjob:
