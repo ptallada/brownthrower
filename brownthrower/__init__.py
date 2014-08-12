@@ -35,6 +35,8 @@ except ImportError:
 log = logging.getLogger('brownthrower')
 log.addHandler(NullHandler())
 
+PG_CHANNEL_CANCEL = 'bt_cancel'
+
 tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
 
@@ -441,12 +443,19 @@ class Job(Base):
         self._remove()
     
     def _cancel(self):
-        if self.subjobs:
-            for subjob in self.subjobs:
-                subjob._cancel()
-            self._update_status()
+        session = object_session(self)
+        if session:
+            if session.bind.url.drivername == 'postgresql':
+                session.execute(
+                    "SELECT pg_notify(:channel, :payload);", {
+                        'channel' : PG_CHANNEL_CANCEL,
+                        'payload' : str(self.id),
+                    }
+                )
+            else:
+                NotImplementedError("Cancel operation is only supported in PostgreSQL.")
         else:
-            raise NotImplementedError
+            raise DetachedInstanceError()
     
     def cancel(self):
         if self.status not in [
@@ -455,9 +464,6 @@ class Job(Base):
             raise InvalidStatusException("This job cannot be cancelled in its current status.")
         
         self._cancel()
-        
-        for ancestor in self._ancestors():
-            ancestor._update_status()
     
     def reset(self):
         if self.superjob:
