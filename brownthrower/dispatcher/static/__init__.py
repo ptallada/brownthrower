@@ -94,7 +94,7 @@ class StaticDispatcher(object):
     def _system_exit(self, *args, **kwargs):
         if self._lock.acquire(False):
             log.warning("Caught signal. Terminating...")
-            sys.exit(1)
+            sys.exit(0)
         else:
             log.warning("Caught signal. Terminating already in progress...")
     
