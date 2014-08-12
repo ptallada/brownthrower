@@ -597,7 +597,7 @@ class JobCancel(Command):
         try:
             _cancel(items[0])
              
-            success("The job has been marked to be cancelled as soon as possible.")
+            success("The job has been signaled to be cancelled as soon as possible.")
         
         except Exception as e:
             try:
