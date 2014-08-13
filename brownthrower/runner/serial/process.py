@@ -11,9 +11,6 @@ import sys
 import threading
 import traceback
 
-from sqlalchemy.orm import scoped_session
-from sqlalchemy.orm.session import sessionmaker
-
 log = logging.getLogger('brownthrower.runner.serial')
 
 # Number of seconds to wait between SIGTERM and SIGKILL when terminating a job

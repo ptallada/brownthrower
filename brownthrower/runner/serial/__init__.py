@@ -22,12 +22,15 @@ from sqlalchemy.orm.session import sessionmaker
 from trunk import Trunk
 
 from . import process
-from . import utils
 
 log = logging.getLogger('brownthrower.runner.serial')
 
 class NoRunnableJobFound(Exception):
     pass
+
+class SelectableQueue(multiprocessing.queues.SimpleQueue):
+    def fileno(self):
+        return self._reader.fileno()
 
 class SerialRunner(object):
     
@@ -133,12 +136,12 @@ class SerialRunner(object):
                 break
     
     def main(self):
-        q_finish = utils.SelectableQueue()
+        q_finish = SelectableQueue()
         if self._session_maker.bind.url.drivername == 'postgresql':
-            q_cancel = utils.CancelQueue(self._session_maker.bind.url)
+            q_cancel = bt.Notifications(self._session_maker).listener(bt.Notifications.Channel.CANCEL)
         else:
             # Fallback dummy implementation
-            q_cancel = utils.SelectableQueue()
+            q_cancel = SelectableQueue()
         
         try:
             if self._job_id:
@@ -153,7 +156,7 @@ class SerialRunner(object):
                     log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
                     time.sleep(self._loop)
         
-        except BaseException as e:
+        except BaseException:
             try:
                 raise
 #             except NoResultFound:
