@@ -105,8 +105,8 @@ class TaskNotAvailableException(Exception):
     Exception raised when a task is not available
     """
     
-    def __init__(self, task):
-        self.message = "Task '%s' is not available in this environment." % task
+    def __init__(self, name):
+        self.message = "Task '%s' is not available in this environment." % name
         
     def __str__(self):
         return str(self.message)
@@ -142,7 +142,8 @@ class Job(Base):
     
     _id         = Column('id',         Integer,    nullable=False)
     _super_id   = Column('super_id',   Integer,    nullable=True)
-    _task       = Column('task',       String(50), nullable=False)
+    # TODO: rename field to 'name' and change index too
+    _name       = Column('task',       String(50), nullable=False)
     _status     = Column('status',     String(20), nullable=False)
     _config     = Column('config',     Text,       nullable=True)
     _input      = Column('input',      Text,       nullable=True)
@@ -220,9 +221,9 @@ class Job(Base):
     # CONSTRUCTORS AND SPECIAL METHODS                                        #
     ###########################################################################
     
-    def __init__(self, task, impl = None):
+    def __init__(self, name, task = None):
         values = {
-            '_task' : task,
+            '_name' : name,
             '_status' : Job.Status.STASHED,
             '_ts_created' : func.now(),
         }
@@ -230,28 +231,27 @@ class Job(Base):
         super(Job, self).__init__(**values)
         self._reconstruct()
         
-        if impl:
-            if impl._bt_name != task:
+        if task:
+            if task._bt_name != name:
                 raise ValueError("Mismatch between task name and implementer class.")
-            if self._impl and self._impl != impl:
+            if self._task and self._task != task:
                 raise ValueError("Mismatch between internal implementer task and the provided one.")
     
     @reconstructor
     def _reconstruct(self):
-        # rename to 'task' and make a r/o descriptor
-        self._impl = tasks.get(self.task, None)
+        self._task = tasks.get(self.name, None)
     
     def __repr__(self):
-        return u"%s(id=%s, super_id=%s, task=%s, status=%s)" % (
+        return u"%s(id=%s, super_id=%s, name=%s, status=%s)" % (
             self.__class__.__name__,
             repr(self._id),
             repr(self._super_id),
-            repr(self._task),
+            repr(self._name),
             repr(self._status),
         )
     
     ###########################################################################
-    # DESCRIPTORS                                                             #
+    # MAPPED ATTRIBUTES                                                       #
     ###########################################################################
     
     @hybrid_property
@@ -262,10 +262,9 @@ class Job(Base):
     def super_id(self):
         return self._super_id
     
-    # TODO: rename to 'name'
     @hybrid_property
-    def task(self):
-        return self._task
+    def name(self):
+        return self._name
     
     @hybrid_property
     def status(self):
@@ -298,6 +297,14 @@ class Job(Base):
     @hybrid_property
     def ts_ended(self):
         return self._ts_ended
+    
+    ###########################################################################
+    # DESCRIPTORS                                                             #
+    ###########################################################################
+    
+    @property
+    def task(self):
+        return self._task
     
     ###########################################################################
     # COLLECTION EVENTS                                                       #
@@ -484,7 +491,7 @@ class Job(Base):
         self._ts_ended = None
     
     def clone(self):
-        job = Job(self.task, self._impl)
+        job = Job(self.name, self.task)
         job._config   = self._config
         job._input    = self._input
         job.parents  = self.parents
@@ -613,8 +620,8 @@ class Job(Base):
         return set(children.values())
     
     def assert_is_available(self):
-        if not self._impl:
-            raise TaskNotAvailableException(self.task)
+        if not self.task:
+            raise TaskNotAvailableException(self.name)
     
     def process(self):
         self.assert_is_available() # TODO: Strictly, it doesnt have to be called
@@ -636,7 +643,7 @@ class Job(Base):
         if self.subjobs:
             raise InvalidStatusException("Cannot execute prolog on jobs that have subjobs.")
         # Execute prolog implementation
-        subtasks =  self._impl.prolog(self)
+        subtasks =  self.task.prolog(self)
         if subtasks:
             subjobs = self._create_subjobs(subtasks)
             self.subjobs |= subjobs
@@ -652,7 +659,7 @@ class Job(Base):
         if self.raw_output:
             raise InvalidStatusException("Cannot execute a job that already has an output.")
         # Execute run implementation 
-        self.set_dataset('output', self._impl.run(self))
+        self.set_dataset('output', self.task.run(self))
     
     def epilog(self):
         self.assert_is_available()
@@ -661,7 +668,7 @@ class Job(Base):
         if not self.subjobs:
             raise InvalidStatusException("Cannot execute epilog on jobs that have no subjobs.")
         # Execute epilog implementation
-        value = self._impl.epilog(self)
+        value = self.task.epilog(self)
         if isinstance(value, dict) and 'children' in value and 'links' in value:
             # Create child jobs
             children = self._create_childubjobs(value)
@@ -740,7 +747,7 @@ class Task(object):
         """\
         Create a :class:`Job` instance corresponding to this Task.
         """
-        return Job(task = cls._bt_name, impl = cls)
+        return Job(name = cls._bt_name, task = cls)
     
     @classmethod
     def prolog(cls, job):

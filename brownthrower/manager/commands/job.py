@@ -127,7 +127,7 @@ class JobCreate(Command):
                 return job.id
         
         try:
-            job = bt.Job(task = items[0])
+            job = bt.Job(name = items[0])
             
 #                 reference = {
 #                     'config' : self._profile['config'].get_default(items[0]) or 'sample',
@@ -180,20 +180,20 @@ class JobList(Command):
     <field><operator><value>
     
     Note that there is no space between each component.
-    Allowed values for field are [id, super_id, task, status]
+    Allowed values for field are [id, super_id, name, status]
     Supported operators are [<, <=, =, !=, >=, >]
     
     Examples:
         id>1234
         status!=DONE
-        task=myjob
+        name=myjob
     """
     
     class JobFilter(object):
         field = (
             pp.Literal('id')       |
             pp.Literal('super_id') |
-            pp.Literal('task')     |
+            pp.Literal('name')     |
             pp.Literal('status')
         ).setResultsName('field')
         
@@ -237,13 +237,13 @@ class JobList(Command):
                 table = []
                 headers = (
                     'id', 'super_id',
-                    'task', 'status',
+                    'name', 'status',
                     'created', 'queued', 'started', 'ended'
                 )
                 for job in jobs:
                     table.append([
                         job.id, job.super_id,
-                        job.task, job.status,
+                        job.name, job.status,
                         job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
                         job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued else None,
                         job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
@@ -306,7 +306,7 @@ class JobShow(Command):
                 job = session.query(bt.Job).filter_by(id = items[0]).one()
                 
                 print strong("### JOB DETAILS:")
-                for field in ['id', 'super_id', 'task', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
+                for field in ['id', 'super_id', 'name', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
                     print field.ljust(10) + ' : ' + str(getattr(job, field))
                 print
                 print strong("### JOB CONFIG:")
@@ -349,18 +349,18 @@ class JobGraph(Command):
                 ).one()
                 
                 table = []
-                headers = ('kind', 'id', 'super_id', 'task', 'status', 'created', 'queued', 'started', 'ended')
+                headers = ('kind', 'id', 'super_id', 'name', 'status', 'created', 'queued', 'started', 'ended')
                  
                 for parent in job.parents:
                     table.append([
-                        'PARENT', parent.id, parent.super_id, parent.task, parent.status,
+                        'PARENT', parent.id, parent.super_id, parent.name, parent.status,
                         parent.ts_created.strftime('%Y-%m-%d %H:%M:%S') if parent.ts_created else None,
                         parent.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if parent.ts_queued  else None,
                         parent.ts_started.strftime('%Y-%m-%d %H:%M:%S') if parent.ts_started else None,
                         parent.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if parent.ts_ended   else None,
                     ])
                 table.append([
-                    '#####', job.id, job.super_id, job.task, job.status,
+                    '#####', job.id, job.super_id, job.name, job.status,
                     job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
                     job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued  else None,
                     job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
@@ -368,7 +368,7 @@ class JobGraph(Command):
                 ])
                 for child in job.children:
                     table.append([
-                        'CHILD', child.id, child.super_id, child.task, child.status,
+                        'CHILD', child.id, child.super_id, child.name, child.status,
                         child.ts_created.strftime('%Y-%m-%d %H:%M:%S') if child.ts_created else None,
                         child.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if child.ts_queued  else None,
                         child.ts_started.strftime('%Y-%m-%d %H:%M:%S') if child.ts_started else None,
@@ -381,14 +381,14 @@ class JobGraph(Command):
                 table = []
                 if job.superjob:
                     table.append([
-                        'SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.task, job.superjob.status,
+                        'SUPER',  job.superjob.id, job.superjob.super_id, job.superjob.name, job.superjob.status,
                         job.superjob.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.superjob.ts_created else None,
                         job.superjob.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.superjob.ts_queued  else None,
                         job.superjob.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.superjob.ts_started else None,
                         job.superjob.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.superjob.ts_ended   else None,
                     ])
                 table.append([
-                    '#####', job.id, job.super_id, job.task, job.status,
+                    '#####', job.id, job.super_id, job.name, job.status,
                     job.ts_created.strftime('%Y-%m-%d %H:%M:%S') if job.ts_created else None,
                     job.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if job.ts_queued  else None,
                     job.ts_started.strftime('%Y-%m-%d %H:%M:%S') if job.ts_started else None,
@@ -396,7 +396,7 @@ class JobGraph(Command):
                 ])
                 for subjob in job.subjobs:
                     table.append([
-                        'SUB', subjob.id, subjob.super_id, subjob.task, subjob.status,
+                        'SUB', subjob.id, subjob.super_id, subjob.name, subjob.status,
                         subjob.ts_created.strftime('%Y-%m-%d %H:%M:%S') if subjob.ts_created else None,
                         subjob.ts_queued.strftime('%Y-%m-%d %H:%M:%S')  if subjob.ts_queued  else None,
                         subjob.ts_started.strftime('%Y-%m-%d %H:%M:%S') if subjob.ts_started else None,
@@ -721,8 +721,7 @@ class JobEdit(Command):
                         
                         current_value = job.get_dataset(dataset)
                         
-                        # FIXME: Use of private attribute
-                        new_value = _edit_dataset(job._impl, current_value)
+                        new_value = _edit_dataset(job.task, current_value)
                         job.set_dataset(dataset, new_value)
                         return current_value != new_value
                 
