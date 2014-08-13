@@ -725,9 +725,7 @@ class JobEdit(Command):
                         job.set_dataset(dataset, new_value)
                         return current_value != new_value
                 
-                except DataError:
-                    raise
-                except bt.model.DBAPIError as e:
+                except Exception as e:
                     if bt.is_serializable_error(e):
                         warn("This job has received a concurrent modification.")
                         print textwrap.dedent("""\
@@ -742,6 +740,8 @@ class JobEdit(Command):
                             elif option == 'd':
                                 return False
                             break
+                    else:
+                        raise
         
         try:
             changed = _edit(items[0], items[1])

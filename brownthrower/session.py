@@ -37,10 +37,11 @@ def session_maker(dsn):
     return session_maker
 
 def is_serializable_error(exc):
-    if hasattr(exc.orig, 'pgcode'): 
-        return exc.orig.pgcode == '40001'
-    else:
-        return False
+    if isinstance(exc, DBAPIError):
+        if hasattr(exc.orig, 'pgcode'): 
+            return exc.orig.pgcode == '40001'
+    
+    return False
 
 def retry_on_serializable_error(fn):
     @wraps(fn)
@@ -49,7 +50,7 @@ def retry_on_serializable_error(fn):
             try:
                 value = fn(*args, **kwargs)
                 return value
-            except DBAPIError as e:
+            except Exception as e:
                 if not is_serializable_error(e):
                     raise
     return wrapper
