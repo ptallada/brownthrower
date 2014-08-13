@@ -66,5 +66,3 @@ class TaskStore(collections.Mapping):
     
     def __len__(self):
         return self._tasks.__len__()
-
-tasks = TaskStore()
