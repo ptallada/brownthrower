@@ -34,8 +34,7 @@ class Job(multiprocessing.Process):
             log.warning("Caught signal in job. Terminating already in progress...")
     
     def _run_job(self):
-        engine = bt.create_engine(self._db_url)
-        session_maker = scoped_session(sessionmaker(engine))
+        session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(id = self._job_id).one()
             if not job.subjobs:
@@ -47,8 +46,7 @@ class Job(multiprocessing.Process):
     
     @bt.retry_on_serializable_error
     def _finish_job(self, tb):
-        engine = bt.create_engine(self._db_url)
-        session_maker = scoped_session(sessionmaker(engine))
+        session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(id = self._job_id).one()
             job.finish(tb)
@@ -60,10 +58,9 @@ class Job(multiprocessing.Process):
         tb = None
         try:
             self._run_job()
-        except BaseException:
-            exc_info = sys.exc_info()
-            tb = ''.join(traceback.format_exception(*exc_info))
-            log.debug(tb)
+        except BaseException as e:
+            log.debug(e, exc_info=True)
+            tb = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
             self._finish_job(tb)
     
@@ -103,8 +100,7 @@ class Monitor(multiprocessing.Process):
     
     @bt.retry_on_serializable_error
     def _process_job(self):
-        engine = bt.create_engine(self._db_url)
-        session_maker = scoped_session(sessionmaker(engine))
+        session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(id = self._job_id).one()
             if self._submit:

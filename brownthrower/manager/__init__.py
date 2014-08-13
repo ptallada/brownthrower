@@ -37,9 +37,8 @@ class Manager(cmd.Cmd):
         
         options = self._parse_args(args)
         db_url = options.get('database_url')
-        engine = bt.create_engine(db_url)
         
-        self._session_maker = scoped_session(sessionmaker(engine))
+        self._session_maker = bt.session_maker(db_url)
         self._subcmds = {}
         
         self.prompt = '(brownthrower): '

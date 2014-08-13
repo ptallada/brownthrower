@@ -14,7 +14,6 @@ import signal
 import sys
 import threading
 import time
-import traceback
 import trunk
 
 from sqlalchemy.orm import scoped_session
@@ -64,9 +63,8 @@ class SerialRunner(object):
     def __init__(self, args):
         options = self._parse_args(args)
         db_url = options.get('database_url')
-        engine = bt.create_engine(db_url)
         
-        self._session_maker = scoped_session(sessionmaker(engine))
+        self._session_maker = bt.session_maker(db_url)
         self._job_id        = options.pop('job_id', None)
         self._loop          = options.pop('loop', 0)
         self._notify_failed = options.pop('notify_failed', None)

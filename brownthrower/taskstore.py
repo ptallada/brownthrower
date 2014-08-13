@@ -4,7 +4,6 @@
 import collections
 import logging
 import pkg_resources
-import traceback
 
 log = logging.getLogger('brownthrower.taskstore')
 
@@ -54,8 +53,7 @@ class TaskStore(collections.Mapping):
                 except RuntimeError:
                     log.warning(e.message)
                 finally:
-                    ex = traceback.format_exc()
-                    log.debug(ex)
+                    log.debug(e, exc_info=True)
                     del self._tasks[key]
                     return self._tasks.__getitem__(key)
         else:
