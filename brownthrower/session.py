@@ -33,7 +33,9 @@ def session_maker(dsn):
      
     if url.drivername == 'postgresql':
         event.listen(session_maker, 'after_flush', _postgresql_session_after_flush)
-     
+    
+    model.Base.metadata.create_all(bind=eng) # @UndefinedVariable
+    
     return session_maker
 
 def is_serializable_error(exc):
