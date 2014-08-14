@@ -671,6 +671,7 @@ class Job(Base):
             self.tag['last_traceback'] = tb
         else:
             self._status = Job.Status.DONE
+            self.tag.pop('last_traceback', None)
         
         for ancestor in self._ancestors():
             ancestor._update_status()
