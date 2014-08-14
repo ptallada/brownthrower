@@ -87,7 +87,17 @@ class SerialRunner(object):
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
             ).all()
     
-    def _run_job(self, job_id, q_finish, q_cancel, submit=False):
+    def _must_terminate(self, job_id):
+        try:
+            with bt.transactional_session(self._session_maker) as session:
+                job = session.query(bt.Job).filter_by(id = job_id).one()
+                
+                return job.status != bt.Job.Status.PROCESSING
+        
+        except NoResultFound:
+            return True
+        
+    def _run_job(self, job_id, q_finish, q_abort, submit=False):
         proc = process.Monitor(
             db_url   = self._session_maker.bind.url,
             job_id   = job_id,
@@ -99,11 +109,11 @@ class SerialRunner(object):
         try:
             while True:
                 try:
-                    r, _, _ = select.select([q_cancel, q_finish], [], [], None)
-                    
-                    if q_cancel in r:
-                        if q_cancel.get() == self._job_id:
-                            proc.terminate()
+                    r, _, _ = select.select([q_abort, q_finish], [], [], None)
+                    if q_abort in r:
+                        if q_abort.get() == job_id:
+                            if self._must_terminate(job_id):
+                                proc.terminate()
                     if not q_finish.empty():
                         q_finish.get()
                         break
@@ -118,37 +128,41 @@ class SerialRunner(object):
         finally:
             proc.join()
     
-    def _run_one(self, q_finish, q_cancel):
+    def _run_one(self, q_finish, q_abort):
         for job_id in self._get_runnable_job_ids():
             try:
-                self._run_job(job_id, q_finish, q_cancel)
+                self._run_job(job_id, q_finish, q_abort)
                 return
             except bt.InvalidStatusException:
                 pass
         
         raise NoRunnableJobFound()
     
-    def _run_all(self, q_finish, q_cancel):
+    def _run_all(self, q_finish, q_abort):
         while True:
             try:
-                self._run_one(q_finish, q_cancel)
+                self._run_one(q_finish, q_abort)
             except NoRunnableJobFound:
                 break
     
     def main(self):
         q_finish = SelectableQueue()
         if self._session_maker.bind.url.drivername == 'postgresql':
-            q_cancel = bt.Notifications(self._session_maker).listener(bt.Notifications.Channel.CANCEL)
+            notificator = bt.Notifications(self._session_maker)
+            q_abort = notificator.listener([
+                notificator.channel.delete,
+                notificator.channel.update,
+            ])
         else:
             # Fallback dummy implementation
-            q_cancel = SelectableQueue()
+            q_abort = SelectableQueue()
         
         try:
             if self._job_id:
-                self._run_job(self._job_id, q_finish, q_cancel, self._submit)
+                self._run_job(self._job_id, q_finish, q_abort, self._submit)
             else:
                 while True:
-                    self._run_all(q_finish, q_cancel)
+                    self._run_all(q_finish, q_abort)
                     
                     if not self._loop:
                         return

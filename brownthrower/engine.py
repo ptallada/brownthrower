@@ -21,18 +21,28 @@ class _QueuedTrunk(trunk.Trunk):
         _, payload = super(_QueuedTrunk, self).get(block=False)
         return int(payload)
 
+class _Channel(object):
+    def __init__(self, session):
+        self._hash = hex(hash(session.bind.url))[2:]
+    
+    @property
+    def create(self):
+        return 'bt_create_%s' % self._hash
+    
+    @property
+    def update(self):
+        return 'bt_update_%s' % self._hash
+
+    @property
+    def delete(self):
+        return 'bt_delete_%s' % self._hash
+
 class Notifications(object):
-    
-    class Channel(object):
-        CANCEL = 'bt_cancel'
-        CREATE = 'bt_create'
-        UPDATE = 'bt_update'
-        DELETE = 'bt_delete'
-    
     def __init__(self, session):
         self._session = session
         if session.bind.url.drivername != 'postgresql':
             raise NotImplementedError("LISTEN/NOTIFY only supported in PostgreSQL.")
+        self.channel = _Channel(session)
     
     def notify(self, channel, payload):
         self._session.execute(
@@ -42,17 +52,14 @@ class Notifications(object):
             }
         )
     
-    def job_created(self, job_id):
-        self.notify(Notifications.Channel.CREATE, str(job_id))
+    def job_create(self, job_id):
+        self.notify(self.channel.create, str(job_id))
         
-    def job_updated(self, job_id):
-        self.notify(Notifications.Channel.UPDATE, str(job_id))
+    def job_update(self, job_id):
+        self.notify(self.channel.update, str(job_id))
         
-    def job_deleted(self, job_id):
-        self.notify(Notifications.Channel.DELETE, str(job_id))
-            
-    def job_cancelled(self, job_id):
-        self.notify(Notifications.Channel.CANCEL, str(job_id))
+    def job_delete(self, job_id):
+        self.notify(self.channel.delete, str(job_id))
     
     def listener(self, channels):
         listener = _QueuedTrunk(self._session.bind.url)

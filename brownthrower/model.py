@@ -438,24 +438,13 @@ class Job(Base):
         
         self._remove()
     
-    def _cancel(self):
-        """
-            @raise NotImplementedError: Cancel operation is only supported in PostgreSQL.
-        """
-        session = object_session(self)
-        if session:
-            notifier = engine.Notifications(session)
-            notifier.job_cancelled(self.id)
-        else:
-            raise DetachedInstanceError()
-    
-    def cancel(self):
+    def abort(self):
         if self.status not in [
             Job.Status.PROCESSING,
         ]:
-            raise InvalidStatusException("This job cannot be cancelled in its current status.")
+            raise InvalidStatusException("This job cannot be aborted in its current status.")
         
-        self._cancel()
+        self.finish("Job was aborted on user request.")
     
     def reset(self):
         if self.superjob:

@@ -18,13 +18,13 @@ def _postgresql_session_after_flush(session, flush_context):
     notifier = engine.Notifications(session)
     for obj in session.new:
         if isinstance(obj, model.Job):
-            notifier.job_created(obj.id)
+            notifier.job_create(obj.id)
     for obj in session.dirty:
         if isinstance(obj, model.Job):
-            notifier.job_updated(obj.id)
+            notifier.job_update(obj.id)
     for obj in session.deleted:
         if isinstance(obj, model.Job):
-            notifier.job_deleted(obj.id)
+            notifier.job_delete(obj.id)
 
 def session_maker(dsn):
     url = make_url(dsn)

@@ -577,11 +577,11 @@ class JobUnlink(Command):
             finally:
                 log.debug(e)
 
-class JobCancel(Command):
+class JobAbort(Command):
     """\
-    usage: job cancel <id>
+    usage: job abort <id>
      
-    Cancel the job with the given id as soon as possible.
+    Immediately abort a running job with the given id.
     """
      
     def do(self, items):
@@ -589,15 +589,15 @@ class JobCancel(Command):
             return self.help(items)
         
         @bt.retry_on_serializable_error
-        def _cancel(job_id):
+        def _abort(job_id):
             with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = job_id).one()
-                job.cancel()
+                job.abort()
         
         try:
-            _cancel(items[0])
+            _abort(items[0])
              
-            success("The job has been signaled to be cancelled as soon as possible.")
+            success("The job has been aborted.")
         
         except Exception as e:
             try:

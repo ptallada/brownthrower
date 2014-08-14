@@ -56,10 +56,17 @@ class Job(multiprocessing.Process):
         try:
             self._run_job()
         except BaseException as e:
-            log.debug(e, exc_info=True)
-            tb = ''.join(traceback.format_exception(*sys.exc_info()))
+            if bt.is_serializable_error(e) or isinstance(e, bt.InvalidStatusException):
+                # Job has mutated during execution, certainly was aborted.
+                pass
+            else:
+                log.debug(e, exc_info=True)
+                tb = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
-            self._finish_job(tb)
+            try:
+                self._finish_job(tb)
+            except bt.InvalidStatusException:
+                pass
     
     def cancel(self):
         self.terminate()

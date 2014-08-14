@@ -17,7 +17,7 @@ class Job(Command):
     def __init__(self, *args, **kwargs):
         super(Job, self).__init__(*args, **kwargs)
         
-        self.add_subcmd('cancel', job.JobCancel())
+        self.add_subcmd('abort',  job.JobAbort())
         self.add_subcmd('clone',  job.JobClone())
         self.add_subcmd('create', job.JobCreate())
         self.add_subcmd('edit',   job.JobEdit())
