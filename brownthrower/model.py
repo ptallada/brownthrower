@@ -694,6 +694,18 @@ class Tag(Base):
     _name   = Column('name',   String(20), nullable=False)
     _value  = Column('value',  Text,       nullable=True)
     
+    @hybrid_property
+    def job_id(self):
+        return self._job_id
+    
+    @hybrid_property
+    def name(self):
+        return self._name
+    
+    @hybrid_property
+    def value(self):
+        return self._value
+    
     def __repr__(self):
         return u"%s(job_id=%s, name=%s, value=%s)" % (
             self.__class__.__name__,
