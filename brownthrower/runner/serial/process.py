@@ -11,6 +11,8 @@ import sys
 import threading
 import traceback
 
+from sqlalchemy.orm.exc import NoResultFound
+
 log = logging.getLogger('brownthrower.runner.serial')
 
 # Number of seconds to wait between SIGTERM and SIGKILL when terminating a job
@@ -56,7 +58,8 @@ class Job(multiprocessing.Process):
         try:
             self._run_job()
         except BaseException as e:
-            if bt.is_serializable_error(e) or isinstance(e, bt.InvalidStatusException):
+            if bt.is_serializable_error(e) \
+              or isinstance(e, (bt.InvalidStatusException, NoResultFound)):
                 # Job has mutated during execution, certainly was aborted.
                 pass
             else:
@@ -65,7 +68,7 @@ class Job(multiprocessing.Process):
         finally:
             try:
                 self._finish_job(tb)
-            except bt.InvalidStatusException:
+            except (bt.InvalidStatusException, NoResultFound):
                 pass
     
     def cancel(self):
@@ -82,7 +85,7 @@ class Job(multiprocessing.Process):
     def finish(self):
         try:
             self._finish_job("Job aborted with exit code %d" % self.exitcode)
-        except bt.InvalidStatusException:
+        except (bt.InvalidStatusException, NoResultFound):
             pass
 
 class Monitor(multiprocessing.Process):
@@ -127,8 +130,10 @@ class Monitor(multiprocessing.Process):
             job_process.cancel()
         finally:
             job_process.join()
-            job_process.finish()
-            self._q_finish.put(self._job_id)
+            try:
+                job_process.finish()
+            finally:
+                self._q_finish.put(self._job_id)
     
     def start(self):
         self._process_job()
