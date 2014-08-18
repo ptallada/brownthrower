@@ -20,7 +20,6 @@ from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
 
 from . import taskstore
-from . import engine
 
 log = logging.getLogger('brownthrower.model')
 

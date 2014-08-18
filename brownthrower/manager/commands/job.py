@@ -300,7 +300,7 @@ class JobShow(Command):
     def do(self, items):
         if len(items) != 1:
             return self.help(items)
-         
+        
         try:
             with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = items[0]).one()
