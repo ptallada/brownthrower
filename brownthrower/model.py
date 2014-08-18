@@ -29,6 +29,8 @@ Base = declarative_base()
 tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
 
+TAG_TRACEBACK = 'bt_last_traceback'
+
 def _deprecated(func):
     """
     This is a decorator which can be used to mark functions
@@ -668,10 +670,10 @@ class Job(Base):
         self._ts_ended = func.now()
         if tb:
             self._status = Job.Status.FAILED
-            self.tag['last_traceback'] = tb
+            self.tag[TAG_TRACEBACK] = tb
         else:
             self._status = Job.Status.DONE
-            self.tag.pop('last_traceback', None)
+            self.tag.pop(TAG_TRACEBACK, None)
         
         for ancestor in self._ancestors():
             ancestor._update_status()
