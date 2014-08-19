@@ -14,12 +14,8 @@ import signal
 import sys
 import threading
 import time
-import trunk
 
-from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.orm.session import sessionmaker
-from trunk import Trunk
 
 from . import process
 
@@ -111,9 +107,10 @@ class SerialRunner(object):
                 try:
                     r, _, _ = select.select([q_abort, q_finish], [], [], None)
                     if q_abort in r:
-                        if q_abort.get() == job_id:
-                            if self._must_terminate(job_id):
-                                proc.terminate()
+                        for aborted_id in q_abort:
+                            if aborted_id == job_id:
+                                if self._must_terminate(job_id):
+                                    proc.terminate()
                     if not q_finish.empty():
                         q_finish.get()
                         break
@@ -200,4 +197,4 @@ def main(args=None):
         print
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(main())

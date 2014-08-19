@@ -15,6 +15,7 @@ install_requires = [
     'SQLAlchemy >=0.9, <1.0',
     'tabulate',
     'termcolor',
+    'trunk',
 ]
 
 # Read README and CHANGES files for the long description

@@ -17,9 +17,15 @@ class _QueuedTrunk(trunk.Trunk):
     def fileno(self):
         return self.conn.fileno()
     
-    def get(self):
-        _, payload = super(_QueuedTrunk, self).get(block=False)
-        return int(payload)
+    def __iter__(self):
+        return self
+    
+    def next(self):
+        try:
+            _, payload = super(_QueuedTrunk, self).get(block=False)
+            return int(payload)
+        except trunk.Empty:
+            raise StopIteration
 
 class _Channel(object):
     def __init__(self, session):
