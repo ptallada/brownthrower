@@ -127,7 +127,7 @@ class SerialRunner(object):
             try:
                 self._run_job(job_id, q_finish, q_abort)
                 return
-            except bt.InvalidStatusException:
+            except bt.InvalidStatusException, NoResultFound:
                 pass
         
         raise NoRunnableJobFound()
@@ -151,30 +151,17 @@ class SerialRunner(object):
             # Fallback dummy implementation
             q_abort = SelectableQueue()
         
-        try:
-            if self._job_id:
-                self._run_job(self._job_id, q_finish, q_abort, self._submit)
-            else:
-                while True:
-                    self._run_all(q_finish, q_abort)
-                    
-                    if not self._loop:
-                        return
-                    
-                    log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
-                    time.sleep(self._loop)
-        
-        except BaseException:
-            try:
-                raise
-#             except NoResultFound:
-#                 pass
-#             except bt.InvalidStatusException:
-#                 pass
-            finally:
-                pass
-#                 #FIXME: que cal fer aqui? com gestionar els errors. per exemple, l'id no existeix. o el job indicat no te l'estat que toca.
-#                 #log.debug(e, exc_info=True)
+        if self._job_id:
+            self._run_job(self._job_id, q_finish, q_abort, self._submit)
+        else:
+            while True:
+                self._run_all(q_finish, q_abort)
+                
+                if not self._loop:
+                    return
+                
+                log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
+                time.sleep(self._loop)
 
 def main(args=None):
     if not args:
