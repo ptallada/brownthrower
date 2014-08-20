@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 
+from brownthrower.utils import SelectableQueue
 from sqlalchemy.orm.exc import NoResultFound
 
 from . import process
@@ -23,10 +24,6 @@ log = logging.getLogger('brownthrower.runner.serial')
 
 class NoRunnableJobFound(Exception):
     pass
-
-class SelectableQueue(multiprocessing.queues.SimpleQueue):
-    def fileno(self):
-        return self._reader.fileno()
 
 class SerialRunner(object):
     
