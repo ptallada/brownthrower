@@ -67,16 +67,29 @@ class Dependency(Base):
     )
     
     # Columns
-    _super_id      = Column('super_id',      Integer, nullable=True)
-    _parent_job_id = Column('parent_job_id', Integer, nullable=False)
-    _child_job_id  = Column('child_job_id',  Integer, nullable=False)
+    # TODO: Rename to super_job_id, or remove 'job' from others
+    _super_id  = Column('super_id',      Integer, nullable=True)
+    _parent_id = Column('parent_job_id', Integer, nullable=False)
+    _child_id  = Column('child_job_id',  Integer, nullable=False)
+    
+    @hybrid_property
+    def super_id(self):
+        return self._super_id
+    
+    @hybrid_property
+    def parent_id(self):
+        return self._parent_id
+    
+    @hybrid_property
+    def child_id(self):
+        return self._child_id
     
     def __repr__(self):
         return u"%s(super_id=%s, parent_job_id=%s, child_job_id=%s)" % (
             self.__class__.__name__,
             repr(self._super_id),
-            repr(self._parent_job_id),
-            repr(self._child_job_id),
+            repr(self._parent_id),
+            repr(self._child_id),
         )
 
 class InvalidStatusException(Exception):
@@ -149,15 +162,15 @@ class Job(Base):
     
     parents  = relationship('Job',
         back_populates    = 'children', secondary = 'dependency',
-        primaryjoin       = 'Dependency._child_job_id == Job._id',
-        secondaryjoin     = 'Job._id == Dependency._parent_job_id',
+        primaryjoin       = 'Dependency._child_id == Job._id',
+        secondaryjoin     = 'Job._id == Dependency._parent_id',
         collection_class  = set)
     """parents relationship"""
     
     children = relationship('Job',
         back_populates    = 'parents',  secondary = 'dependency',
-        primaryjoin       = 'Dependency._parent_job_id == Job._id',
-        secondaryjoin     = 'Job._id == Dependency._child_job_id',
+        primaryjoin       = 'Dependency._parent_id == Job._id',
+        secondaryjoin     = 'Job._id == Dependency._child_id',
         collection_class  = set)
     """children relationship"""
     

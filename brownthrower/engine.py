@@ -32,16 +32,67 @@ class _Channel(object):
         self._hash = hex(hash(session.bind.url))[2:]
     
     @property
-    def create(self):
-        return 'bt_create_%s' % self._hash
+    def job_create(self):
+        return 'bt_job_create_%s' % self._hash
     
     @property
-    def update(self):
-        return 'bt_update_%s' % self._hash
-
+    def job_update(self):
+        return 'bt_job_update_%s' % self._hash
+    
     @property
-    def delete(self):
-        return 'bt_delete_%s' % self._hash
+    def job_delete(self):
+        return 'bt_job_delete_%s' % self._hash
+    
+    @property
+    def dependency_create(self):
+        return 'bt_dependency_create_%s' % self._hash
+    
+    @property
+    def dependency_update(self):
+        return 'bt_dependency_update_%s' % self._hash
+    
+    @property
+    def dependency_delete(self):
+        return 'bt_dependency_delete_%s' % self._hash
+    
+    @property
+    def tag_create(self):
+        return 'bt_tag_create_%s' % self._hash
+    
+    @property
+    def tag_update(self):
+        return 'bt_tag_update_%s' % self._hash
+    
+    @property
+    def tag_delete(self):
+        return 'bt_tag_delete_%s' % self._hash
+    
+    @property
+    def job_all(self):
+        return set([
+            self.job_create,
+            self.job_update,
+            self.job_delete,
+        ])
+    
+    @property
+    def dependency_all(self):
+        return set([
+            self.dependency_create,
+            self.dependency_update,
+            self.dependency_delete,
+        ])
+    
+    @property
+    def tag_all(self):
+        return set([
+            self.tag_create,
+            self.tag_update,
+            self.tag_delete,
+        ])
+    
+    def all(self):
+        return self.job_all | self.dependency_all | self.tag_all
 
 class Notifications(object):
     def __init__(self, session):
@@ -59,13 +110,34 @@ class Notifications(object):
         )
     
     def job_create(self, job_id):
-        self.notify(self.channel.create, str(job_id))
+        self.notify(self.channel.job_create, str(job_id))
         
     def job_update(self, job_id):
-        self.notify(self.channel.update, str(job_id))
+        self.notify(self.channel.job_update, str(job_id))
         
     def job_delete(self, job_id):
-        self.notify(self.channel.delete, str(job_id))
+        self.notify(self.channel.job_delete, str(job_id))
+    
+    def dependency_create(self, parent_id, child_id):
+        payload = "%d-%d" % (parent_id, child_id)
+        self.notify(self.channel.dependency_create, payload)
+        
+    def dependency_update(self, parent_id, child_id):
+        payload = "%d-%d" % (parent_id, child_id)
+        self.notify(self.channel.dependency_update, payload)
+        
+    def dependency_delete(self, parent_id, child_id):
+        payload = "%d-%d" % (parent_id, child_id)
+        self.notify(self.channel.dependency_delete, payload)
+    
+    def tag_create(self, job_id):
+        self.notify(self.channel.tag_create, str(job_id))
+        
+    def tag_update(self, job_id):
+        self.notify(self.channel.tag_update, str(job_id))
+        
+    def tag_delete(self, job_id):
+        self.notify(self.channel.tag_delete, str(job_id))
     
     def listener(self, channels):
         listener = _QueuedTrunk(self._session.bind.url)
