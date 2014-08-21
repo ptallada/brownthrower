@@ -72,11 +72,11 @@ class SerialRunner(object):
         signal.signal(signal.SIGINT,  self._system_exit)
         signal.signal(signal.SIGTERM, self._system_exit)
     
-    def _get_runnable_job_ids(self):
+    def _get_runnable_jobs(self):
         with bt.transactional_session(self._session_maker) as session:
-            return session.query(bt.Job.id).filter(
+            return session.query(bt.Job).filter(
                 bt.Job.status == bt.Job.Status.QUEUED,
-                bt.Job.task.in_(bt.tasks.keys()), # @UndefinedVariable
+                bt.Job.name.in_(bt.tasks.keys()), # @UndefinedVariable
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
             ).all()
     
@@ -104,8 +104,8 @@ class SerialRunner(object):
                 try:
                     r, _, _ = select.select([q_abort, q_finish], [], [], None)
                     if q_abort in r:
-                        for aborted_id in q_abort:
-                            if aborted_id == job_id:
+                        for _, payload in q_abort:
+                            if int(payload) == job_id:
                                 if self._must_terminate(job_id):
                                     proc.terminate()
                     if not q_finish.empty():
@@ -123,9 +123,9 @@ class SerialRunner(object):
             proc.join()
     
     def _run_one(self, q_finish, q_abort):
-        for job_id in self._get_runnable_job_ids():
+        for job in self._get_runnable_jobs():
             try:
-                self._run_job(job_id, q_finish, q_abort)
+                self._run_job(job.id, q_finish, q_abort)
                 return
             except bt.InvalidStatusException, NoResultFound:
                 pass
@@ -142,11 +142,9 @@ class SerialRunner(object):
     def main(self):
         q_finish = SelectableQueue()
         if self._session_maker.bind.url.drivername == 'postgresql':
-            notificator = bt.Notifications(self._session_maker)
-            q_abort = notificator.listener([
-                notificator.channel.delete,
-                notificator.channel.update,
-            ])
+            q_abort = bt.Notifications(self._session_maker)
+            q_abort.listen(q_abort.channel.job_delete)
+            q_abort.listen(q_abort.channel.job_update)
         else:
             # Fallback dummy implementation
             q_abort = SelectableQueue()

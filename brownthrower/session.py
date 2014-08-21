@@ -19,23 +19,23 @@ def _postgresql_session_after_flush(session, flush_context):
     for obj in session.new:
         if isinstance(obj, model.Job):
             notifier.job_create(obj.id)
-        if isinstance(obj, model.Dependency):
+        elif isinstance(obj, model.Dependency):
             notifier.dependency_create(obj.parent_id, obj.child_id)
-        if isinstance(obj, model.Tag):
+        elif isinstance(obj, model.Tag):
             notifier.tag_create(obj.job_id)
     for obj in session.dirty:
         if isinstance(obj, model.Job):
             notifier.job_update(obj.id)
-        if isinstance(obj, model.Dependency):
+        elif isinstance(obj, model.Dependency):
             notifier.dependency_update(obj.parent_id, obj.child_id)
-        if isinstance(obj, model.Tag):
+        elif isinstance(obj, model.Tag):
             notifier.tag_update(obj.job_id)
     for obj in session.deleted:
         if isinstance(obj, model.Job):
             notifier.job_delete(obj.id)
-        if isinstance(obj, model.Dependency):
+        elif isinstance(obj, model.Dependency):
             notifier.dependency_delete(obj.parent_id, obj.child_id)
-        if isinstance(obj, model.Tag):
+        elif isinstance(obj, model.Tag):
             notifier.tag_delete(obj.job_id)
 
 def session_maker(dsn):
