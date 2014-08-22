@@ -97,9 +97,10 @@ class SerialRunner(object):
             submit   = submit,
             q_finish = q_finish,
         )
-        proc.start()
         
         try:
+            proc.start()
+            
             while True:
                 try:
                     r, _, _ = select.select([q_abort, q_finish], [], [], None)
@@ -115,12 +116,14 @@ class SerialRunner(object):
                 except select.error as e:
                     if e.args[0] != errno.EINTR:
                         raise
-        
-        except BaseException:
-            proc.terminate()
-            raise
+            
+        except SystemExit:
+            if proc.is_alive():
+                proc.terminate()
+                raise
         finally:
-            proc.join()
+            if proc.is_alive():
+                proc.join()
     
     def _run_one(self, q_finish, q_abort):
         for job in self._get_runnable_jobs():

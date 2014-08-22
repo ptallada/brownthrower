@@ -72,15 +72,17 @@ class Job(multiprocessing.Process):
                 pass
     
     def cancel(self):
-        self.terminate()
-        self.join(timeout=KILL_TIMEOUT)
-        # send SIGKILL if still alive
-        if self.exitcode == None:
-            try:
-                os.kill(self.pid, signal.SIGKILL)
-            except OSError as e:
-                if e.errno != errno.ESRCH:
-                    raise
+        if self.is_alive():
+            self.terminate()
+            self.join(timeout=KILL_TIMEOUT)
+            # send SIGKILL if still alive
+            if self.exitcode == None:
+                try:
+                    os.kill(self.pid, signal.SIGKILL)
+                except OSError as e:
+                    if e.errno != errno.ESRCH:
+                        raise
+            self.join()
     
     def finish(self):
         try:
@@ -122,14 +124,13 @@ class Monitor(multiprocessing.Process):
             db_url = self._db_url,
             job_id = self._job_id,
         )
-        job_process.start()
         
         try:
+            job_process.start()
             job_process.join()
-        except BaseException:
+        except SystemExit:
             job_process.cancel()
         finally:
-            job_process.join()
             try:
                 job_process.finish()
             finally:
