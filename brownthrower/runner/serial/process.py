@@ -11,6 +11,7 @@ import sys
 import threading
 import traceback
 
+from sqlalchemy.orm import undefer_group
 from sqlalchemy.orm.exc import NoResultFound
 
 log = logging.getLogger('brownthrower.runner.serial')
@@ -35,7 +36,10 @@ class Job(multiprocessing.Process):
     def _run_job(self):
         session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
-            job = session.query(bt.Job).filter_by(id = self._job_id).one()
+            job = session.query(bt.Job).filter_by(
+                id = self._job_id
+            ).options(undefer_group('yaml')).one()
+            
             if not job.subjobs:
                 job.prolog()
                 if not job.subjobs:

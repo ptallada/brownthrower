@@ -10,7 +10,7 @@ from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, reconstructor
+from sqlalchemy.orm import relationship, reconstructor, deferred
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.exc import DetachedInstanceError
 from sqlalchemy.orm.session import object_session
@@ -143,18 +143,18 @@ class Job(Base):
     # COLUMNS                                                                 #
     ###########################################################################
     
-    _id         = Column('id',         Integer,    nullable=False)
-    _super_id   = Column('super_id',   Integer,    nullable=True)
+    _id         =          Column('id',         Integer,    nullable=False)
+    _super_id   =          Column('super_id',   Integer,    nullable=True)
     # TODO: rename field to 'name' and change index too
-    _name       = Column('task',       String(50), nullable=False)
-    _status     = Column('status',     String(20), nullable=False)
-    _config     = Column('config',     Text,       nullable=True)
-    _input      = Column('input',      Text,       nullable=True)
-    _output     = Column('output',     Text,       nullable=True)
-    _ts_created = Column('ts_created', DateTime,   nullable=False, default=functions.now())
-    _ts_queued  = Column('ts_queued',  DateTime,   nullable=True)
-    _ts_started = Column('ts_started', DateTime,   nullable=True)
-    _ts_ended   = Column('ts_ended',   DateTime,   nullable=True)
+    _name       =          Column('task',       String(50), nullable=False)
+    _status     =          Column('status',     String(20), nullable=False)
+    _config     = deferred(Column('config',     Text,       nullable=True), group='yaml')
+    _input      = deferred(Column('input',      Text,       nullable=True), group='yaml')
+    _output     = deferred(Column('output',     Text,       nullable=True), group='yaml')
+    _ts_created =          Column('ts_created', DateTime,   nullable=False, default=functions.now())
+    _ts_queued  =          Column('ts_queued',  DateTime,   nullable=True)
+    _ts_started =          Column('ts_started', DateTime,   nullable=True)
+    _ts_ended   =          Column('ts_ended',   DateTime,   nullable=True)
     
     ###########################################################################
     # RELATIONSHIPS                                                           #

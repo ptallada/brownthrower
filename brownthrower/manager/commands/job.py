@@ -14,7 +14,7 @@ import yaml
 from .base import Command, error, warn, success, strong
 
 from sqlalchemy.exc import IntegrityError, DataError
-from sqlalchemy.orm import joinedload, defer
+from sqlalchemy.orm import joinedload, undefer_group
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import literal
 from tabulate import tabulate
@@ -224,11 +224,7 @@ class JobList(Command):
             crit = self.JobFilter.parse(items)
             
             with bt.transactional_session(self.session_maker) as session:
-                jobs = session.query(bt.Job).options(
-                    defer('_input'),
-                    defer('_config'),
-                    defer('_output'),
-                ).filter(crit).order_by(bt.Job.id).all()
+                jobs = session.query(bt.Job).filter(crit).order_by(bt.Job.id).all()
                 
                 if not jobs:
                     warn("No jobs found were found.")
@@ -303,7 +299,9 @@ class JobShow(Command):
         
         try:
             with bt.transactional_session(self.session_maker) as session:
-                job = session.query(bt.Job).filter_by(id = items[0]).one()
+                job = session.query(bt.Job).filter_by(
+                    id = items[0]
+                ).options(undefer_group('yaml')).one()
                 
                 print strong("### JOB DETAILS:")
                 for field in ['id', 'super_id', 'name', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
@@ -343,9 +341,6 @@ class JobGraph(Command):
                     joinedload(bt.Job.parents),
                     joinedload(bt.Job.children),
                     joinedload(bt.Job.subjobs),
-                    defer('_input'),
-                    defer('_config'),
-                    defer('_output'),
                 ).one()
                 
                 table = []
@@ -623,7 +618,9 @@ class JobClone(Command):
         @bt.retry_on_serializable_error
         def _clone(job_id):
             with bt.transactional_session(self.session_maker) as session:
-                job = session.query(bt.Job).filter_by(id = job_id).one()
+                job = session.query(bt.Job).filter_by(
+                    id = job_id
+                ).options(undefer_group('yaml')).one()
                 new = job.clone()
                 session.add(new)
                 session.flush()
@@ -716,7 +713,9 @@ class JobEdit(Command):
             while True:
                 try:
                     with bt.transactional_session(self.session_maker) as session:
-                        job = session.query(bt.Job).filter_by(id = job_id).one()
+                        job = session.query(bt.Job).filter_by(
+                            id = job_id
+                        ).options(undefer_group('yaml')).one()
                         job.assert_editable_dataset(dataset)
                         
                         current_value = job.get_dataset(dataset)
