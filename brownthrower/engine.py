@@ -58,6 +58,38 @@ class _Channel(object):
     @property
     def tag_delete(self):
         return self._tag_delete
+    
+    @property
+    def all_job_channels(self):
+        return set([
+            self.job_create,
+            self.job_update,
+            self.job_delete,
+        ])
+    
+    @property
+    def all_dependency_channels(self):
+        return set([
+            self.dependency_create,
+            self.dependency_update,
+            self.dependency_delete,
+        ])
+    
+    @property
+    def all_tag_channels(self):
+        return set([
+            self.tag_create,
+            self.tag_update,
+            self.tag_delete,
+        ])
+    
+    @property
+    def all_channels(self):
+        return set.union(
+            self.all_job_channels(),
+            self.all_dependency_channels(),
+            self.all_tag_channels(),
+        )
 
 class Notifications(trunk.Trunk):
     def __init__(self, session):
@@ -68,10 +100,26 @@ class Notifications(trunk.Trunk):
         super(Notifications, self).__init__(dsn)
         
         self.channel = _Channel(session)
+        self._session = session
         self._callbacks = {}
     
     def fileno(self):
         return self.conn.fileno()
+    
+    def listen(self, channels):
+        try:
+            for channel in channels:
+                super(Notifications, self).listen(channel)
+        except TypeError:
+            super(Notifications, self).listen(channels)
+    
+    def notify(self, channel, payload):
+        self._session.execute(
+            "SELECT pg_notify(:channel, :payload);", {
+                'channel' : channel,
+                'payload' : payload,
+            }
+        )
     
     ###########################################################################
     # Methods for SENDING notifications                                       #
