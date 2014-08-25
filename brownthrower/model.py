@@ -539,10 +539,10 @@ class Job(Base):
         self.set_dataset('input', value)
     
     def edit_config(self):
-        self.edit_dataset('config')
+        return self.edit_dataset('config')
     
     def edit_input(self):
-        self.edit_dataset('input')
+        return self.edit_dataset('input')
     
     ###########################################################################
     # TASK                                                                    #
