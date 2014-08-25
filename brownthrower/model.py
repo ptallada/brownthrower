@@ -648,6 +648,7 @@ class Job(Base):
             raise InvalidStatusException("Cannot execute a job that already has an output.")
         # Execute run implementation 
         self.set_dataset('output', self.task.run(self))
+        self._status = Job.Status.DONE
     
     def epilog(self):
         self.assert_is_available()
@@ -684,7 +685,6 @@ class Job(Base):
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
         else:
-            self._status = Job.Status.DONE
             self.tag.pop(TAG_TRACEBACK, None)
         
         for ancestor in self._ancestors():
