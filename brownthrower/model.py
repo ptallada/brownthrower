@@ -660,7 +660,7 @@ class Job(Base):
         value = self.task.epilog(self)
         if isinstance(value, dict) and 'children' in value and 'links' in value:
             # Create child jobs
-            children = self._create_childubjobs(value)
+            children = self._create_childjobs(value)
             self.children |= children
             for job in children:
                 job.submit()
