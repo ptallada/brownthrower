@@ -72,14 +72,6 @@ class SerialRunner(object):
         signal.signal(signal.SIGINT,  self._system_exit)
         signal.signal(signal.SIGTERM, self._system_exit)
     
-    def _get_runnable_jobs(self):
-        with bt.transactional_session(self._session_maker) as session:
-            return session.query(bt.Job).filter(
-                bt.Job.status == bt.Job.Status.QUEUED,
-                bt.Job.name.in_(bt.tasks.keys()), # @UndefinedVariable
-                ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
-            ).all()
-    
     def _must_terminate(self, job_id):
         try:
             with bt.transactional_session(self._session_maker) as session:
@@ -126,14 +118,21 @@ class SerialRunner(object):
                 proc.join()
     
     def _run_one(self, q_finish, q_abort):
-        for job in self._get_runnable_jobs():
-            try:
-                self._run_job(job.id, q_finish, q_abort)
-                return
-            except bt.InvalidStatusException, NoResultFound:
-                pass
-        
-        raise NoRunnableJobFound()
+        with bt.transactional_session(self._session_maker) as session:
+            jobs = session.query(bt.Job).filter(
+                bt.Job.status == bt.Job.Status.QUEUED,
+                bt.Job.name.in_(bt.tasks.keys()), # @UndefinedVariable
+                ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
+            )
+            
+            for job in jobs:
+                try:
+                    self._run_job(job.id, q_finish, q_abort)
+                    return
+                except bt.InvalidStatusException, NoResultFound:
+                    pass
+            
+            raise NoRunnableJobFound()
     
     def _run_all(self, q_finish, q_abort):
         while True:
