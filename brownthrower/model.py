@@ -335,9 +335,6 @@ class Job(Base):
             
             if child.status != Job.Status.STASHED:
                 raise InvalidStatusException("The child job must be in the STASHED status.")
-                
-            if parent.super_id or child.super_id or parent.superjob or child.superjob:
-                raise InvalidStatusException("A parent-child dependency can only be manually established/removed between top-level jobs.")
         
         @event.listens_for(cls.superjob, 'set', propagate=True)
         def _set_super_sub(subjob, superjob, old_superjob, initiator):
