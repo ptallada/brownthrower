@@ -20,10 +20,11 @@ log = logging.getLogger('brownthrower.runner.serial')
 KILL_TIMEOUT=2
 
 class Job(multiprocessing.Process):
-    def __init__(self, db_url, job_id):
+    def __init__(self, db_url, job_id, token):
         super(Job, self).__init__(name='bt_job_%d' % job_id)
         self._job_id = job_id
         self._db_url = db_url
+        self._token  = token
         self._lock   = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
@@ -41,14 +42,14 @@ class Job(multiprocessing.Process):
             ).options(undefer_group('yaml')).one()
             
             if not job.subjobs:
-                job.prolog()
+                job.prolog(self._token)
                 if not job.subjobs:
-                    job.run()
+                    job.run(self._token)
             else:
-                job.epilog()
+                job.epilog(self._token)
     
     @bt.retry_on_serializable_error
-    def _finish_job(self, tb):
+    def _finish_job(self, tb=None):
         session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(id = self._job_id).one()
@@ -58,22 +59,24 @@ class Job(multiprocessing.Process):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, self._system_exit)
         
-        tb = None
         try:
             self._run_job()
+        except (bt.InvalidStatusException, NoResultFound, bt.TokenMismatchException):
+            # This is not our job (anymore...). Cannot act upon it.
+            return
+        
         except BaseException as e:
-            if bt.is_serializable_error(e) \
-              or isinstance(e, (bt.InvalidStatusException, NoResultFound)):
-                # Job has mutated during execution, certainly was aborted.
-                pass
+            if bt.is_serializable_error(e):
+                # This is not our job (anymore...). Cannot act upon it.
+                return
             else:
+                # Job failed or was interrupted.
                 log.debug(e, exc_info=True)
                 tb = ''.join(traceback.format_exception(*sys.exc_info()))
-        finally:
-            try:
                 self._finish_job(tb)
-            except (bt.InvalidStatusException, NoResultFound):
-                pass
+        else:
+            # Job finished successfully
+            self._finish_job()
     
     def cancel(self):
         if self.is_alive():
@@ -96,12 +99,13 @@ class Job(multiprocessing.Process):
 
 class Monitor(multiprocessing.Process):
     
-    def __init__(self, db_url, job_id, q_finish, submit=False):
+    def __init__(self, db_url, job_id, q_finish, submit=False, token=None):
         super(Monitor, self).__init__(name='bt_monitor_%d' % job_id)
         self._job_id = job_id
         self._db_url = db_url
         self._q_finish = q_finish
         self._submit = submit
+        self._token  = token
         self._lock   = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
@@ -115,10 +119,12 @@ class Monitor(multiprocessing.Process):
     def _process_job(self):
         session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
-            job = session.query(bt.Job).filter_by(id = self._job_id).one()
+            job = session.query(bt.Job).filter_by(
+                id = self._job_id
+            ).one()
             if self._submit:
                 job.submit()
-            job.process()
+            job.process(self._token)
     
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -127,6 +133,7 @@ class Monitor(multiprocessing.Process):
         job_process = Job(
             db_url = self._db_url,
             job_id = self._job_id,
+            token  = self._token,
         )
         
         try:

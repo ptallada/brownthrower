@@ -40,8 +40,12 @@ class SerialRunner(object):
         group.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
             help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
         
-        parser.add_argument('--submit', '-s', action='store_true',
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('--reserved', '-r', metavar='TOKEN',
+            help='in conjunction with --job-id, run a previously reserved job')
+        group.add_argument('--submit', '-s', action='store_true',
             help='in conjunction with --job-id, submit the job before executing')
+        
         parser.add_argument('--version', '-v', action='version', 
             version='%%(prog)s %s' % bt.release.__version__)
         
@@ -66,6 +70,7 @@ class SerialRunner(object):
         self._notify_failed = options.pop('notify_failed', None)
         self._post_mortem   = options.pop('post_mortem', None)
         self._submit        = options.pop('submit', False)
+        self._token         = options.pop('reserved', None)
         
         self._lock = threading.Lock()
         
@@ -82,11 +87,12 @@ class SerialRunner(object):
         except NoResultFound:
             return True
         
-    def _run_job(self, job_id, q_finish, q_abort, submit=False):
+    def _run_job(self, job_id, q_finish, q_abort, submit=False, token=None):
         proc = process.Monitor(
             db_url   = self._session_maker.bind.url,
             job_id   = job_id,
             submit   = submit,
+            token    = token,
             q_finish = q_finish,
         )
         
@@ -152,7 +158,7 @@ class SerialRunner(object):
             q_abort = SelectableQueue()
         
         if self._job_id:
-            self._run_job(self._job_id, q_finish, q_abort, self._submit)
+            self._run_job(self._job_id, q_finish, q_abort, self._submit, self._token)
         else:
             while True:
                 self._run_all(q_finish, q_abort)
