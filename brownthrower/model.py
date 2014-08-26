@@ -703,16 +703,20 @@ class Job(Base):
         self._status = Job.Status.DONE
     
     def finish(self, tb=None):
-        if self.status != Job.Status.PROCESSING:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be finished.")
-        self._ts_ended = func.now()
         if tb:
+            if self.status != Job.Status.PROCESSING:
+                raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
+            
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
-        else:
+        
+        elif self.status != Job.Status.DONE:
+            raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
+            
             self.tag.pop(TAG_TRACEBACK, None)
         
-        self.tag.pop(TAG_TOKEN, None)
+        self._ts_ended = func.now()
+        self.tag.pop(TAG_TOKEN, Tag())
         
         for ancestor in self._ancestors():
             ancestor._update_status()
