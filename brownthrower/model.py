@@ -464,13 +464,28 @@ class Job(Base):
         
         self._remove()
     
+    def _abort(self):
+        if self.subjobs:
+            for subjob in self.subjobs:
+                subjob._abort()
+            self.update_status()
+        elif self.status in [
+            Job.Status.QUEUED,
+            Job.Status.PROCESSING,
+        ]:
+            self.finish('Job was aborted due to user request.')
+    
     def abort(self):
         if self.status not in [
+            Job.Status.QUEUED,
             Job.Status.PROCESSING,
         ]:
             raise InvalidStatusException("This job cannot be aborted in its current status.")
         
-        self.finish("Job was aborted on user request.")
+        self._abort()
+        
+        for ancestor in self._ancestors():
+            ancestor._update_status()
     
     def reset(self):
         if self.subjobs:
