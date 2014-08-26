@@ -53,7 +53,7 @@ class Job(multiprocessing.Process):
         session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(id = self._job_id).one()
-            job.finish(tb)
+            job.finish(self._token, tb)
     
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -94,7 +94,7 @@ class Job(multiprocessing.Process):
     def finish(self):
         try:
             self._finish_job("Job aborted with exit code %d" % self.exitcode)
-        except (bt.InvalidStatusException, NoResultFound):
+        except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
             pass
 
 class Monitor(multiprocessing.Process):
