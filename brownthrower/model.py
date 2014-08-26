@@ -470,7 +470,7 @@ class Job(Base):
             Job.Status.QUEUED,
             Job.Status.PROCESSING,
         ]:
-            self.finish('Job was aborted due to user request.')
+            self._finish('Job was aborted due to user request.')
     
     def abort(self):
         if self.status not in [
@@ -711,7 +711,7 @@ class Job(Base):
             self.set_dataset('output', value)
         self._status = Job.Status.DONE
     
-    def finish(self, tb=None):
+    def _finish(self, tb=None):
         if tb:
             if self.status != Job.Status.PROCESSING:
                 raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
@@ -725,10 +725,16 @@ class Job(Base):
             self.tag.pop(TAG_TRACEBACK, None)
         
         self._ts_ended = func.now()
-        self.tag.pop(TAG_TOKEN, Tag())
+        self.tag.pop(TAG_TOKEN, None)
         
         for ancestor in self._ancestors():
             ancestor._update_status()
+        
+    def finish(self, token=None, tb=None):
+        if self.tag.get(TAG_TOKEN, None) != token:
+            raise TokenMismatchException("Incorrect token given for a reserved job.")
+        
+        self._finish(tb)
 
 class Tag(Base):
     __tablename__ = 'tag'
