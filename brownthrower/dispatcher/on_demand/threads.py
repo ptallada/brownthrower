@@ -7,9 +7,12 @@ import glite.ce.job
 import logging
 import select
 import string
+import sys
 import tempfile
 import threading
+import traceback
 import time
+import uuid
 
 from functools import wraps
 from sqlalchemy.orm.exc import NoResultFound
@@ -78,6 +81,7 @@ class LauncherThread(threading.Thread):
         self._glite_status = glite_status
         self._glite_ids = glite_ids
         self._refresh = refresh
+        self._token = uuid.uuid1().hex
         self._q_stop = utils.SelectableQueue()
     
     def stop(self):
@@ -90,7 +94,7 @@ class LauncherThread(threading.Thread):
         with tempfile.NamedTemporaryFile("w+") as fh:
             fh.write(template.substitute({
                 'executable' : self._runner_path,
-                'arguments' : "%s -j %d" % (self._runner_args, job_id)
+                'arguments' : "%s -j %d -r %s" % (self._runner_args, job_id, self._token)
             }))
             
             fh.flush()
@@ -122,22 +126,33 @@ class LauncherThread(threading.Thread):
                         glite_ids[pilot_id]['job_id'] = job_id
                         glite_status[glite.ce.job.Status.REGISTERED] += 1
     
-    def _launch_pending(self):
-        job = None
+    @bt.retry_on_serializable_error
+    def _reserve_one(self):
         with bt.transactional_session(self._session_maker) as session:
-            jobs = session.query(bt.Job).filter(
+            job = session.query(bt.Job).filter(
                 bt.Job.status == bt.Job.Status.QUEUED,
                 bt.Job.name.in_(self._allowed_tasks), # @UndefinedVariable
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
-            )
+            ).first()
             
-            for job in jobs:
-                self._launch_job(job.id)
+            if job:
+                job.process(self._token)
+                return job.id
+    
+    def _launch_pending(self):
+        job_id = None
+        while not self._q_stop.poll():
+            job_id = self._reserve_one()
+            try:
+                self._launch_job(job_id)
+            except BaseException:
+                tb = ''.join(traceback.format_exception(*sys.exc_info()))
+                self._finish_job(self._token, tb)
                 
-                if self._q_stop.poll():
-                    break
+            if not job_id:
+                break
         
-        if job:
+        if job_id:
             self._refresh.put(True)
     
     def run(self):
