@@ -413,7 +413,7 @@ class Job(Base):
         if self.subjobs:
             for subjob in self.subjobs:
                 subjob._submit()
-            self.update_status()
+            self._update_status()
         elif self.status in [
             Job.Status.FAILED,
             Job.Status.STASHED,
