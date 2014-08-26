@@ -28,7 +28,8 @@ Base = declarative_base()
 tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
 
-TAG_TRACEBACK = 'bt_last_traceback'
+TAG_TRACEBACK = 'bt_traceback'
+TAG_TOKEN     = 'bt_token'
 
 def _deprecated(func):
     """
@@ -110,6 +111,17 @@ class TaskNotAvailableException(Exception):
     
     def __init__(self, name):
         self.message = "Task '%s' is not available in this environment." % name
+        
+    def __str__(self):
+        return str(self.message)
+
+class TokenMismatchException(Exception):
+    """\
+    Raised when absent or different token
+    """
+    
+    def __init__(self, message=None):
+        self.message = message
         
     def __str__(self):
         return str(self.message)
@@ -611,9 +623,12 @@ class Job(Base):
         if not self.task:
             raise TaskNotAvailableException(self.name)
     
-    def process(self):
+    def process(self, token=None):
         self.assert_is_available() # TODO: Strictly, it doesnt have to be called
-        if self.status != Job.Status.QUEUED:
+        if token and self.status == Job.Status.PROCESSING:
+            if self.tag.get(TAG_TOKEN, None) != token:
+                raise TokenMismatchException("Incorrect token given for a reserved job.")
+        elif self.status != Job.Status.QUEUED:
             raise InvalidStatusException("Only jobs in QUEUED status can be processed.")
         if any([parent.status != Job.Status.DONE for parent in self.parents]):
             raise InvalidStatusException("This job cannot be executed because not all of its parents have finished.")
@@ -621,13 +636,19 @@ class Job(Base):
         self._status = Job.Status.PROCESSING
         self._ts_started = func.now()
         self._output = None
+        # Store token for reserved jobs
+        if token:
+            self.tag[TAG_TOKEN] = token
+        
         for ancestor in self._ancestors():
             ancestor._update_status()
     
-    def prolog(self):
+    def prolog(self, token=None):
         self.assert_is_available()
         if self.status != Job.Status.PROCESSING:
             raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if self.tag.get(TAG_TOKEN, None) != token:
+            raise TokenMismatchException("Incorrect token given for a reserved job.")
         if self.subjobs:
             raise InvalidStatusException("Cannot execute prolog on jobs that have subjobs.")
         # Execute prolog implementation
@@ -638,10 +659,12 @@ class Job(Base):
             for job in subjobs:
                 job.submit()
     
-    def run(self):
+    def run(self, token=None):
         self.assert_is_available()
         if self.status != Job.Status.PROCESSING:
             raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if self.tag.get(TAG_TOKEN, None) != token:
+            raise TokenMismatchException("Incorrect token given for a reserved job.")
         if self.subjobs:
             raise InvalidStatusException("Cannot execute run on jobs that have subjobs.")
         if self.raw_output:
@@ -650,10 +673,12 @@ class Job(Base):
         self.set_dataset('output', self.task.run(self))
         self._status = Job.Status.DONE
     
-    def epilog(self):
+    def epilog(self, token=None):
         self.assert_is_available()
         if self.status != Job.Status.PROCESSING:
             raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
+        if self.tag.get(TAG_TOKEN, None) != token:
+            raise TokenMismatchException("Incorrect token given for a reserved job.")
         if not self.subjobs:
             raise InvalidStatusException("Cannot execute epilog on jobs that have no subjobs.")
         # Execute epilog implementation
@@ -686,6 +711,8 @@ class Job(Base):
             self.tag[TAG_TRACEBACK] = tb
         else:
             self.tag.pop(TAG_TRACEBACK, None)
+        
+        self.tag.pop(TAG_TOKEN, None)
         
         for ancestor in self._ancestors():
             ancestor._update_status()
