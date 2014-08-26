@@ -473,9 +473,6 @@ class Job(Base):
         self.finish("Job was aborted on user request.")
     
     def reset(self):
-        if self.superjob:
-            raise InvalidStatusException("This job is not a top-level job and cannot be returned to the stash.")
-        
         if self.subjobs:
             raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
         
