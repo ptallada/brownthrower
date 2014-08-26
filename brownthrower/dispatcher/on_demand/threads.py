@@ -127,6 +127,12 @@ class LauncherThread(threading.Thread):
                         glite_status[glite.ce.job.Status.REGISTERED] += 1
     
     @bt.retry_on_serializable_error
+    def _finish_job(self, job_id, tb=None):
+        with bt.transactional_session(self._session_maker) as session:
+            job = session.query(bt.Job).filter_by(id = job_id).one()
+            job.finish(self._token, tb)
+    
+    @bt.retry_on_serializable_error
     def _reserve_one(self):
         with bt.transactional_session(self._session_maker) as session:
             job = session.query(bt.Job).filter(
@@ -147,7 +153,10 @@ class LauncherThread(threading.Thread):
                 self._launch_job(job_id)
             except BaseException:
                 tb = ''.join(traceback.format_exception(*sys.exc_info()))
-                self._finish_job(self._token, tb)
+                try:
+                    self._finish_job(job_id, tb)
+                except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
+                    pass
                 
             if not job_id:
                 break
