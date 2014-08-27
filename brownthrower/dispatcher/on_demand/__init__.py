@@ -128,9 +128,6 @@ class OnDemandDispatcher(object):
             self._bt_monitor.start()
             self._glite_monitor.start()
             
-            from pysrc import pydevd
-            pydevd.settrace('wl-tallada', port=5678)
-            
             self._ui.run()
         
         finally:
