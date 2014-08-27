@@ -20,7 +20,7 @@ class MainScreen(object):
         )
     
     def _unhandled(self, key):
-        if key == 'f8':
+        if key == 'esc':
             raise urwid.ExitMainLoop()
     
     def set_callback(self, fd, callback):
@@ -115,14 +115,3 @@ class MainScreen(object):
         for label in sorted(status.iterkeys()):
             row = self._create_glite_row(label, status[label])
             self._glite_status.contents.append((row, ('pack', None)))
-
-# def test():
-#     m = MainScreen()
-#     m.update_bt({'PROCESSING' :4, 'DONE':88})
-#     m.update_glite({'REGISTERED' :54, 'REALLY_RUNNING':5})
-#     m.run()
-#  
-# if __name__ == '__main__':
-#     #from pysrc import pydevd
-#     #pydevd.settrace()
-#     test()
