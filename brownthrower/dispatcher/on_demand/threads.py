@@ -127,10 +127,10 @@ class LauncherThread(threading.Thread):
                         glite_status[glite.ce.job.Status.REGISTERED] += 1
     
     @bt.retry_on_serializable_error
-    def _finish_job(self, job_id, tb=None):
+    def _cleanup_job(self, job_id, tb=None):
         with bt.transactional_session(self._session_maker) as session:
             job = session.query(bt.Job).filter_by(id = job_id).one()
-            job.finish(self._token, tb)
+            job.cleanup(self._token, tb)
     
     @bt.retry_on_serializable_error
     def _reserve_one(self):
@@ -142,7 +142,7 @@ class LauncherThread(threading.Thread):
             ).first()
             
             if job:
-                job.process(self._token)
+                job.reserve(self._token)
                 return job.id
     
     def _launch_pending(self):
@@ -154,7 +154,7 @@ class LauncherThread(threading.Thread):
             except BaseException:
                 tb = ''.join(traceback.format_exception(*sys.exc_info()))
                 try:
-                    self._finish_job(job_id, tb)
+                    self._cleanup_job(job_id, tb)
                 except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
                     pass
                 
@@ -165,9 +165,6 @@ class LauncherThread(threading.Thread):
             self._refresh.put(True)
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         self._launch_pending()
         
         while not self._q_stop.poll():
@@ -230,9 +227,6 @@ class BtMonitorThread(threading.Thread):
                         bt_status[old_status] -= 1
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         while not self._q_stop.poll():
             try:
                 r, _, _ = select.select([self._q_changes, self._q_stop], [], [])
@@ -308,9 +302,6 @@ class GliteMonitorThread(threading.Thread):
             self._refresh.put(True)
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         self._update_status()
         
         while not self._q_stop.poll():

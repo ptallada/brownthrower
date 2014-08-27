@@ -3,6 +3,8 @@
 
 import contextlib
 import logging
+import sys
+import traceback
 import warnings
 import yaml
 
@@ -467,7 +469,7 @@ class Job(Base):
                 subjob._abort()
             self._update_status()
         elif self.status == Job.Status.PROCESSING:
-            self._finish('Job was aborted due to user request.')
+            self._cleanup('Job was aborted due to user request.')
         elif self.status == Job.Status.QUEUED:
             self._reset()
     
@@ -604,7 +606,9 @@ class Job(Base):
         for link in subtasks.get('links', []):
             subjobs[link[0]].children.add(subjobs[link[1]])
         
-        return set(subjobs.values())
+        self.subjobs |= subjobs.values()
+        for job in subjobs:
+            job.submit()
     
     @_deprecated
     def _create_childjobs(self, childtasks):
@@ -632,21 +636,22 @@ class Job(Base):
         for link in childtasks.get('links', []):
             children[link[0]].children.add(children[link[1]])
         
-        return set(children.values())
+        self.children |= children.values()
+        for job in children:
+            job.submit()
     
     def assert_is_available(self):
         if not self.task:
             raise TaskNotAvailableException(self.name)
     
-    def process(self, token=None):
-        self.assert_is_available() # TODO: Strictly, it doesnt have to be called
+    def reserve(self, token):
         if token and self.status == Job.Status.PROCESSING:
             if self.tag.get(TAG_TOKEN, None) != token:
                 raise TokenMismatchException("Incorrect token given for a reserved job.")
         elif self.status != Job.Status.QUEUED:
             raise InvalidStatusException("Only jobs in QUEUED status can be processed.")
         if any([parent.status != Job.Status.DONE for parent in self.parents]):
-            raise InvalidStatusException("This job cannot be executed because not all of its parents have finished.")
+            raise InvalidStatusException("This job cannot be processed because not all of its parents have finished.")
         # Moving job into PROCESSING state
         self._status = Job.Status.PROCESSING
         self._ts_started = func.now()
@@ -658,66 +663,45 @@ class Job(Base):
         for ancestor in self._ancestors():
             ancestor._update_status()
     
-    def prolog(self, token=None):
+    def run(self, token):
         self.assert_is_available()
-        if self.status != Job.Status.PROCESSING:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
-        if self.tag.get(TAG_TOKEN, None) != token:
-            raise TokenMismatchException("Incorrect token given for a reserved job.")
-        if self.subjobs:
-            raise InvalidStatusException("Cannot execute prolog on jobs that have subjobs.")
-        # Execute prolog implementation
-        subtasks =  self.task.prolog(self)
-        if subtasks:
-            subjobs = self._create_subjobs(subtasks)
-            self.subjobs |= subjobs
-            for job in subjobs:
-                job.submit()
-    
-    def run(self, token=None):
-        self.assert_is_available()
-        if self.status != Job.Status.PROCESSING:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
-        if self.tag.get(TAG_TOKEN, None) != token:
-            raise TokenMismatchException("Incorrect token given for a reserved job.")
-        if self.subjobs:
-            raise InvalidStatusException("Cannot execute run on jobs that have subjobs.")
-        if self.raw_output:
-            raise InvalidStatusException("Cannot execute a job that already has an output.")
-        # Execute run implementation 
-        self.set_dataset('output', self.task.run(self))
-        self._status = Job.Status.DONE
-    
-    def epilog(self, token=None):
-        self.assert_is_available()
-        if self.status != Job.Status.PROCESSING:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be executed.")
-        if self.tag.get(TAG_TOKEN, None) != token:
-            raise TokenMismatchException("Incorrect token given for a reserved job.")
-        if not self.subjobs:
-            raise InvalidStatusException("Cannot execute epilog on jobs that have no subjobs.")
-        # Execute epilog implementation
-        value = self.task.epilog(self)
-        if isinstance(value, dict) and 'children' in value and 'links' in value:
-            # Create child jobs
-            children = self._create_childjobs(value)
-            self.children |= children
-            for job in children:
-                job.submit()
-            
-            if 'output' in value:
-                self.set_dataset('output', value['output'])
+        self.reserve(token)
+        
+        tb = None
+        try:
+            if not self.subjobs:
+                # PROLOG
+                subtasks = self.task.prolog(self)
+                if subtasks:
+                    self._create_subjobs(subtasks)
+                # RUN
+                if not self.subjobs:
+                    output = self.task.run(self)
+                    self.set_dataset('output', output)
+                    self._status = Job.Status.DONE
             else:
-                self.set_dataset('output', [
-                    job.output
-                    for job in self.subjobs
-                    if not job.children
-                ])
-        else:
-            self.set_dataset('output', value)
-        self._status = Job.Status.DONE
+                # EPILOG
+                value = self.task.epilog(self)
+                if isinstance(value, dict) and 'children' in value and 'links' in value:
+                    self._create_childjobs(value)
+                    if 'output' in value:
+                        self.set_dataset('output', value['output'])
+                else:
+                    self.set_dataset('output', value)
+                self._status = Job.Status.DONE
+        
+        except BaseException:
+            try:
+                raise
+            except Exception:
+                pass
+            finally:
+                tb = ''.join(traceback.format_exception(*sys.exc_info()))
+        
+        finally:
+            self.cleanup(token, tb)
     
-    def _finish(self, tb=None):
+    def _cleanup(self, tb=None):
         if tb:
             if self.status != Job.Status.PROCESSING:
                 raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
@@ -726,21 +710,21 @@ class Job(Base):
             self.tag[TAG_TRACEBACK] = tb
         
         elif self.status != Job.Status.DONE:
-            raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
+            raise InvalidStatusException("Cannot cleanup an unfinished job.")
             
-            self.tag.pop(TAG_TRACEBACK, None)
+            self.tag.pop(TAG_TRACEBACK, Tag())
         
         self._ts_ended = func.now()
-        self.tag.pop(TAG_TOKEN, None)
+        self.tag.pop(TAG_TOKEN, Tag())
         
         for ancestor in self._ancestors():
             ancestor._update_status()
         
-    def finish(self, token=None, tb=None):
+    def cleanup(self, token, tb=None):
         if self.tag.get(TAG_TOKEN, None) != token:
             raise TokenMismatchException("Incorrect token given for a reserved job.")
         
-        self._finish(tb)
+        self._cleanup(tb)
 
 class Tag(Base):
     __tablename__ = 'tag'
