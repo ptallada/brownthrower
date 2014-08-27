@@ -709,9 +709,7 @@ class Job(Base):
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
         
-        elif self.status != Job.Status.DONE:
-            raise InvalidStatusException("Cannot cleanup an unfinished job.")
-            
+        else:
             self.tag.pop(TAG_TRACEBACK, Tag())
         
         self._ts_ended = func.now()
