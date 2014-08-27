@@ -465,12 +465,11 @@ class Job(Base):
         if self.subjobs:
             for subjob in self.subjobs:
                 subjob._abort()
-            self.update_status()
-        elif self.status in [
-            Job.Status.QUEUED,
-            Job.Status.PROCESSING,
-        ]:
+            self._update_status()
+        elif self.status == Job.Status.PROCESSING:
             self._finish('Job was aborted due to user request.')
+        elif self.status == Job.Status.QUEUED:
+            self._reset()
     
     def abort(self):
         if self.status not in [
@@ -484,6 +483,16 @@ class Job(Base):
         for ancestor in self._ancestors():
             ancestor._update_status()
     
+    def _reset(self):
+        if self.status in [
+            Job.Status.FAILED,
+            Job.Status.QUEUED,
+        ]:
+            self._status = Job.Status.STASHED
+            self._ts_queued = None
+            self._ts_started = None
+            self._ts_ended = None
+    
     def reset(self):
         if self.subjobs:
             raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
@@ -494,10 +503,7 @@ class Job(Base):
         ]:
             raise InvalidStatusException("This job cannot be returned to the stash in its current status.")
         
-        self._status = Job.Status.STASHED
-        self._ts_queued = None
-        self._ts_started = None
-        self._ts_ended = None
+        self._reset()
     
     def clone(self):
         job = Job(self.name, self.task)
