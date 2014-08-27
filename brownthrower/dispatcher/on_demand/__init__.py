@@ -112,7 +112,12 @@ class OnDemandDispatcher(object):
             self._refresh
         )
         
-        self._ui = ui.MainScreen()
+        self._ui = ui.MainScreen(
+            self._runner_path,
+            self._runner_args,
+            self._ce_queue,
+            self._allowed_tasks,
+        )
         self._ui.set_callback(self._refresh, self._update_ui)
     
     def _update_ui(self):

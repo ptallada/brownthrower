@@ -4,14 +4,12 @@
 import urwid
 
 class MainScreen(object):
-    def __init__(self):
-        self._create_widgets()
+    def __init__(self, runner_path, runner_args, ce_queue, allowed_tasks):
+        self._create_widgets(runner_path, runner_args, ce_queue, allowed_tasks)
         self._palette = [
-            ('header',  'black',        'dark cyan', 'standout'),
-            ('label',   'light red',    'default',     'standout'),
-            
-            ('key',     'yellow',       'dark blue', 'bold'),
-            ('listbox', 'light gray',   'black' ),
+            ('header',  'black',     'dark cyan', 'standout'),
+            ('label',   'light red', 'default',   'standout'),
+            ('value',   'default',   'default',   'default'),
         ]
         self._screen = urwid.raw_display.Screen()
         self._loop = urwid.MainLoop(
@@ -28,7 +26,7 @@ class MainScreen(object):
     def set_callback(self, fd, callback):
         self._loop.event_loop.watch_file(fd, callback)
     
-    def _create_widgets(self):
+    def _create_widgets(self, runner_path, runner_args, ce_queue, allowed_tasks):
         self._header = urwid.AttrWrap(
             urwid.Text("Brownthrower dispatcher on-demand", align='center'),
             'header',
@@ -39,10 +37,10 @@ class MainScreen(object):
         self._ce_queue_label    = urwid.Text(('label', "gLite CE endpoint:"))
         self._tasks_label       = urwid.Text(('label', "Eligible tasks:"))
         
-        self._runner_path_value = urwid.Text(('value', "/remote/runner/path"))
-        self._runner_args_value = urwid.Text(('value', "--remote-arg1 foo --remote-arg2 bar"))
-        self._ce_queue_value    = urwid.Text(('value', "ce08.pic.es:8443/cream_pbs_astro"))
-        self._tasks_value       = urwid.Text(('value', "random, pxcorr"))
+        self._runner_path_value = urwid.Text(('value', runner_path))
+        self._runner_args_value = urwid.Text(('value', runner_args))
+        self._ce_queue_value    = urwid.Text(('value', ce_queue))
+        self._tasks_value       = urwid.Text(('value', allowed_tasks))
         
         self._runner_path = urwid.Columns([
             ('fixed', 24, self._runner_path_label),
