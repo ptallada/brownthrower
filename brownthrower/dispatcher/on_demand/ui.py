@@ -40,7 +40,7 @@ class MainScreen(object):
         self._runner_path_value = urwid.Text(('value', runner_path))
         self._runner_args_value = urwid.Text(('value', runner_args))
         self._ce_queue_value    = urwid.Text(('value', ce_queue))
-        self._tasks_value       = urwid.Text(('value', allowed_tasks))
+        self._tasks_value       = urwid.Text(('value', ', '.join(allowed_tasks)))
         
         self._runner_path = urwid.Columns([
             ('fixed', 24, self._runner_path_label),
