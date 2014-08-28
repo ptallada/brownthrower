@@ -13,62 +13,32 @@ import tempfile
 import threading
 import time
 
+from collections import defaultdict
 from functools import wraps
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import sessionmaker
 
 import brownthrower as bt
+import brownthrower.utils as utils
 
-try:
-    from logging import NullHandler
-except ImportError:
-    from logutils import NullHandler # @UnusedImport
+from . import threads
+from . import ui
 
 log = logging.getLogger('brownthrower.dispatcher.static')
-log.addHandler(NullHandler())
 
-JDL_TEMPLATE = """\
-[
-Type = "Job";
-JobType = "Normal";
-Executable = "${executable}";
-Arguments = "${arguments}";
-StdOutput = "std.out";
-StdError = "std.err";
-OutputSandbox = {"std.out", "std.err"}; 
-OutputSandboxBaseDestUri="gsiftp://localhost";
-requirements = other.GlueCEStateStatus == "Production";
-rank = -other.GlueCEStateEstimatedResponseTime;
-RetryCount = 0;
-]
-"""
-
-def retry(tries):
-    def retry_decorator(fn):
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            for _ in range(tries - 1):
-                try:
-                    value = fn(*args, **kwargs)
-                    return value
-                except Exception as e:
-                    log.warning("Exception «%s» caught while calling %s. Retrying..." % (e, fn))
-            
-            value = fn(*args, **kwargs)
-            return value
-        
-        return wrapper
-    return retry_decorator
+class LockedContainer(object):
+    def __init__(self, container):
+        self._rlock = threading.RLock()
+        self._container = container
+    
+    def __enter__(self):
+        self._rlock.acquire()
+        return self._container
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._rlock.release()
 
 class StaticDispatcher(object):
-    """\
-    TODO
-    
-    TODO
-    TODO
-    """
-    
-    __brownthrower_name__ = 'static'
     
     def _parse_args(self, args = None):
         parser = argparse.ArgumentParser(prog='dispatcher.static', add_help=False)
@@ -84,6 +54,8 @@ class StaticDispatcher(object):
             help="specify the location of the runner in the remote nodes", required=True)
         parser.add_argument('--runner-args', metavar='COMMAND',  default=argparse.SUPPRESS,
             help="specify the arguments for the remote runner", required=True)
+        parser.add_argument('--allowed-tasks', metavar='NAME_LIST',  default=argparse.SUPPRESS,
+            help="comma-separated list of tasks eligible for running", required=True)
         parser.add_argument('--version', '-v', action='version', 
             version='%%(prog)s %s' % bt.release.__version__)
         
@@ -102,8 +74,7 @@ class StaticDispatcher(object):
         options = self._parse_args(args)
         
         self._db_url = options.get('database_url')
-        engine = bt.create_engine(self._db_url)
-        self._session_maker = scoped_session(sessionmaker(engine))
+        self._session_maker = bt.session_maker(self._db_url)
         
         arguments = [
             '-u', self._db_url,
@@ -114,6 +85,7 @@ class StaticDispatcher(object):
         self._ce_queue      = options.pop('ce_queue')
         self._pool_size     = options.pop('pool_size')
         self._runner_path   = options.pop('runner_path')
+        self._allowed_tasks = set(map(str.strip, options.pop('allowed_tasks').split(',')))
         
         self._pilots = {}
         self._last_event = 0
@@ -121,111 +93,86 @@ class StaticDispatcher(object):
         
         signal.signal(signal.SIGINT,  self._system_exit)
         signal.signal(signal.SIGTERM, self._system_exit)
-    
-    @retry(tries = 3)
-    def _init_status(self):
-        self._last_event = glite.ce.last_event_id(self._ce_queue.split('/')[0])
-    
-    @contextlib.contextmanager
-    def _write_jdl(self, executable, arguments):
-        template = string.Template(JDL_TEMPLATE)
         
-        with tempfile.NamedTemporaryFile("w+") as fh:
-            fh.write(template.substitute({
-                'executable' : executable,
-                'arguments' : arguments,
-            }))
-            
-            fh.flush()
-            
-            yield fh.name
+        self._bt_ids = LockedContainer(dict())
+        self._bt_status = LockedContainer(defaultdict(int))
+        self._glite_ids = LockedContainer(dict())
+        self._glite_status = LockedContainer(defaultdict(int))
+        
+        self._refresh = utils.SelectableQueue()
+        
+        self._launcher = threads.LauncherThread(
+            self._session_maker,
+            self._allowed_tasks,
+            self._runner_path,
+            self._runner_args,
+            self._ce_queue,
+            self._bt_status,
+            self._bt_ids,
+            self._glite_status,
+            self._glite_ids,
+            self._pool_size,
+            self._refresh
+        )
+        self._bt_monitor = threads.BtMonitorThread(
+            self._session_maker, 
+            self._bt_ids,
+            self._bt_status,
+            self._allowed_tasks,
+            self._refresh
+        )
+        self._glite_monitor = threads.GliteMonitorThread(
+            self._ce_queue,
+            self._glite_ids,
+            self._glite_status,
+            self._refresh
+        )
+        
+        self._ui = ui.MainScreen(
+            self._runner_path,
+            self._runner_args,
+            self._ce_queue,
+            self._allowed_tasks,
+        )
+        self._ui.set_callback(self._refresh, self._update_ui)
     
-    @retry(tries = 3)
-    def _launch_pilot(self):
-        with self._write_jdl(self._runner_path, self._runner_args) as jdl_file:
-            pilot_id = glite.ce.job.submit(jdl_file, endpoint=self._ce_queue)
-            self._pilots[pilot_id] = glite.ce.job.CEJobStatus.UNKNOWN
-        
-        return pilot_id
+    def _update_ui(self):
+        self._refresh.get()
+        with self._bt_status as bt_status:
+            self._ui.update_bt(bt_status)
+        with self._glite_status as glite_status:
+            self._ui.update_glite(glite_status)
     
-    @retry(tries = 3)
-    def _update_status(self):
-        finished = 0
-        
-        for event in glite.ce.event_query(self._ce_queue.split('/')[0], self._last_event):
-            if event['jobId'] in self._pilots:
-                self._pilots[event['jobId']] = event['status']
-                
-                if event['status'] in glite.ce.job.CEJobStatus.final:
-                    finished += 1
-        
-        self._last_event = int(event['EventID'])
-        
-        return finished
-    
-    def _build_summary(self):
-        job_status = collections.defaultdict(int)
-        
-        job_status.clear()
-        for status in self._pilots.itervalues():
-            job_status[status] += 1
-        
-        msg = ["Pilot summary:"]
-        for status, count in job_status.iteritems():
-            msg.append("%s(%d)" % (status, count))
-        
-        return " ".join(msg)
-    
-    def _cancel_pilots(self):
-        for pilot_id, status in self._pilots.copy().iteritems():
-            if status not in glite.ce.job.CEJobStatus.final:
-                try:
-                    glite.ce.job.cancel(pilot_id)
-                except Exception:
-                    pass
-    
-    def _clear_finished_pilots(self):
-        for pilot_id, status in self._pilots.copy().iteritems():
-            if status in glite.ce.job.CEJobStatus.final:
-                del self._pilots[pilot_id]
-    
-    def main(self):
+    def run(self, *args, **kwargs):
         try:
-            self._init_status()
+            self._launcher.start()
+            self._bt_monitor.start()
+            self._glite_monitor.start()
             
-            log.info("Launching the initial pilots...")
-            for _ in range(self._pool_size):
-                pilot_id = self._launch_pilot()
-                log.debug("Launched a new job with id %s." % pilot_id)
+            from pysrc import pydevd
+            pydevd.settrace('wl-tallada', port=5678)
             
-            while True:
-                finished = self._update_status()
-                
-                log.info("Launching %s additional pilots..." % finished)
-                for _ in range(finished):
-                    pilot_id = self._launch_pilot()
-                    log.debug("Launched a new job with id %s." % pilot_id)
-                
-                summary = self._build_summary()
-                log.info(summary)
-                
-                time.sleep(5)
+            self._ui.run()
         
         finally:
-            log.warning("Shutting down pool. DO NOT INTERRUPT.")
-            while self._pilots:
-                log.debug("Cancelling active pilots, please wait...")
-                self._cancel_pilots()
-                self._update_status()
-                self._clear_finished_pilots()
-                
-                if not self._pilots:
-                    break
-                
-                summary = self._build_summary()
-                log.info(summary)
-                
-                time.sleep(10)
+            # Cancel pilot pool
+            if self._launcher.is_alive():
+                self._launcher.stop()
+            # Wait until all pilots have finished 
+            if self._glite_monitor.is_alive():
+                self._glite_monitor.stop()
+            if self._glite_monitor.is_alive():
+                self._glite_monitor.join()
+            # Stop remaining threads
+            if self._launcher.is_alive():
+                self._launcher.stop()
+            if self._bt_monitor.is_alive():
+                self._bt_monitor.stop()
+            if self._launcher.is_alive():
+                self._launcher.join()
+            if self._bt_monitor.is_alive():
+                self._bt_monitor.join()
+
 
 def main(args=None):
     if not args:
@@ -240,7 +187,7 @@ def main(args=None):
     
     dispatcher = StaticDispatcher(args)
     try:
-        dispatcher.main()
+        dispatcher.run()
     except KeyboardInterrupt:
         print
 
