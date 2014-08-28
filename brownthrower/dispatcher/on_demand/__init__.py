@@ -7,10 +7,10 @@ import signal
 import sys
 import threading
 
+from collections import defaultdict
+
 import brownthrower as bt
 import brownthrower.utils as utils
-
-from collections import defaultdict
 
 from . import threads
 from . import ui
@@ -44,7 +44,7 @@ class OnDemandDispatcher(object):
         parser.add_argument('--runner-args', metavar='ARG_LIST',  default=argparse.SUPPRESS,
             help="extra arguments to provide to the remote runner", required=True)
         parser.add_argument('--allowed-tasks', metavar='NAME_LIST',  default=argparse.SUPPRESS,
-            help="only those tasks will be eligible for running", required=True)
+            help="comma-separated list of tasks eligible for running", required=True)
         parser.add_argument('--version', '-v', action='version', 
             version='%%(prog)s %s' % bt.release.__version__)
         

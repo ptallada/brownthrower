@@ -182,7 +182,7 @@ class LauncherThread(threading.Thread):
 
 class BtMonitorThread(threading.Thread):
     """
-    This thread uses the BT notifications mechanisme to update the status of BT
+    This thread uses the BT notifications mechanism to update the status of BT
     jobs.
     
     A dummy element is pushed to 'refresh' queue to signal the main thread to
