@@ -93,7 +93,7 @@ class LauncherThread(threading.Thread):
         with tempfile.NamedTemporaryFile("w+") as fh:
             fh.write(template.substitute({
                 'executable' : self._runner_path,
-                'arguments' : "%s --loop",
+                'arguments' : "%s --loop" % self._runner_args,
             }))
             
             fh.flush()
@@ -126,15 +126,14 @@ class LauncherThread(threading.Thread):
     def _launch_pending(self):
         actual_size = self._actual_pool_size()
         
-        while not self._q_stop.poll():
-            while actual_size < self._pool_size:
-                self._launch_one()
-                actual_size += 1
-                
-                self._refresh.put(True)
-                
-                if self._q_stop.poll():
-                    break
+        while actual_size < self._pool_size:
+            self._launch_one()
+            actual_size += 1
+            
+            self._refresh.put(True)
+            
+            if self._q_stop.poll():
+                break
     
     def _cancel_pool(self):
         with self._glite_ids as glite_ids:
@@ -248,8 +247,8 @@ class BtMonitorThread(threading.Thread):
                         if job.id in bt_ids:
                             old_status = bt_ids[job.id]
                             bt_status[old_status] -= 1
-                            bt_status[job.status] += 1
-                            bt_ids[job.id] = job.status
+                        bt_status[job.status] += 1
+                        bt_ids[job.id] = job.status
                 
                 return job.status
         
@@ -257,7 +256,7 @@ class BtMonitorThread(threading.Thread):
             with self._bt_ids as bt_ids:
                 with self._bt_status as bt_status:
                     if job_id in bt_ids:
-                        old_status = bt_ids[job_id]['status']
+                        old_status = bt_ids[job_id]
                         del bt_ids[job_id]
                         bt_status[old_status] -= 1
     
@@ -276,16 +275,9 @@ class BtMonitorThread(threading.Thread):
                     continue
                 
                 if self._q_changes in r:
-                    update_runnable = False
-                    
                     for channel, payload in self._q_changes:
-                        if channel in self._q_changes.channel.all_dependency_channels:
-                            update_runnable = True
-                        
                         if channel in self._q_changes.channel.all_job_channels:
                             status = self._update_job(int(payload))
-                            if status == bt.Job.Status.DONE:
-                                update_runnable = True
                         
                         if self._q_stop.poll():
                             break
@@ -293,8 +285,7 @@ class BtMonitorThread(threading.Thread):
                     if self._q_stop.poll():
                         break
                     
-                    if update_runnable:
-                        self._update_runnable()
+                    self._update_runnable()
                     
                     self._refresh.put(True)
             
