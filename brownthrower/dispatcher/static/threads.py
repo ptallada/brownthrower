@@ -150,9 +150,6 @@ class LauncherThread(threading.Thread):
                 break
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         self._launch_pending()
         
         while not self._q_stop.poll():
@@ -261,9 +258,6 @@ class BtMonitorThread(threading.Thread):
                         bt_status[old_status] -= 1
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         self._update_runnable()
         self._initial_status()
         
