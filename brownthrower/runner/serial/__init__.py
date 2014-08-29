@@ -131,15 +131,16 @@ class SerialRunner(object):
                 bt.Job.name.in_(bt.tasks.keys()), # @UndefinedVariable
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
             )
-            
-            for job in jobs:
-                try:
-                    self._run_job(job.id, q_finish, q_abort, self._token)
-                    return
-                except bt.InvalidStatusException, NoResultFound:
-                    pass
-            
-            raise NoRunnableJobFound()
+            job_ids = [job.id for job in jobs]
+        
+        for job_id in job_ids:
+            try:
+                self._run_job(job_id, q_finish, q_abort, self._token)
+                return
+            except bt.InvalidStatusException, NoResultFound:
+                pass
+        
+        raise NoRunnableJobFound()
     
     def _run_all(self, q_finish, q_abort):
         while True:
