@@ -137,6 +137,7 @@ class LauncherThread(threading.Thread):
         with bt.transactional_session(self._session_maker) as session:
             job = session.query(bt.Job).filter(
                 bt.Job.status == bt.Job.Status.QUEUED,
+                bt.Job.token == None,
                 bt.Job.name.in_(self._allowed_tasks), # @UndefinedVariable
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
             ).first()
