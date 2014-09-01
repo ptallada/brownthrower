@@ -7,7 +7,7 @@ import random
 import logging
 
 import base
-import brownthrower
+import brownthrower as bt
 
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm.session import sessionmaker
@@ -20,9 +20,7 @@ def setup():
     # Retrieve database settings. Use in-memory sqlite by default.
     url  = config.get('database', {}).get('url', 'sqlite:///')
     
-    engine = brownthrower.create_engine(url)
-    
-    base.BaseTest._session_maker = scoped_session(sessionmaker(engine))
+    base.BaseTest._session_maker = bt.session_maker(url)
     
     logging.basicConfig(level = logging.DEBUG)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
