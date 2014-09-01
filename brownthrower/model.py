@@ -474,10 +474,11 @@ class Job(Base):
             for subjob in self.subjobs:
                 subjob._abort()
             self._update_status()
-        elif self.status == Job.Status.RUNNING:
+        elif self.status in [
+            Job.Status.RUNNING,
+            Job.Status.QUEUED,
+        ]:
             self._cleanup('Job was aborted due to user request.')
-        elif self.status == Job.Status.QUEUED:
-            self._reset()
     
     def abort(self):
         if self.status not in [
