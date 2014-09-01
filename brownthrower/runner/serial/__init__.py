@@ -79,15 +79,15 @@ class SerialRunner(object):
         signal.signal(signal.SIGTERM, self._system_exit)
     
     def _must_terminate(self, job_id):
-        try:
-            with bt.transactional_session(self._session_maker) as session:
-                job = session.query(bt.Job).filter_by(id = job_id).one()
-                
-                return job.status != bt.Job.Status.PROCESSING
-        
-        except NoResultFound:
-            return True
-        
+        with bt.transactional_session(self._session_maker) as session:
+            job = session.query(bt.Job).filter_by(
+                id = job_id,
+                token = self._token,
+                status = bt.Job.Status.RUNNING,
+            ).first()
+            
+            return bool(job)
+    
     def _run_job(self, job_id, q_finish, q_abort, token, submit=False):
         proc = process.Monitor(
             db_url   = self._session_maker.bind.url,

@@ -10,7 +10,7 @@ import signal
 import sys
 import threading
 
-from sqlalchemy.orm import undefer_group
+from sqlalchemy.orm import undefer_group, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
 log = logging.getLogger('brownthrower.runner.serial')
@@ -42,7 +42,10 @@ class Job(multiprocessing.Process):
             with bt.transactional_session(session_maker) as session:
                 job = session.query(bt.Job).filter_by(
                     id = self._job_id
-                ).options(undefer_group('yaml')).one()
+                ).options(
+                    undefer_group('yaml'),
+                    joinedload(bt.Job.subjobs),
+                ).one()
                 
                 job.run(self._token)
         
@@ -105,7 +108,7 @@ class Monitor(multiprocessing.Process):
                 job.submit()
             
             job.assert_is_available()
-            job.reserve(self._token)
+            job.start(self._token)
     
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)

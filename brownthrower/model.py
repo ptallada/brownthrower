@@ -31,7 +31,6 @@ tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
 
 TAG_TRACEBACK = 'bt_traceback'
-TAG_TOKEN     = 'bt_token'
 
 def _deprecated(func):
     """
@@ -162,6 +161,7 @@ class Job(Base):
     # TODO: rename field to 'name' and change index too
     _name       =          Column('task',       String(50), nullable=False)
     _status     =          Column('status',     String(20), nullable=False)
+    _token      =          Column('token',      String(32), nullable=True)
     _config     = deferred(Column('config',     Text,       nullable=True), group='yaml')
     _input      = deferred(Column('input',      Text,       nullable=True), group='yaml')
     _output     = deferred(Column('output',     Text,       nullable=True), group='yaml')
@@ -227,12 +227,14 @@ class Job(Base):
         The job has been configured and its dependencies are already set.
         It will be executed as soon as possible.
         """
-        PROCESSING = 'PROCESSING'
-        """The job is being processed."""
+        STAND_BY = 'STAND-BY'
+        """Waiting its subjobs to finish."""
+        RUNNING = 'RUNNING'
+        """Being executed right now."""
         DONE = 'DONE'
-        """The job has finished successfully."""
+        """Finished successfully."""
         FAILED = 'FAILED'
-        """The job did not finish successfully."""
+        """Finished with an error condition."""
     
     ###########################################################################
     # CONSTRUCTORS AND SPECIAL METHODS                                        #
@@ -288,6 +290,10 @@ class Job(Base):
         return self._status
     
     @hybrid_property
+    def token(self):
+        return self._token
+    
+    @hybrid_property
     def raw_config(self):
         return self._config
     
@@ -336,20 +342,20 @@ class Job(Base):
                 raise ValueError("Cannot set a parent-child dependency on itself!")
             
             if child.status != Job.Status.STASHED:
-                raise InvalidStatusException("The child job must be in the STASHED status.")
+                raise InvalidStatusException("The child job must be in the STASHED state.")
         
         @event.listens_for(cls.superjob, 'set', propagate=True)
         def _set_super_sub(subjob, superjob, old_superjob, initiator):
             if subjob.status != Job.Status.STASHED:
-                raise InvalidStatusException("The subjob must be in the STASHED status.")
+                raise InvalidStatusException("The subjob must be in the STASHED state.")
             
             # Superjob can be None when de-assigning
             if superjob:
                 if superjob is subjob:
                     raise ValueError("Cannot set a super-sub dependency on itself!")
                 
-                if superjob.status != Job.Status.PROCESSING:
-                    raise InvalidStatusException("The superjob must be in the PROCESSING status.")
+                if superjob.status != Job.Status.RUNNING:
+                    raise InvalidStatusException("The superjob must be in the RUNNING state.")
     
     ###########################################################################
     # STATUS MUTATION                                                         #
@@ -404,7 +410,7 @@ class Job(Base):
             self._ts_ended = func.now()
         
         else:
-            self._status = Job.Status.PROCESSING
+            self._status = Job.Status.STAND_BY
             if not self.ts_started:
                 self._ts_started = func.now()
     
@@ -424,7 +430,7 @@ class Job(Base):
         if self.status not in [
             Job.Status.FAILED,
             Job.Status.STASHED,
-            Job.Status.PROCESSING,
+            Job.Status.STAND_BY,
         ]:
             raise InvalidStatusException("This job cannot be submitted in its current status.")
         
@@ -468,7 +474,7 @@ class Job(Base):
             for subjob in self.subjobs:
                 subjob._abort()
             self._update_status()
-        elif self.status == Job.Status.PROCESSING:
+        elif self.status == Job.Status.RUNNING:
             self._cleanup('Job was aborted due to user request.')
         elif self.status == Job.Status.QUEUED:
             self._reset()
@@ -476,7 +482,8 @@ class Job(Base):
     def abort(self):
         if self.status not in [
             Job.Status.QUEUED,
-            Job.Status.PROCESSING,
+            Job.Status.RUNNING,
+            Job.Status.STAND_BY,
         ]:
             raise InvalidStatusException("This job cannot be aborted in its current status.")
         
@@ -534,8 +541,8 @@ class Job(Base):
             if self.status != Job.Status.STASHED:
                 raise InvalidStatusException("A Job's %s can only be modified when STASHED." % dataset)
         elif dataset in ['output']:
-            if self.status != Job.Status.PROCESSING:
-                raise InvalidStatusException("A Job's %s can only be modified when PROCESSING." % dataset)
+            if self.status != Job.Status.RUNNING:
+                raise InvalidStatusException("A Job's %s can only be modified when RUNNING." % dataset)
         else:
             raise ValueError("The value '%s' is not a valid dataset." % dataset)
     
@@ -645,27 +652,38 @@ class Job(Base):
             raise TaskNotAvailableException(self.name)
     
     def reserve(self, token):
-        if token and self.status == Job.Status.PROCESSING:
-            if self.tag.get(TAG_TOKEN, None) != token:
-                raise TokenMismatchException("Incorrect token given for a reserved job.")
-        elif self.status != Job.Status.QUEUED:
-            raise InvalidStatusException("Only jobs in QUEUED status can be processed.")
+        if not self.token:
+            self._token = token
+        
+        if self.token != token:
+            raise TokenMismatchException("Incorrect token given for this job.")
+    
+    def start(self, token):
+        self.reserve(token)
+        
+        if self.status == Job.Status.RUNNING:
+            return
+        
+        if self.status != Job.Status.QUEUED:
+            raise InvalidStatusException("Only jobs in QUEUED status can be reserved.")
+        
         if any([parent.status != Job.Status.DONE for parent in self.parents]):
             raise InvalidStatusException("This job cannot be processed because not all of its parents have finished.")
-        # Moving job into PROCESSING state
-        self._status = Job.Status.PROCESSING
+        
+        # Moving job into RUNNING state
+        self._status = Job.Status.RUNNING
         self._ts_started = func.now()
         self._output = None
-        # Store token for reserved jobs
-        if token:
-            self.tag[TAG_TOKEN] = token
-        
+         
         for ancestor in self._ancestors():
             ancestor._update_status()
     
     def run(self, token):
         self.assert_is_available()
         self.reserve(token)
+        
+        if self.status != Job.Status.RUNNING:
+            raise InvalidStatusException("Only jobs in RUNNING state can be executed.")
         
         tb = None
         try:
@@ -674,11 +692,14 @@ class Job(Base):
                 subtasks = self.task.prolog(self)
                 if subtasks:
                     self._create_subjobs(subtasks)
+                
                 # RUN
                 if not self.subjobs:
                     output = self.task.run(self)
                     self.set_dataset('output', output)
                     self._status = Job.Status.DONE
+                else:
+                    self._status = Job.Status.STAND_BY
             else:
                 # EPILOG
                 value = self.task.epilog(self)
@@ -699,12 +720,12 @@ class Job(Base):
                 tb = ''.join(traceback.format_exception(*sys.exc_info()))
         
         finally:
-            self.cleanup(token, tb)
+            self._cleanup(tb)
     
     def _cleanup(self, tb=None):
         if tb:
-            if self.status != Job.Status.PROCESSING:
-                raise InvalidStatusException("Only jobs in PROCESSING status can be finished with error.")
+            if self.status != Job.Status.RUNNING:
+                raise InvalidStatusException("Only jobs in RUNNING state can be finished with error.")
             
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
@@ -713,14 +734,14 @@ class Job(Base):
             self.tag.pop(TAG_TRACEBACK, Tag())
         
         self._ts_ended = func.now()
-        self.tag.pop(TAG_TOKEN, Tag())
+        self._token = None
         
         for ancestor in self._ancestors():
             ancestor._update_status()
         
     def cleanup(self, token, tb=None):
-        if self.tag.get(TAG_TOKEN, None) != token:
-            raise TokenMismatchException("Incorrect token given for a reserved job.")
+        if self.token != token:
+            raise TokenMismatchException("Incorrect token given for this job.")
         
         self._cleanup(tb)
 

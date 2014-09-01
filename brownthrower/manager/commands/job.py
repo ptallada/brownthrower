@@ -304,7 +304,7 @@ class JobShow(Command):
                 ).options(undefer_group('yaml')).one()
                 
                 print strong("### JOB DETAILS:")
-                for field in ['id', 'super_id', 'name', 'status', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
+                for field in ['id', 'super_id', 'name', 'status', 'token', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
                     print field.ljust(10) + ' : ' + str(getattr(job, field))
                 print
                 print strong("### JOB CONFIG:")
