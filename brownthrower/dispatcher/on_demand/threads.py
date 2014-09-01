@@ -149,16 +149,16 @@ class LauncherThread(threading.Thread):
     def _launch_pending(self):
         while not self._q_stop.poll():
             job_id = self._reserve_one()
-            try:
-                self._launch_job(job_id)
-            except BaseException:
-                tb = ''.join(traceback.format_exception(*sys.exc_info()))
-                try:
-                    self._cleanup_job(job_id, tb)
-                except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
-                    pass
-                
             if job_id:
+                try:
+                    self._launch_job(job_id)
+                except Exception:
+                    tb = ''.join(traceback.format_exception(*sys.exc_info()))
+                    try:
+                        self._cleanup_job(job_id, tb)
+                    except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
+                        pass
+                
                 self._refresh.put(True)
             else:
                 break
