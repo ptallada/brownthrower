@@ -726,12 +726,6 @@ class Job(Base):
     
     def _cleanup(self, tb=None):
         if tb:
-            if self.status not in [
-                Job.Status.RUNNING,
-                Job.Status.QUEUED,
-            ]:
-                raise InvalidStatusException("Only jobs in RUNNING/QUEUED state can be finished with error.")
-            
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
         
