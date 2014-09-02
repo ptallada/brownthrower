@@ -502,6 +502,7 @@ class Job(Base):
             self._ts_queued = None
             self._ts_started = None
             self._ts_ended = None
+            self._token = None
     
     def reset(self):
         if self.subjobs:
@@ -725,8 +726,11 @@ class Job(Base):
     
     def _cleanup(self, tb=None):
         if tb:
-            if self.status != Job.Status.RUNNING:
-                raise InvalidStatusException("Only jobs in RUNNING state can be finished with error.")
+            if self.status not in [
+                Job.Status.RUNNING,
+                Job.Status.QUEUED,
+            ]:
+                raise InvalidStatusException("Only jobs in RUNNING/QUEUED state can be finished with error.")
             
             self._status = Job.Status.FAILED
             self.tag[TAG_TRACEBACK] = tb
