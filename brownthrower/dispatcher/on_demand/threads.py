@@ -125,12 +125,19 @@ class LauncherThread(threading.Thread):
                         glite_ids[pilot_id]['status'] = glite.ce.job.Status.REGISTERED
                         glite_ids[pilot_id]['job_id'] = job_id
                         glite_status[glite.ce.job.Status.REGISTERED] += 1
+        return pilot_id
     
     @bt.retry_on_serializable_error
     def _cleanup_job(self, job_id, tb=None):
         with bt.transactional_session(self._session_maker) as session:
             job = session.query(bt.Job).filter_by(id = job_id).one()
             job.cleanup(self._token, tb)
+    
+    @bt.retry_on_serializable_error
+    def _save_glite_id(self, job_id, glite_id):
+        with bt.transactional_session(self._session_maker) as session:
+            job = session.query(bt.Job).filter_by(id = job_id).one()
+            job.tag['bt_glite_id'] = glite_id
     
     @bt.retry_on_serializable_error
     def _reserve_one(self):
@@ -151,7 +158,8 @@ class LauncherThread(threading.Thread):
             job_id = self._reserve_one()
             if job_id:
                 try:
-                    self._launch_job(job_id)
+                    glite_id = self._launch_job(job_id)
+                    self._save_glite_id(job_id, glite_id)
                 except Exception:
                     tb = ''.join(traceback.format_exception(*sys.exc_info()))
                     try:
