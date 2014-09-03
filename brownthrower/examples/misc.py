@@ -32,3 +32,18 @@ class Sleep(bt.Task):
         import time
         
         time.sleep(job.get_input())
+
+class Environ(bt.Task):
+    """\
+    Get the current environment.
+    
+    Example task that takes returns the current environment as output
+    """
+    
+    _bt_name = 'environ'
+    
+    @classmethod
+    def run(cls, job):
+        import os
+        
+        return os.environ

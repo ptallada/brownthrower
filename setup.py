@@ -70,11 +70,12 @@ setup(
             'dispatcher.on_demand = brownthrower.dispatcher.on_demand.__init__:main',
         ],
         'brownthrower.task' : [
-            'random = brownthrower.examples.math:Random',
-            'add2   = brownthrower.examples.math:Add2',
-            'sum4   = brownthrower.examples.math:Sum4',
-            'pipe   = brownthrower.examples.misc:Pipe',
-            'sleep  = brownthrower.examples.misc:Sleep',
+            'random   = brownthrower.examples.math:Random',
+            'add2     = brownthrower.examples.math:Add2',
+            'sum4     = brownthrower.examples.math:Sum4',
+            'pipe     = brownthrower.examples.misc:Pipe',
+            'sleep    = brownthrower.examples.misc:Sleep',
+            'environ  = brownthrower.examples.misc:Environ',
         ],
     },
     
