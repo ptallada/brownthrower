@@ -66,6 +66,10 @@ class Sum4(bt.Task):
         s3.parents |= set([s1, s2])
         
         job.subjobs |= set([s1, s2, s3])
+        
+        s1.submit()
+        s2.submit()
+        s3.submit()
     
     @classmethod
     def epilog(cls, job):
