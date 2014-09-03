@@ -231,6 +231,6 @@ def create_engine(url):
         engine = sa_create_engine(url, connect_args={'isolation_level':None})
         event.listen(engine, 'begin', _sqlite_connection_begin_listener)
     else:
-        engine = sa_create_engine(url, isolation_level="SERIALIZABLE")
+        engine = sa_create_engine(url, isolation_level="REPEATABLE READ")
     
     return engine
