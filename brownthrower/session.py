@@ -72,15 +72,17 @@ def retry_on_serializable_error(fn):
 
 # https://gist.github.com/obeattie/210032
 @contextlib.contextmanager
-def transactional_session(session_cls, **kwargs):
+def transactional_session(session_cls, read_only=False):
     """\
     Context manager which provides transaction management for the nested block.
     A transaction is started when the block is entered, and then either
     committed if the block exits without incident, or rolled back if an error is
     raised.
     """
-    session = session_cls(**kwargs)
+    session = session_cls()
     try:
+        if read_only:
+            session.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE READ ONLY DEFERRABLE")
         yield session
         session.commit()
     except:
