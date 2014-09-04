@@ -36,6 +36,8 @@ class Add2(bt.Task):
     @classmethod
     def run(cls, job):
         inp = job.get_input()
+        if not inp:
+            inp = [ parent.get_output() for parent in job.parents ]
         return inp[0] + inp[1]
 
 class Sum4(bt.Task):
