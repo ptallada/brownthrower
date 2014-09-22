@@ -43,7 +43,7 @@ class TaskStore(collections.Mapping):
                 
                 return task
             
-            except Exception as e:
+            except (ImportError, SyntaxError, RuntimeError) as e:
                 try:
                     raise
                 except ImportError:

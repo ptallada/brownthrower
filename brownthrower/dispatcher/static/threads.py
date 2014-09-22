@@ -143,7 +143,7 @@ class LauncherThread(threading.Thread):
             if status not in glite.ce.job.Status.final:
                 try:
                     glite.ce.job.cancel(pilot_id)
-                except Exception:
+                except RuntimeError:
                     pass
             
             if self._q_stop.poll():

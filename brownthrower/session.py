@@ -65,7 +65,7 @@ def retry_on_serializable_error(fn):
             try:
                 value = fn(*args, **kwargs)
                 return value
-            except Exception as e:
+            except DBAPIError as e:
                 if not is_serializable_error(e):
                     raise
     return wrapper

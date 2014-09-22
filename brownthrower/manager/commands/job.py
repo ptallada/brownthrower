@@ -13,7 +13,7 @@ import yaml
 
 from .base import Command, error, warn, success, strong
 
-from sqlalchemy.exc import IntegrityError, DataError
+from sqlalchemy.exc import IntegrityError, DataError, DBAPIError
 from sqlalchemy.orm import joinedload, undefer_group
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import literal
@@ -155,18 +155,17 @@ class JobCreate(Command):
             
             success("A new job for task '%s' with id %d has been created." % (items[0], job_id))
         
-        except Exception as e:
-            try:
-                raise
+        except IOError as e:
+            #try:
+            #    raise
             #except api.dataset.NoProfileIsActive:
             #    error("No configuration profile is active at this time. Please, switch into one.")
             #except api.task.UnavailableException:
             #    error("The task '%s' is not available in this environment." % e.task)
-            except IOError:
-                if e.errno != errno.ENOENT:
-                    raise
-            finally:
-                log.debug(e)
+            #except IOError:
+            if e.errno != errno.ENOENT:
+                raise
+            log.debug(e)
 
 class JobList(Command):
     """\
@@ -248,15 +247,12 @@ class JobList(Command):
             
             print tabulate(table, headers=headers)
         
-        except Exception as e:
-            try:
-                raise
-            except pp.ParseException:
-                error("One of the filters has the wrong syntax.")
-            except DataError:
-                error("One of the values whas the wrong type for the field.")
-            finally:
-                log.debug(e)
+        except pp.ParseException as e:
+            error("One of the filters has the wrong syntax.")
+            log.debug(e)
+        except DataError as e:
+            error("One of the values whas the wrong type for the field.")
+            log.debug(e)
 
 class JobTags(Command):
     """\
@@ -278,13 +274,9 @@ class JobTags(Command):
                     print value
                     print
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            finally:
-                log.debug(e)
+        except (DataError, NoResultFound) as e:
+            error("The specified job does not exist.")
+            log.debug(e)
 
 class JobShow(Command):
     """\
@@ -316,13 +308,9 @@ class JobShow(Command):
                 print strong("### JOB OUTPUT:")
                 print job.raw_output.strip() if job.raw_output else '...'
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            finally:
-                log.debug(e)
+        except (DataError, NoResultFound) as e:
+            error("The specified job does not exist.")
+            log.debug(e)
 
 class JobGraph(Command):
     """\
@@ -402,13 +390,9 @@ class JobGraph(Command):
                 print strong("SUPER/SUB JOBS:")
                 print tabulate(table, headers=headers)
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            finally:
-                log.debug(e)
+        except (DataError, NoResultFound) as e:
+            error("The specified job does not exist.")
+            log.debug(e)
 
 class JobRemove(Command):
     """\
@@ -432,17 +416,15 @@ class JobRemove(Command):
              
             success("The job has been successfully removed.")
         
-        except Exception as e:
-            try:
-                raise
-            except bt.InvalidStatusException:
-                error(e.message)
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except IntegrityError:
-                error("Some dependencies prevent this job from being deleted.")
-            finally:
-                log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
+            log.debug(e)
+        except IntegrityError:
+            error("Some dependencies prevent this job from being deleted.")
+            log.debug(e)
 
 class JobSubmit(Command):
     """\
@@ -466,16 +448,12 @@ class JobSubmit(Command):
              
             success("The job has been successfully marked as ready for execution.")
          
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except bt.InvalidStatusException:
-                error(e.message)
-            finally:
-                log.debug(e)
- 
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
+
 class JobReset(Command):
     """\
     usage: job reset <id>
@@ -498,15 +476,11 @@ class JobReset(Command):
              
             success("The job has been successfully returned to the stash.")
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except bt.InvalidStatusException:
-                error(e.message)
-            finally:
-                log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
 
 class JobLink(Command):
     """\
@@ -531,15 +505,11 @@ class JobLink(Command):
             
             success("The parent-child dependency has been successfully established.")
         
-        except Exception as e:
-            try:
-                raise
-            except bt.InvalidStatusException:
-                error(e.message)
-            except (DataError, NoResultFound):
-                error("One of the specified jobs does not exist.")
-            finally:
-                log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
 
 class JobUnlink(Command):
     """\
@@ -564,13 +534,9 @@ class JobUnlink(Command):
             
             success("The parent-child dependency has been successfully removed.")
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("One of the specified jobs does not exist.")
-            finally:
-                log.debug(e)
+        except (DataError, NoResultFound) as e:
+            error("One of the specified jobs does not exist.")
+            log.debug(e)
 
 class JobAbort(Command):
     """\
@@ -594,15 +560,11 @@ class JobAbort(Command):
              
             success("The job has been aborted.")
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except bt.InvalidStatusException:
-                error(e.message)
-            finally:
-                log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
 
 class JobClone(Command):
     """\
@@ -631,15 +593,11 @@ class JobClone(Command):
             
             success("Job %s has been cloned into a new job with id %d." % (items[0], new_id))
         
-        except Exception as e:
-            try:
-                raise
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except bt.InvalidStatusException:
-                error(e.message)
-            finally:
-                log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except (DataError, NoResultFound):
+            error("The specified job does not exist.")
 
 class JobEdit(Command):
     """\
@@ -724,7 +682,7 @@ class JobEdit(Command):
                         job.set_dataset(dataset, new_value)
                         return current_value != new_value
                 
-                except Exception as e:
+                except DBAPIError as e:
                     if bt.is_serializable_error(e):
                         warn("This job has received a concurrent modification.")
                         print textwrap.dedent("""\
@@ -749,17 +707,12 @@ class JobEdit(Command):
             else:
                 warn("No changes were made.")
         
-        except Exception as e:
-            try:
-                raise
-            #except api.task.UnavailableException:
-            #    error("The task '%s' is not available in this environment." % e.task)
-            except (DataError, NoResultFound):
-                error("The specified job does not exist.")
-            except bt.InvalidStatusException:
-                error(e.message)
-            except EnvironmentError:
-                error("Unable to open the temporary dataset buffer.")
-            finally:
-                log.debug(e)
-
+        except (DataError, NoResultFound) as e:
+            error("The specified job does not exist.")
+            log.debug(e)
+        except bt.InvalidStatusException as e:
+            error(e.message)
+            log.debug(e)
+        except EnvironmentError:
+            error("Unable to open the temporary dataset buffer.")
+            log.debug(e)

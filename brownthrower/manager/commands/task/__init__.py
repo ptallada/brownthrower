@@ -65,13 +65,9 @@ class TaskShow(Command):
             print
             print task.description
         
-        except Exception as e:
-            try:
-                raise
-            except KeyError:
-                error("The task '%s' is not available in this environment." % e.task)
-            finally:
-                log.debug(e)
+        except KeyError as e:
+            error("The task '%s' is not available in this environment." % e.task)
+            log.debug(e)
 
 # class TaskInput(Command):
 #     """\

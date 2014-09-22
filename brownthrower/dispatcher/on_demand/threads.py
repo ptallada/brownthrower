@@ -160,7 +160,7 @@ class LauncherThread(threading.Thread):
                 try:
                     glite_id = self._launch_job(job_id)
                     self._save_glite_id(job_id, glite_id)
-                except Exception:
+                except (RuntimeError, NoResultFound):
                     tb = ''.join(traceback.format_exception(*sys.exc_info()))
                     try:
                         self._cleanup_job(job_id, tb)
