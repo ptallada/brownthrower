@@ -12,7 +12,6 @@ import threading
 import time
 import uuid
 
-from functools import wraps
 from sqlalchemy.orm.exc import NoResultFound
 
 import brownthrower as bt
@@ -36,24 +35,6 @@ rank = -other.GlueCEStateEstimatedResponseTime;
 RetryCount = 0;
 ]
 """
-
-def retry(tries):
-    def retry_decorator(fn):
-        @wraps(fn)
-        def wrapper(*args, **kwargs):
-            for _ in range(tries - 1):
-                try:
-                    value = fn(*args, **kwargs)
-                    return value
-                except Exception as e:
-                    log.warning("Exception «%s» caught while calling %s. Retrying..." % (e, fn))
-                    time.sleep(0.5)
-            
-            value = fn(*args, **kwargs)
-            return value
-        
-        return wrapper
-    return retry_decorator
 
 class LauncherThread(threading.Thread):
     """
@@ -108,7 +89,7 @@ class LauncherThread(threading.Thread):
             
             return actual_size
     
-    @retry(tries = 3)
+    @utils.retry(tries = 3, log)
     def _launch_pilot(self):
         with self._write_jdl() as jdl_file:
             return glite.ce.job.submit(jdl_file, endpoint=self._ce_queue)
@@ -314,11 +295,11 @@ class GliteMonitorThread(threading.Thread):
     def stop(self):
         self._q_stop.put(True)
     
-    @retry(tries = 3)
+    @utils.retry(tries = 3, log)
     def _init_status(self):
         self._last_event = glite.ce.last_event_id(self._ce_host)
     
-    @retry(tries = 3)
+    @utils.retry(tries = 3, log)
     def _pending_events(self):
         return glite.ce.event_query(self._ce_host, self._last_event)
     

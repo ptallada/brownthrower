@@ -1,7 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import collections
 import multiprocessing.queues
+import time
+
+from functools import wraps
+
+def retry(tries, log):
+    def retry_decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            for _ in range(tries - 1):
+                try:
+                    value = fn(*args, **kwargs)
+                    return value
+                except Exception as e:
+                    log.warning("Exception «%s» caught while calling %s. Retrying..." % (e, fn))
+                    time.sleep(0.5)
+            
+            value = fn(*args, **kwargs)
+            return value
+        
+        return wrapper
+    return retry_decorator
 
 class SelectableQueue(multiprocessing.queues.SimpleQueue):
     def fileno(self):
@@ -9,3 +31,16 @@ class SelectableQueue(multiprocessing.queues.SimpleQueue):
     
     def poll(self, *args, **kwargs):
         return self._reader.poll(*args, **kwargs)
+
+class InmutableSet(collections.Set):
+    def __init__(self, container):
+        self._container = container
+    
+    def __contains__(self, *args, **kwargs):
+        return self._container.__contains__(*args, **kwargs)
+    
+    def __iter__(self, *args, **kwargs):
+        return self._container.__iter__(*args, **kwargs)
+    
+    def __len__(self, *args, **kwargs):
+        return self._container.__contains__(*args, **kwargs)
