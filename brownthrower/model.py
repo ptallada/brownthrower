@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import contextlib
+import copy
 import logging
 import sys
 import traceback
@@ -22,6 +23,7 @@ from sqlalchemy.sql import functions
 from sqlalchemy.types import DateTime, Integer, String, Text
 
 from . import taskstore
+from . import utils
 
 log = logging.getLogger('brownthrower.model')
 
@@ -59,20 +61,20 @@ class Dependency(Base):
     __tablename__ = 'dependency'
     __table_args__ = (
         # Primary key
-        PrimaryKeyConstraint('parent_job_id', 'child_job_id', name='pk_dependency'),
+        PrimaryKeyConstraint('parent_id', 'child_id', name='pk_dependency'),
         # Foreign keys
         # FIXME: This constraints are not useful for top-level jobs
-        ForeignKeyConstraint(            ['parent_job_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_parent'),
-        ForeignKeyConstraint(            ['child_job_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_child'),
-        ForeignKeyConstraint(['super_id', 'parent_job_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_parent'),
-        ForeignKeyConstraint(['super_id', 'child_job_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_child'),
+        ForeignKeyConstraint(            ['parent_id'],                 ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_parent'),
+        ForeignKeyConstraint(            ['child_id'],                  ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_child'),
+        ForeignKeyConstraint(['super_id', 'parent_id'], ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_parent'),
+        ForeignKeyConstraint(['super_id', 'child_id'],  ['job.super_id', 'job.id'], onupdate='CASCADE', ondelete='CASCADE', name= 'fk_dependency_super_child'),
     )
     
     # Columns
     # TODO: Rename to super_job_id, or remove 'job' from others
     _super_id  = Column('super_id',      Integer, nullable=True)
-    _parent_id = Column('parent_job_id', Integer, nullable=False)
-    _child_id  = Column('child_job_id',  Integer, nullable=False)
+    _parent_id = Column('parent_id', Integer, nullable=False)
+    _child_id  = Column('child_id',  Integer, nullable=False)
     
     @hybrid_property
     def super_id(self):
@@ -119,6 +121,17 @@ class TaskNotAvailableException(Exception):
 class TokenMismatchException(Exception):
     """\
     Raised when absent or different token
+    """
+    
+    def __init__(self, message=None):
+        self.message = message
+        
+    def __str__(self):
+        return str(self.message)
+
+class InvalidChildOrSubjobException(Exception):
+    """\
+    Raised when an element on new_children or new_subjobs has an id or super_id.
     """
     
     def __init__(self, message=None):
@@ -188,13 +201,13 @@ class Job(Base):
         collection_class  = set)
     """children relationship"""
     
-    superjob = relationship('Job',
+    _superjob = relationship('Job',
         back_populates    = 'subjobs',
         primaryjoin       = 'Job._super_id == Job._id',
         remote_side       = 'Job._id')
     """superjob relationship"""
     
-    subjobs  = relationship('Job',
+    _subjobs  = relationship('Job',
         back_populates    = 'superjob',
         primaryjoin       = 'Job._super_id == Job._id',
         cascade           = 'all, delete-orphan', passive_deletes = True,
@@ -259,6 +272,11 @@ class Job(Base):
     @reconstructor
     def _reconstruct(self):
         self._task = tasks.get(self.name, None)
+        
+        self._ro_subjobs = None
+        
+        self.new_children = set()
+        self.new_subjobs  = set()
     
     def __repr__(self):
         return u"%s(id=%s, super_id=%s, name=%s, status=%s)" % (
@@ -292,6 +310,25 @@ class Job(Base):
     @hybrid_property
     def token(self):
         return self._token
+    
+    @hybrid_property
+    def superjob(self):
+        return self._superjob
+    
+    @superjob.expression
+    def superjob(self):
+        return self._superjob
+    
+    @hybrid_property
+    def subjobs(self):
+        if self._ro_subjobs == None:
+            self._ro_subjobs = utils.InmutableSet(self._subjobs)
+        
+        return self._ro_subjobs
+    
+    @subjobs.expression
+    def subjobs(self):
+        return self._subjobs
     
     @hybrid_property
     def raw_config(self):
@@ -341,21 +378,15 @@ class Job(Base):
             if parent is child:
                 raise ValueError("Cannot set a parent-child dependency on itself!")
             
-            if child.status != Job.Status.STASHED:
-                raise InvalidStatusException("The child job must be in the STASHED state.")
-        
-        @event.listens_for(cls.superjob, 'set', propagate=True)
-        def _set_super_sub(subjob, superjob, old_superjob, initiator):
-            if subjob.status != Job.Status.STASHED:
-                raise InvalidStatusException("The subjob must be in the STASHED state.")
+            if child.status not in [
+                Job.Status.STASHED,
+                Job.Status.QUEUED,
+                Job.Status.FAILED,
+            ]:
+                raise InvalidStatusException("Cannot add or remove a child job if it is not in STASHED|QUEUED|FAILED state.")
             
-            # Superjob can be None when de-assigning
-            if superjob:
-                if superjob is subjob:
-                    raise ValueError("Cannot set a super-sub dependency on itself!")
-                
-                if superjob.status != Job.Status.RUNNING:
-                    raise InvalidStatusException("The superjob must be in the RUNNING state.")
+            if child.subjobs:
+                raise InvalidStatusException("Cannot add or remove a child job with subjobs.")
     
     ###########################################################################
     # STATUS MUTATION                                                         #
@@ -474,13 +505,10 @@ class Job(Base):
             for subjob in self.subjobs:
                 subjob._abort()
             self._update_status()
-            
-            if self.status == Job.Status.QUEUED:
-                self._cleanup('Job was aborted due to user request.')
-            
-        elif self.status in [
-            Job.Status.RUNNING,
+        
+        if self.status in [
             Job.Status.QUEUED,
+            Job.Status.RUNNING,
         ]:
             self._cleanup('Job was aborted due to user request.')
     
@@ -522,9 +550,9 @@ class Job(Base):
     
     def clone(self):
         job = Job(self.name, self.task)
-        job._config   = self._config
-        job._input    = self._input
-        job.parents  = self.parents
+        job._config   = copy.deepcopy(self._config)
+        job._input    = copy.deepcopy(self._input)
+        job.parents  = self.parents.copy()
         
         return job
     
@@ -590,69 +618,6 @@ class Job(Base):
     # TASK                                                                    #
     ###########################################################################
     
-    @_deprecated
-    def _create_subjobs(self, subtasks):
-        """
-        {
-            'subjobs' : [
-                Task_A(config),
-                Task_B(config),
-                Task_B(config),
-            ],
-            'input' : {
-                task_M : <input>,
-                task_N : <input>,
-            }
-            'links' : [
-                ( task_X, task_Y ),
-            ]
-        }
-        """
-        subjobs = {}
-        for task in subtasks.get('subjobs', []):
-            subjobs[task] = task.create_job()
-            subjobs[task].set_config(task.config)
-        
-        for (task, inp) in subtasks.get('input', {}).iteritems():
-            subjobs[task].set_input(inp)
-        
-        for link in subtasks.get('links', []):
-            subjobs[link[0]].children.add(subjobs[link[1]])
-        
-        self.subjobs |= subjobs.values()
-        for job in subjobs:
-            job.submit()
-    
-    @_deprecated
-    def _create_childjobs(self, childtasks):
-        """
-        {
-            'children' : {
-                Task_A(config),
-                Task_B(config),
-                Task_B(config),
-            },
-            'links' : [
-                ( task_X, task_Y ),
-            ]
-            'output' : <output>
-        }
-        """
-        children = {}
-        for task in childtasks.get('children', []):
-            children[task] = task.create_job()
-            children[task].set_config = task.config
-        
-        for (task, inp) in childtasks.get('input', {}).iteritems():
-            children[task].set_input(inp)
-        
-        for link in childtasks.get('links', []):
-            children[link[0]].children.add(children[link[1]])
-        
-        self.children |= children.values()
-        for job in children:
-            job.submit()
-    
     def assert_is_available(self):
         if not self.task:
             raise TaskNotAvailableException(self.name)
@@ -664,7 +629,7 @@ class Job(Base):
         if self.token != token:
             raise TokenMismatchException("Incorrect token given for this job.")
     
-    def start(self, token):
+    def _start(self, token):
         self.reserve(token)
         
         if self.status == Job.Status.RUNNING:
@@ -680,53 +645,73 @@ class Job(Base):
         self._status = Job.Status.RUNNING
         self._ts_started = func.now()
         self._output = None
-         
+        
         for ancestor in self._ancestors():
             ancestor._update_status()
     
-    def run(self, token):
+    def _run(self, token):
+        def validate_new_jobs(jobs):
+            for job in jobs:
+                if job.superjob or job.super_id or job.id:
+                    raise InvalidChildOrSubjobException("New job %s is invalid." % (job))
+                if job.status not in [Job.Status.STASHED, Job.Status.QUEUED]:
+                    raise InvalidStatusException("New job %s has incorrect status." % (job))
+        
         self.assert_is_available()
-        self.reserve(token)
+        
+        if self.token != token:
+            raise TokenMismatchException("Incorrect token given for this job.")
         
         if self.status != Job.Status.RUNNING:
             raise InvalidStatusException("Only jobs in RUNNING state can be executed.")
         
-        tb = None
+        new_state = {}
         try:
             if not self.subjobs:
                 # PROLOG
-                subtasks = self.task.prolog(self)
-                if subtasks:
-                    self._create_subjobs(subtasks)
-                
+                self.task.prolog(self)
+                validate_new_jobs(self.new_subjobs)
                 # RUN
-                if not self.subjobs:
-                    output = self.task.run(self)
-                    self.set_dataset('output', output)
-                    self._status = Job.Status.DONE
+                if not self.new_subjobs:
+                    new_state['output'] = self.task.run(self)
+                    new_state['status'] = Job.Status.DONE
                 else:
-                    self._status = Job.Status.STAND_BY
+                    new_state['subjobs'] = self.new_subjobs
+                    new_state['status'] = Job.Status.STAND_BY
             else:
                 # EPILOG
-                value = self.task.epilog(self)
-                if isinstance(value, dict) and 'children' in value and 'links' in value:
-                    self._create_childjobs(value)
-                    if 'output' in value:
-                        self.set_dataset('output', value['output'])
-                else:
-                    self.set_dataset('output', value)
-                self._status = Job.Status.DONE
+                new_state['output'] = self.task.epilog(self)
+                new_state['children'] = self.new_children
+                new_state['status'] = Job.Status.DONE
+                validate_new_jobs(self.new_children)
         
-        except BaseException:
-            try:
-                raise
-            except Exception:
-                pass
-            finally:
-                tb = ''.join(traceback.format_exception(*sys.exc_info()))
-        
+        except Exception:
+            new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
+            return new_state
+    
+    def _finish(self, token, new_state):
+        if self.token != token:
+            raise TokenMismatchException("Incorrect token given for this job.")
+        
+        tb = new_state.get('traceback', None)
+        
+        # AN ERROR OCCURRED
+        if tb:
             self._cleanup(tb)
+            return
+        else:
+            self._status = new_state['status']
+            self._cleanup()
+        
+        if 'output' in new_state:
+            self.set_dataset('output', new_state['output'])
+        
+        children = new_state.get('children', set())
+        self.children |= children
+        
+        subjobs = new_state.get('subjobs', set())
+        self._subjobs |= subjobs
     
     def _cleanup(self, tb=None):
         if tb:
@@ -741,7 +726,7 @@ class Job(Base):
         
         for ancestor in self._ancestors():
             ancestor._update_status()
-        
+    
     def cleanup(self, token, tb=None):
         if self.token != token:
             raise TokenMismatchException("Incorrect token given for this job.")

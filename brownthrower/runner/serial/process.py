@@ -33,23 +33,46 @@ class Job(multiprocessing.Process):
         else:
             log.warning("Caught signal in job. Terminating already in progress...")
     
+    def _run_job(self):
+        session_maker = bt.session_maker(self._db_url)
+        with bt.transactional_session(session_maker, read_only=True) as session:
+            job = session.query(bt.Job).filter_by(
+                id = self._job_id
+            ).options(
+                undefer_group('yaml'),
+                joinedload(bt.Job.subjobs),
+            ).one()
+            
+            return job._run(self._token)
+    
+    def _finish_job(self, new_state):
+        @bt.retry_on_serializable_error
+        def finish():
+            session_maker = bt.session_maker(self._db_url)
+            with bt.transactional_session(session_maker) as session:
+                job = session.query(bt.Job).filter_by(
+                    id = self._job_id
+                ).one()
+                job._finish(self._token, new_state)
+        
+        try:
+            finish()
+        except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
+            pass
+    
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, self._system_exit)
         
         try:
-            session_maker = bt.session_maker(self._db_url)
-            with bt.transactional_session(session_maker) as session:
-                job = session.query(bt.Job).filter_by(
-                    id = self._job_id
-                ).options(
-                    undefer_group('yaml'),
-                    joinedload(bt.Job.subjobs),
-                ).one()
-                
-                job.run(self._token)
-        
-        except:
+            new_state = self._run_job()
+            self._finish_job(new_state)
+        except (
+            bt.InvalidStatusException,
+            bt.TokenMismatchException,
+            bt.TaskNotAvailableException,
+            NoResultFound,
+        ):
             log.debug("An error was found running job %d" % self._job_id, exc_info=True)
     
     def cancel(self):
@@ -64,19 +87,6 @@ class Job(multiprocessing.Process):
                     if e.errno != errno.ESRCH:
                         raise
             self.join()
-    
-    @bt.retry_on_serializable_error
-    def _cleanup_job(self, tb=None):
-        session_maker = bt.session_maker(self._db_url)
-        with bt.transactional_session(session_maker) as session:
-            job = session.query(bt.Job).filter_by(id = self._job_id).one()
-            job.cleanup(self._token, tb)
-    
-    def cleanup(self):
-        try:
-            self._cleanup_job("Job aborted with exit code %d" % self.exitcode)
-        except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
-            pass
 
 class Monitor(multiprocessing.Process):
     
@@ -97,7 +107,7 @@ class Monitor(multiprocessing.Process):
             log.warning("Caught signal in monitor. Terminating already in progress...")
     
     @bt.retry_on_serializable_error
-    def _reserve_job(self):
+    def _start_job(self):
         session_maker = bt.session_maker(self._db_url)
         with bt.transactional_session(session_maker) as session:
             job = session.query(bt.Job).filter_by(
@@ -107,8 +117,20 @@ class Monitor(multiprocessing.Process):
             if self._submit:
                 job.submit()
             
-            job.assert_is_available()
-            job.start(self._token)
+            job._start(self._token)
+    
+    def _cleanup_job(self, reason):
+        @bt.retry_on_serializable_error
+        def _cleanup(self, tb=None):
+            session_maker = bt.session_maker(self._db_url)
+            with bt.transactional_session(session_maker) as session:
+                job = session.query(bt.Job).filter_by(id = self._job_id).one()
+                job.cleanup(self._token, tb)
+        
+        try:
+            _cleanup(reason)
+        except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
+            pass
     
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -127,10 +149,13 @@ class Monitor(multiprocessing.Process):
             job_process.cancel()
         finally:
             try:
-                job_process.cleanup()
+                self._cleanup_job("Job aborted with exit code %d" % job_process.exitcode)
             finally:
                 self._q_finish.put(self._job_id)
     
     def start(self):
-        self._reserve_job()
-        super(Monitor, self).start()
+        try:
+            self._start_job()
+            super(Monitor, self).start()
+        except:
+            self._cleanup_job("Job was aborted before starting.")
