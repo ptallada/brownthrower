@@ -700,9 +700,6 @@ class Job(Base):
         if tb:
             self._cleanup(tb)
             return
-        else:
-            self._status = new_state['status']
-            self._cleanup()
         
         if 'output' in new_state:
             self.set_dataset('output', new_state['output'])
@@ -712,6 +709,9 @@ class Job(Base):
         
         subjobs = new_state.get('subjobs', set())
         self._subjobs |= subjobs
+        
+        self._status = new_state['status']
+        self._cleanup()
     
     def _cleanup(self, tb=None):
         if tb:
