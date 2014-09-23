@@ -155,7 +155,7 @@ class Monitor(multiprocessing.Process):
             job_process.cancel()
         finally:
             try:
-                self._cleanup_job("Job aborted with exit code %d" % job_process.exitcode)
+                self._cleanup_job("Job aborted with exit code %s" % job_process.exitcode)
             finally:
                 self._q_finish.put(self._job_id)
     
