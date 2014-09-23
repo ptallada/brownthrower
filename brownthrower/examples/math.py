@@ -58,20 +58,20 @@ class Sum4(bt.Task):
     def prolog(self, job):
         inp = job.get_input()
         
-        s1 = Add2()
-        s1.set_input(inp[:2])
+        s1 = Add2.create_job()
+        s1.set_input(inp[2:])
         
-        s2 = Add2()
-        s2.set_input(inp[2:])
+        s2 = Add2.create_job()
+        s2.set_input(inp[:2])
         
-        s3 = Add2()
+        s3 = Add2.create_job()
         s3.parents |= set([s1, s2])
-        
-        job.subjobs |= set([s1, s2, s3])
         
         s1.submit()
         s2.submit()
         s3.submit()
+        
+        job.new_subjobs |= set([s1, s2, s3])
     
     @classmethod
     def epilog(cls, job):
