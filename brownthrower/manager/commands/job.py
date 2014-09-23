@@ -5,6 +5,7 @@ import brownthrower as bt
 import errno
 import logging
 import readline # @UnresolvedImport
+import os
 import pyparsing as pp
 import subprocess
 import tempfile
@@ -632,7 +633,9 @@ class JobEdit(Command):
                 fh.write(data)
                 fh.flush()
                 
-                subprocess.check_call(['nano', fh.name])
+                env = os.environ
+                env['TERM'] = 'xterm'
+                subprocess.check_call(['nano', fh.name], env=env)
                 
                 fh.seek(0)
                 return fh.read()
