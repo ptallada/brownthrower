@@ -86,7 +86,7 @@ class SerialRunner(object):
                 status = bt.Job.Status.RUNNING,
             ).first()
             
-            return bool(job)
+            return not bool(job)
     
     def _run_job(self, job_id, q_finish, q_abort, token, submit=False):
         proc = process.Monitor(
