@@ -202,13 +202,13 @@ class Job(Base):
     """children relationship"""
     
     _superjob = relationship('Job',
-        back_populates    = 'subjobs',
+        back_populates    = '_subjobs',
         primaryjoin       = 'Job._super_id == Job._id',
         remote_side       = 'Job._id')
     """superjob relationship"""
     
     _subjobs  = relationship('Job',
-        back_populates    = 'superjob',
+        back_populates    = '_superjob',
         primaryjoin       = 'Job._super_id == Job._id',
         cascade           = 'all, delete-orphan', passive_deletes = True,
         collection_class  = set)
