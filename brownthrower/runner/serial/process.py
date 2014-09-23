@@ -9,7 +9,9 @@ import os
 import signal
 import sys
 import threading
+import traceback
 
+from sqlalchemy.exc import InternalError
 from sqlalchemy.orm import undefer_group, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -64,9 +66,9 @@ class Job(multiprocessing.Process):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, self._system_exit)
         
+        new_state = {}
         try:
             new_state = self._run_job()
-            self._finish_job(new_state)
         except (
             bt.InvalidStatusException,
             bt.TokenMismatchException,
@@ -74,6 +76,10 @@ class Job(multiprocessing.Process):
             NoResultFound,
         ):
             log.debug("An error was found running job %d" % self._job_id, exc_info=True)
+        except InternalError:
+            new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
+        finally:
+            self._finish_job(new_state)
     
     def cancel(self):
         if self.is_alive():
