@@ -107,11 +107,11 @@ class Notifications(trunk.Trunk):
         return self.conn.fileno()
     
     def listen(self, channels):
-        try:
+        if isinstance(channels, basestring):
+            super(Notifications, self).listen(channels)
+        else:
             for channel in channels:
                 super(Notifications, self).listen(channel)
-        except TypeError:
-            super(Notifications, self).listen(channels)
     
     def notify(self, channel, payload):
         self._session.execute(
