@@ -43,4 +43,4 @@ class InmutableSet(collections.Set):
         return self._container.__iter__(*args, **kwargs)
     
     def __len__(self, *args, **kwargs):
-        return self._container.__contains__(*args, **kwargs)
+        return self._container.__len__(*args, **kwargs)
