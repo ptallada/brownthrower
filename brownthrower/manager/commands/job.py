@@ -713,6 +713,6 @@ class JobEdit(Command):
         except bt.InvalidStatusException as e:
             error(e.message)
             log.debug(e)
-        except EnvironmentError:
+        except EnvironmentError as e:
             error("Unable to open the temporary dataset buffer.")
             log.debug(e)
