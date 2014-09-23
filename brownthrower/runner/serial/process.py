@@ -121,7 +121,7 @@ class Monitor(multiprocessing.Process):
     
     def _cleanup_job(self, reason):
         @bt.retry_on_serializable_error
-        def _cleanup(self, tb=None):
+        def _cleanup(tb=None):
             session_maker = bt.session_maker(self._db_url)
             with bt.transactional_session(session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = self._job_id).one()
@@ -159,3 +159,4 @@ class Monitor(multiprocessing.Process):
             super(Monitor, self).start()
         except:
             self._cleanup_job("Job was aborted before starting.")
+            raise
