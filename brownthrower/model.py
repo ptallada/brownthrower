@@ -685,8 +685,13 @@ class Job(Base):
                 new_state['status'] = Job.Status.DONE
                 validate_new_jobs(self.new_children)
         
-        except Exception:
-            new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
+        except BaseException:
+            try:
+                raise
+            except Exception:
+                pass
+            finally:
+                new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
             return new_state
     
