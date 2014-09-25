@@ -81,7 +81,7 @@ class LauncherThread(threading.Thread):
             
             yield fh.name
     
-    @utils.retry(tries = 3, log)
+    @utils.retry(tries=3, log=log)
     def _launch_pilot(self, job_id):
         with self._write_jdl(job_id) as jdl_file:
             return glite.ce.job.submit(jdl_file, endpoint=self._ce_queue)
@@ -261,11 +261,11 @@ class GliteMonitorThread(threading.Thread):
     def stop(self):
         self._q_stop.put(True)
     
-    @utils.retry(tries = 3, log)
+    @utils.retry(tries=3, log=log)
     def _init_status(self):
         self._last_event = glite.ce.last_event_id(self._ce_host)
     
-    @utils.retry(tries = 3, log)
+    @utils.retry(tries=3, log=log)
     def _pending_events(self):
         return glite.ce.event_query(self._ce_host, self._last_event)
     
