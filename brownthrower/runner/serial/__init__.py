@@ -28,41 +28,7 @@ class NoRunnableJobFound(Exception):
 
 class SerialRunner(object):
     
-    def _parse_args(self, args = None):
-        parser = argparse.ArgumentParser(prog='runner.serial', add_help=False)
-        parser.add_argument('--database-url', '-u', required=True, metavar='URL',
-            help="use the settings in %(metavar)s to establish the database connection")
-        parser.add_argument('--help', '-h', action='help',
-            help='show this help message and exit')
-        
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--job-id', '-j', type=int, default=argparse.SUPPRESS, metavar='ID',
-            help="run only the job identified by %(metavar)s")
-        group.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
-            help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
-        
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument('--reserved', '-r', default=argparse.SUPPRESS, metavar='TOKEN',
-            help='in conjunction with --job-id, run a previously reserved job')
-        group.add_argument('--submit', '-s', action='store_true',
-            help='in conjunction with --job-id, submit the job before executing')
-        
-        parser.add_argument('--version', '-v', action='version', 
-            version='%%(prog)s %s' % bt.release.__version__)
-        
-        options = vars(parser.parse_args(args))
-        
-        return options
-    
-    def _system_exit(self, *args, **kwargs):
-        if self._lock.acquire(False):
-            log.warning("Caught signal. Terminating...")
-            sys.exit(0)
-        else:
-            log.warning("Caught signal. Terminating already in progress...")
-    
-    def __init__(self, args):
-        options = self._parse_args(args)
+    def __init__(self, options):
         db_url = options.get('database_url')
         
         self._session_maker = bt.session_maker(db_url)
@@ -77,6 +43,13 @@ class SerialRunner(object):
         
         signal.signal(signal.SIGINT,  self._system_exit)
         signal.signal(signal.SIGTERM, self._system_exit)
+    
+    def _system_exit(self, *args, **kwargs):
+        if self._lock.acquire(False):
+            log.warning("Caught signal. Terminating...")
+            sys.exit(0)
+        else:
+            log.warning("Caught signal. Terminating already in progress...")
     
     def _must_terminate(self, job_id):
         with bt.transactional_session(self._session_maker) as session:
@@ -171,18 +144,49 @@ class SerialRunner(object):
                 log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
                 time.sleep(self._loop)
 
+def _parse_args(args = None):
+    parser = argparse.ArgumentParser(prog='runner.serial', add_help=False)
+    parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+        help="use the settings in %(metavar)s to establish the database connection")
+    parser.add_argument('--help', '-h', action='help',
+        help='show this help message and exit')
+    
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--job-id', '-j', type=int, default=argparse.SUPPRESS, metavar='ID',
+        help="run only the job identified by %(metavar)s")
+    group.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
+        help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
+    
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--reserved', '-r', default=argparse.SUPPRESS, metavar='TOKEN',
+        help='in conjunction with --job-id, run a previously reserved job')
+    group.add_argument('--submit', '-s', action='store_true',
+        help='in conjunction with --job-id, submit the job before executing')
+    
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+        help='increment verbosity level (can be specified twice)')
+    parser.add_argument('--version', '-v', action='version', 
+        version='%%(prog)s %s' % bt.release.__version__)
+    
+    options = vars(parser.parse_args(args))
+    
+    return options
+
 def main(args=None):
     if not args:
         args = sys.argv[1:]
+    
+    options = _parse_args(args)
+    
+    # Configure logging verbosity
+    verbosity = options.pop('verbose')
+    bt._setup_logging(verbosity)
     
     # TODO: Add debugging option
     #from pysrc import pydevd
     #pydevd.settrace(port=5678)
     
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-    
-    runner = SerialRunner(args)
+    runner = SerialRunner(options)
     try:
         runner.main()
     except SystemExit:

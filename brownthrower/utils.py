@@ -44,3 +44,15 @@ class InmutableSet(collections.Set):
     
     def __len__(self, *args, **kwargs):
         return self._container.__len__(*args, **kwargs)
+
+class LockedContainer(object):
+    def __init__(self, container):
+        self._rlock = threading.RLock()
+        self._container = container
+    
+    def __enter__(self):
+        self._rlock.acquire()
+        return self._container
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._rlock.release()

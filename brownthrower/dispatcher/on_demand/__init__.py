@@ -17,47 +17,7 @@ from . import ui
 
 log = logging.getLogger('brownthrower.dispatcher.on_demand')
 
-class LockedContainer(object):
-    def __init__(self, container):
-        self._rlock = threading.RLock()
-        self._container = container
-    
-    def __enter__(self):
-        self._rlock.acquire()
-        return self._container
-    
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._rlock.release()
-
 class OnDemandDispatcher(object):
-    
-    def _parse_args(self, args = None):
-        parser = argparse.ArgumentParser(prog='dispatcher.on_demand', add_help=False)
-        parser.add_argument('--database-url', '-u', required=True, metavar='URL',
-            help="database connection settings")
-        parser.add_argument('--ce-queue',    metavar='ENDPOINT', default=argparse.SUPPRESS,
-            help="submit the pilot jobs to %(metavar)s", required=True)
-        parser.add_argument('--help', '-h', action='help',
-            help='show this help message and exit')
-        parser.add_argument('--runner-path', metavar='COMMAND',  default=argparse.SUPPRESS,
-            help="full path of the runner in the remote nodes", required=True)
-        parser.add_argument('--runner-args', metavar='ARG_LIST',  default=argparse.SUPPRESS,
-            help="extra arguments to provide to the remote runner", required=True)
-        parser.add_argument('--allowed-tasks', metavar='NAME_LIST',  default=argparse.SUPPRESS,
-            help="comma-separated list of tasks eligible for running", required=True)
-        parser.add_argument('--version', '-v', action='version', 
-            version='%%(prog)s %s' % bt.release.__version__)
-        
-        options = vars(parser.parse_args(args))
-        
-        return options
-    
-    def _system_exit(self, *args, **kwargs):
-        if self._lock.acquire(False):
-            log.warning("Caught signal. Terminating...")
-            sys.exit(0)
-        else:
-            log.warning("Caught signal. Terminating already in progress...")
     
     def __init__(self, args):
         options = self._parse_args(args)
@@ -80,10 +40,10 @@ class OnDemandDispatcher(object):
         signal.signal(signal.SIGINT,  self._system_exit)
         signal.signal(signal.SIGTERM, self._system_exit)
         
-        self._bt_ids = LockedContainer(defaultdict(dict))
-        self._bt_status = LockedContainer(defaultdict(int))
-        self._glite_ids = LockedContainer(defaultdict(dict))
-        self._glite_status = LockedContainer(defaultdict(int))
+        self._bt_ids = utils.LockedContainer(defaultdict(dict))
+        self._bt_status = utils.LockedContainer(defaultdict(int))
+        self._glite_ids = utils.LockedContainer(defaultdict(dict))
+        self._glite_status = utils.LockedContainer(defaultdict(int))
         
         self._refresh = utils.SelectableQueue()
         
@@ -120,6 +80,13 @@ class OnDemandDispatcher(object):
         )
         self._ui.set_callback(self._refresh, self._update_ui)
     
+    def _system_exit(self, *args, **kwargs):
+        if self._lock.acquire(False):
+            log.warning("Caught signal. Terminating...")
+            sys.exit(0)
+        else:
+            log.warning("Caught signal. Terminating already in progress...")
+    
     def _update_ui(self):
         self._refresh.get()
         with self._bt_status as bt_status:
@@ -149,18 +116,44 @@ class OnDemandDispatcher(object):
             if self._glite_monitor.is_alive():
                 self._glite_monitor.join()
 
+def _parse_args(args = None):
+    parser = argparse.ArgumentParser(prog='dispatcher.on_demand', add_help=False)
+    parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+        help="database connection settings")
+    parser.add_argument('--ce-queue',    metavar='ENDPOINT', default=argparse.SUPPRESS,
+        help="submit the pilot jobs to %(metavar)s", required=True)
+    parser.add_argument('--help', '-h', action='help',
+        help='show this help message and exit')
+    parser.add_argument('--runner-path', metavar='COMMAND',  default=argparse.SUPPRESS,
+        help="full path of the runner in the remote nodes", required=True)
+    parser.add_argument('--runner-args', metavar='ARG_LIST',  default=argparse.SUPPRESS,
+        help="extra arguments to provide to the remote runner", required=True)
+    parser.add_argument('--allowed-tasks', metavar='NAME_LIST',  default=argparse.SUPPRESS,
+        help="comma-separated list of tasks eligible for running", required=True)
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+        help='increment verbosity level (can be specified twice)')
+    parser.add_argument('--version', '-v', action='version', 
+        version='%%(prog)s %s' % bt.release.__version__)
+    
+    options = vars(parser.parse_args(args))
+    
+    return options
+
 def main(args=None):
     if not args:
         args = sys.argv[1:]
+    
+    options = _parse_args(args)
+    
+    # Configure logging verbosity
+    verbosity = options.pop('verbose')
+    bt._setup_logging(verbosity)
     
     # TODO: Add debugging option
     #from pysrc import pydevd
     #pydevd.settrace()
     
-    #logging.basicConfig(level=logging.DEBUG)
-    #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-    
-    dispatcher = OnDemandDispatcher(args)
+    dispatcher = OnDemandDispatcher(options)
     try:
         dispatcher.run()
     except KeyboardInterrupt:

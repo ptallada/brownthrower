@@ -19,23 +19,9 @@ class Manager(cmd.Cmd):
     usage: <command> [options]
     """
     
-    def _parse_args(self, args = None):
-        parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
-        parser.add_argument('--database-url', '-u', required=True, metavar='URL',
-            help="use the settings in %(metavar)s to establish the database connection")
-        parser.add_argument('--help', '-h', action='help',
-            help='show this help message and exit')
-        parser.add_argument('--version', '-v', action='version', 
-            version='%%(prog)s %s' % bt.release.__version__)
-        
-        options = vars(parser.parse_args(args))
-        
-        return options
-    
-    def __init__(self, args):
+    def __init__(self, options):
         cmd.Cmd.__init__(self)
         
-        options = self._parse_args(args)
         db_url = options.get('database_url')
         
         self._session_maker = bt.session_maker(db_url)
@@ -99,18 +85,36 @@ class Manager(cmd.Cmd):
     def postloop(self):
         print
 
+def _parse_args(args):
+    parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
+    parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+        help="use the settings in %(metavar)s to establish the database connection")
+    parser.add_argument('--help', '-h', action='help',
+        help='show this help message and exit')
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+        help='increment verbosity level (can be specified twice)')
+    parser.add_argument('--version', action='version', 
+        version='%%(prog)s %s' % bt.release.__version__)
+    
+    options = vars(parser.parse_args(args))
+    
+    return options
+
 def main(args=None):
     if not args:
         args = sys.argv[1:]
+    
+    options = _parse_args(args)
+    
+    # Configure logging verbosity
+    verbosity = options.pop('verbose')
+    bt._setup_logging(verbosity)
     
     # TODO: Add debugging option
     #from pysrc import pydevd
     #pydevd.settrace()
     
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-    
-    manager = Manager(args)
+    manager = Manager(options)
     try:
         manager.cmdloop()
     except KeyboardInterrupt:
