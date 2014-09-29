@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import contextlib
+import logging
 
 from functools import wraps
 
@@ -14,7 +15,12 @@ from sqlalchemy.orm.session import sessionmaker
 from . import engine
 from . import model
 
+log = logging.getLogger('brownthrower.model')
+
 def _postgresql_session_after_flush(session, flush_context):
+    """\
+    After flush event callback to push notifications on Job changes.
+    """
     notifier = engine.Notifications(session)
     for obj in session.new:
         if isinstance(obj, model.Job):
@@ -38,7 +44,10 @@ def _postgresql_session_after_flush(session, flush_context):
         elif isinstance(obj, model.Tag):
             notifier.tag_delete(obj.job_id)
 
-def session_maker(dsn):
+def session_maker(dsn, initialize_db=False):
+    """\
+    Return a new session maker from the provided DSN.
+    """
     url = make_url(dsn)
     eng = engine.create_engine(url)
     session_maker = scoped_session(sessionmaker(eng))
@@ -46,12 +55,16 @@ def session_maker(dsn):
     if url.drivername == 'postgresql':
         event.listen(session_maker, 'after_flush', _postgresql_session_after_flush)
     
-    # TODO: Move to initialization script
-    #model.Base.metadata.create_all(bind=eng) # @UndefinedVariable
+    if initialize_db:
+        log.info("Initializing database structure on %s" % dsn)
+        model.Base.metadata.create_all(bind=eng) # @UndefinedVariable
     
     return session_maker
 
 def is_serializable_error(exc):
+    """\
+    Return True if the provided exception is a PostgreSQL serialization error.
+    """
     if isinstance(exc, DBAPIError):
         if hasattr(exc.orig, 'pgcode'): 
             return exc.orig.pgcode == '40001'
@@ -59,6 +72,9 @@ def is_serializable_error(exc):
     return False
 
 def retry_on_serializable_error(fn):
+    """\
+    Decorator that retries a call if it fails with a serialization error.
+    """
     @wraps(fn)
     def wrapper(*args, **kwargs):
         while True:
@@ -68,6 +84,7 @@ def retry_on_serializable_error(fn):
             except DBAPIError as e:
                 if not is_serializable_error(e):
                     raise
+                log.debug("Retrying call to «%s» due to serialization error." % fn)
     return wrapper
 
 # https://gist.github.com/obeattie/210032

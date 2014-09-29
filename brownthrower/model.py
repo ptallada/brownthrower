@@ -6,7 +6,6 @@ import copy
 import logging
 import sys
 import traceback
-import warnings
 import yaml
 
 from sqlalchemy import event, func, literal_column
@@ -34,25 +33,6 @@ tasks = taskstore.TaskStore()
 
 TAG_TRACEBACK = 'bt_traceback'
 
-def _deprecated(func):
-    """
-    This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emmitted
-    when the function is used.
-    """
-    def newFunc(*args, **kwargs):
-        warnings.warn(
-            "Call to deprecated function %s." % func.__name__,
-            category=DeprecationWarning, stacklevel=2
-        )
-        return func(*args, **kwargs)
-    
-    newFunc.__name__ = func.__name__
-    newFunc.__doc__ = func.__doc__
-    newFunc.__dict__.update(func.__dict__)
-    
-    return newFunc
-
 class Dependency(Base):
     """\
     Main class Dependency documentation text
@@ -71,8 +51,7 @@ class Dependency(Base):
     )
     
     # Columns
-    # TODO: Rename to super_job_id, or remove 'job' from others
-    _super_id  = Column('super_id',      Integer, nullable=True)
+    _super_id  = Column('super_id',  Integer, nullable=True)
     _parent_id = Column('parent_id', Integer, nullable=False)
     _child_id  = Column('child_id',  Integer, nullable=False)
     
@@ -485,14 +464,14 @@ class Job(Base):
             raise DetachedInstanceError()
     
     def remove(self):
-        if self.superjob:
-            raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
-        
         if self.status not in [
             Job.Status.FAILED,
             Job.Status.STASHED,
         ]:
             raise InvalidStatusException("This job cannot be removed in its current status.")
+        
+        if self.superjob:
+            raise InvalidStatusException("This job is not a top-level job and cannot be removed.")
         
         if self.parents or self.children:
             raise InvalidStatusException("Cannot remove a linked job.")
@@ -536,14 +515,14 @@ class Job(Base):
             self._token = None
     
     def reset(self):
-        if self.subjobs:
-            raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
-        
         if self.status not in [
             Job.Status.FAILED,
             Job.Status.QUEUED,
         ]:
             raise InvalidStatusException("This job cannot be returned to the stash in its current status.")
+        
+        if self.subjobs:
+            raise InvalidStatusException("This job already has subjobs and cannot be returned to the stash.")
         
         self._reset()
     

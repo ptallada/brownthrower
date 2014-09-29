@@ -4,11 +4,12 @@
 import logging
 
 from . import model
+from . import utils
 
 log = logging.getLogger('brownthrower.task')
 
 class Task(object):
-    """
+    """\
     Base class for user-defined Tasks.
     
     All Task subclasses must inherit from this class and override, as needed,
@@ -20,7 +21,7 @@ class Task(object):
     
     _bt_name = None
     
-    @model._deprecated
+    @utils.deprecated
     def __init__(self, config):
         self.config = config
     
@@ -36,34 +37,10 @@ class Task(object):
         """
         Prepares this Task for execution.
         
-        Return a mapping with the following structure, or None if no subjobs are
-        required:
-        
-            {
-                'subjobs' : {
-                    Task_A(config),
-                    Task_B(config),
-                    Task_B(config),
-                },
-                'input' : {
-                    task_M : <input>,
-                    task_N : <input>,
-                }
-                'links' : [
-                    ( task_X, task_Y ),
-                ]
-            }
-        
-        The 'subjobs' entry is a set, with each element being a Task instance
-        with its associated config.
-        
-        The 'input' entry is also a mapping, indexed by any of the keys present
-        in the 'subjobs' dictionary, and its value is the input of that Task.
-        
-        Finally, the 'links' entry contains a list of tuples. Each tuple
-        contains two Task instances (which must be present in the 'subjobs'
-        mapping) representing the parent and the child sides, respectively, of a
-        parent-child dependency.
+        This code is run over a read-only transaction, so no modifications of
+        any kind are allowed on the job database. Is this task has to be
+        decomposed in several subtasks, they must be created, configured (and
+        optionally submitted) and appended to job.new_subjobs set.
         
         @param job: corresponding job for this task
         @type job: brownthrower.Job
@@ -75,51 +52,22 @@ class Task(object):
     @classmethod
     def epilog(cls, job):
         """
-        Wraps up this Task for the end of its processing. When this method is
-        called, it can safely assume that the 'config' and 'out' parameters have
-        been checked previously and that they are both valid.
+        Wraps up this Task for the end of its processing.
         
-        Return a mapping with the following structure:
-        
-            {
-                'children' : {
-                    Task_A(config),
-                    Task_B(config),
-                    Task_B(config),
-                },
-                'links' : [
-                    ( task_X, task_Y ),
-                ]
-                'output' : <output>
-            }
-        
-        The 'children' entry is a set, with each key being a Task instance
-        with its associated config.
-        
-        The 'links' entry contains a list of tuples. Each tuple contains two
-        Task instances (which must be present in the 'children' mapping)
-        representing the parent and the child sides, respectively, of a parent-
-        child dependency.
-        
-        Finally, the 'output' entry contains the final output of this Job.
-        
-        @param config: mapping with the required configuration values
-        @type config: dict
-        @param out:  mapping with the output of the leaf Jobs
-        @type out: dict
-        @param job_id: unique identifier for this job
-        @type job_id: int
-        @return: a mapping with the output and the structure of the child jobs
-        @rtype: dict
+        This code is run over a read-only transaction, so no modifications of
+        any kind are allowed on the job database. Is this task has to be
+        followed by additional child tasks, they must be created, configured
+        (and optionally submitted) and appended to job.new_children set.
         """
         pass
     
     @classmethod
     def run(cls, job):
         """
-        Executes this Task. When this method is called, it can safely assume
-        that the 'inp' parameter has been checked previously and that it is
-        valid.
+        Executes this Task.
+        
+        This code is run over a read-only transaction, so no modifications of
+        any kind are allowed on the job database.
         
         @param inp:  list with the output of the parent jobs
         @type inp: list
