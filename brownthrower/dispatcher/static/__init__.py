@@ -153,7 +153,7 @@ def _parse_args(args = None):
         help="comma-separated list of tasks eligible for running", required=True)
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
-    parser.add_argument('--version', '-v', action='version', 
+    parser.add_argument('--version', action='version', 
         version='%%(prog)s %s' % bt.release.__version__)
     
     options = vars(parser.parse_args(args))
