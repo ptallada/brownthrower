@@ -23,8 +23,9 @@ class Manager(cmd.Cmd):
         cmd.Cmd.__init__(self)
         
         db_url = options.get('database_url')
+        initialize = options.get('initialize_db')
         
-        self._session_maker = bt.session_maker(db_url)
+        self._session_maker = bt.session_maker(db_url, initialize)
         self._subcmds = {}
         
         self.prompt = '(brownthrower): '
@@ -91,6 +92,8 @@ def _parse_args(args):
         help="use the settings in %(metavar)s to establish the database connection")
     parser.add_argument('--help', '-h', action='help',
         help='show this help message and exit')
+    parser.add_argument('--initialize-db', '-i', action='store_true', default=False,
+        help="create database structure, if not present")
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
     parser.add_argument('--version', action='version', 
