@@ -162,7 +162,7 @@ class Job(Base):
         ForeignKeyConstraint(['super_id'], ['job.id'], onupdate='CASCADE', ondelete='RESTRICT', name='fk_job_super'),
         # Indexes
         Index('ix_job_status', 'status'),
-        Index('ix_job_task',   'task'),
+        Index('ix_job_name',   'name'),
     )
     
     ###########################################################################
@@ -171,8 +171,7 @@ class Job(Base):
     
     _id         =          Column('id',         Integer,    nullable=False)
     _super_id   =          Column('super_id',   Integer,    nullable=True)
-    # TODO: rename field to 'name' and change index too
-    _name       =          Column('task',       String(50), nullable=False)
+    _name       =          Column('name',       String(50), nullable=False)
     _status     =          Column('status',     String(20), nullable=False)
     _token      =          Column('token',      String(32), nullable=True)
     _config     = deferred(Column('config',     Text,       nullable=True), group='yaml')
