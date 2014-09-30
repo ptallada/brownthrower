@@ -25,8 +25,8 @@ def retry(tries, log):
                 try:
                     value = fn(*args, **kwargs)
                     return value
-                except Exception as e:
-                    log.warning("Exception caught while calling %s. Retrying in one second..." % (e, fn), exc_info=True)
+                except Exception:
+                    log.warning("Exception caught while calling %s. Retrying in one second..." % fn, exc_info=True)
                     time.sleep(1)
             
             value = fn(*args, **kwargs)
