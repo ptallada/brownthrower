@@ -110,7 +110,7 @@ class SerialRunner(object):
             try:
                 self._run_job(job_id, q_finish, q_abort, self._token)
                 return
-            except bt.InvalidStatusException, NoResultFound:
+            except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
                 pass
         
         raise NoRunnableJobFound()
