@@ -331,9 +331,6 @@ class GliteMonitorThread(threading.Thread):
             return actual_size
     
     def run(self):
-        from pysrc import pydevd
-        pydevd.settrace('wl-tallada', port=5678)
-        
         self._update_status()
         
         while not self._q_stop.poll():
