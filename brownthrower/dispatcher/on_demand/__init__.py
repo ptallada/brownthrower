@@ -19,9 +19,7 @@ log = logging.getLogger('brownthrower.dispatcher.on_demand')
 
 class OnDemandDispatcher(object):
     
-    def __init__(self, args):
-        options = self._parse_args(args)
-        
+    def __init__(self, options):
         self._db_url = options.get('database_url')
         self._session_maker = bt.session_maker(self._db_url)
         
