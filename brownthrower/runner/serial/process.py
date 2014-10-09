@@ -75,7 +75,7 @@ class Job(multiprocessing.Process):
             bt.TaskNotAvailableException,
             NoResultFound,
         ):
-            log.debug("An error was found running job %d" % self._job_id, exc_info=True)
+            log.warning("An error was found running job %d" % self._job_id, exc_info=True)
         except InternalError:
             new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
