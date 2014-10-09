@@ -693,7 +693,9 @@ class Job(Base):
         subjobs = new_state.get('subjobs', set())
         self._subjobs |= subjobs
         
-        self._status = new_state['status']
+        status = new_state.get('status', Job.Status.FAILED)
+        self._status = status
+        
         self._cleanup()
     
     def _cleanup(self, tb=None):
