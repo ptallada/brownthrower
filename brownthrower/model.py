@@ -19,6 +19,7 @@ from sqlalchemy.orm.session import object_session
 from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
                                PrimaryKeyConstraint, UniqueConstraint)
 from sqlalchemy.sql import functions
+from sqlalchemy.sql.expression import literal
 from sqlalchemy.types import DateTime, Integer, String, Text
 
 from . import taskstore
@@ -717,6 +718,26 @@ class Job(Base):
             raise TokenMismatchException("Incorrect token given for this job.")
         
         self._cleanup(tb)
+    
+    ###########################################################################
+    # TASK                                                                    #
+    ###########################################################################
+    
+    @classmethod
+    def _name_like(cls, patterns):
+        if not patterns:
+            return literal(True)
+        
+        crit = literal(False)
+        for pattern in patterns:
+            pattern = pattern.replace(r'\\', r'\\\\')
+            pattern = pattern.replace(r'_',  r'\_')
+            pattern = pattern.replace(r'%',  r'\%')
+            pattern = pattern.replace(r'*',  r'%')
+            pattern = pattern.replace(r'?',  r'_')
+            crit |= (cls._name.like(pattern))
+        
+        return crit
 
 class Tag(Base):
     __tablename__ = 'tag'

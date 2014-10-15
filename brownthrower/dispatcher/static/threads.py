@@ -70,11 +70,15 @@ class LauncherThread(threading.Thread):
     @contextlib.contextmanager
     def _write_jdl(self):
         template = string.Template(JDL_TEMPLATE)
+        arguments = [self._runner_args, '--loop']
+        if self._allowed_tasks:
+            arguments.append('--allowed-tasks')
+            arguments.extend(self._allowed_tasks)
         
         with tempfile.NamedTemporaryFile("w+") as fh:
             fh.write(template.substitute({
                 'executable' : self._runner_path,
-                'arguments' : "%s --loop" % self._runner_args,
+                'arguments' : " ".join(arguments),
             }))
             
             fh.flush()
@@ -195,7 +199,7 @@ class BtMonitorThread(threading.Thread):
         with bt.transactional_session(self._session_maker) as session:
             count = session.query(bt.Job).filter(
                 bt.Job.status == bt.Job.Status.QUEUED,
-                bt.Job.name.in_(self._allowed_tasks), # @UndefinedVariable
+                bt.Job._name_like(self._allowed_tasks),
                 ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
             ).count()
             
@@ -206,7 +210,7 @@ class BtMonitorThread(threading.Thread):
     def _initial_status(self):
         with bt.transactional_session(self._session_maker) as session:
             jobs = session.query(bt.Job).filter(
-                bt.Job.name.in_(self._allowed_tasks), # @UndefinedVariable
+                bt.Job._name_like(self._allowed_tasks)
             )
             
             with self._bt_ids as bt_ids:

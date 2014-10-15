@@ -27,6 +27,10 @@ class MainScreen(object):
         self._loop.event_loop.watch_file(fd, callback)
     
     def _create_widgets(self, runner_path, runner_args, ce_queue, allowed_tasks):
+        tasks = '*'
+        if allowed_tasks:
+            tasks = ' ,'.join(allowed_tasks)
+        
         self._header = urwid.AttrWrap(
             urwid.Text("Brownthrower dispatcher on-demand", align='center'),
             'header',
@@ -40,7 +44,7 @@ class MainScreen(object):
         self._runner_path_value = urwid.Text(('value', runner_path))
         self._runner_args_value = urwid.Text(('value', runner_args))
         self._ce_queue_value    = urwid.Text(('value', ce_queue))
-        self._tasks_value       = urwid.Text(('value', ', '.join(allowed_tasks)))
+        self._tasks_value       = urwid.Text(('value', tasks))
         
         self._runner_path = urwid.Columns([
             ('fixed', 24, self._runner_path_label),

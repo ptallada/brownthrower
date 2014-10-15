@@ -41,7 +41,7 @@ class StaticDispatcher(object):
         self._ce_queue      = options.pop('ce_queue')
         self._pool_size     = options.pop('pool_size')
         self._runner_path   = options.pop('runner_path')
-        self._allowed_tasks = set(map(str.strip, options.pop('allowed_tasks').split(',')))
+        self._allowed_tasks = options.get('allowed_tasks', None)
         
         self._pilots = {}
         self._last_event = 0
@@ -135,6 +135,8 @@ class StaticDispatcher(object):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='dispatcher.static', add_help=False)
+    parser.add_argument('--allowed-tasks', '-a', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
+        help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
     parser.add_argument('--ce-queue',    metavar='ENDPOINT', default=argparse.SUPPRESS,
@@ -147,8 +149,6 @@ def _parse_args(args = None):
         help="specify the location of the runner in the remote nodes", required=True)
     parser.add_argument('--runner-args', metavar='COMMAND',  default=argparse.SUPPRESS,
         help="specify the arguments for the remote runner", required=True)
-    parser.add_argument('--allowed-tasks', metavar='NAME_LIST',  default=argparse.SUPPRESS,
-        help="comma-separated list of tasks eligible for running", required=True)
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
     parser.add_argument('--version', action='version', 

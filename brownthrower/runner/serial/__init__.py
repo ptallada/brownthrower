@@ -38,6 +38,7 @@ class SerialRunner(object):
         self._post_mortem   = options.pop('post_mortem', None)
         self._submit        = options.pop('submit', False)
         self._token         = options.pop('reserved', uuid.uuid1().hex)
+        self._allowed_tasks = options.get('allowed_tasks', None)
         
         self._lock = threading.Lock()
         
@@ -101,8 +102,8 @@ class SerialRunner(object):
         with bt.transactional_session(self._session_maker) as session:
             jobs = session.query(bt.Job).filter(
                 bt.Job.status == bt.Job.Status.QUEUED,
-                bt.Job.name.in_(bt.tasks.keys()), # @UndefinedVariable
-                ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE) # @UndefinedVariable
+                bt.Job._name_like(self._allowed_tasks),
+                ~ bt.Job.parents.any(bt.Job.status != bt.Job.Status.DONE), # @UndefinedVariable
             )
             job_ids = [job.id for job in jobs]
         
@@ -146,6 +147,8 @@ class SerialRunner(object):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='runner.serial', add_help=False)
+    parser.add_argument('--allowed-tasks', '-a', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
+        help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
     parser.add_argument('--help', '-h', action='help',
