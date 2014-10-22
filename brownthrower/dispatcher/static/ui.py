@@ -29,7 +29,7 @@ class MainScreen(object):
     def _create_widgets(self, runner_path, runner_args, ce_queue, allowed_tasks):
         tasks = '*'
         if allowed_tasks:
-            tasks = ' ,'.join(allowed_tasks)
+            tasks = ', '.join(allowed_tasks)
         
         self._header = urwid.AttrWrap(
             urwid.Text("Brownthrower dispatcher static", align='center'),
