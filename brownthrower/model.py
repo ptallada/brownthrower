@@ -628,7 +628,7 @@ class Job(Base):
         for ancestor in self._ancestors():
             ancestor._update_status()
     
-    def _run(self, token):
+    def _run(self, token, debug):
         def validate_new_jobs(jobs):
             for job in jobs:
                 if job.superjob or job.super_id or job.id:
@@ -648,10 +648,14 @@ class Job(Base):
         try:
             if not self.subjobs:
                 # PROLOG
+                if debug:
+                    utils.start_debugger(**debug)
                 self.task.prolog(self)
                 validate_new_jobs(self.new_subjobs)
                 # RUN
                 if not self.new_subjobs:
+                    if debug:
+                        utils.start_debugger(**debug)
                     new_state['output'] = self.task.run(self)
                     new_state['status'] = Job.Status.DONE
                 else:
@@ -659,6 +663,8 @@ class Job(Base):
                     new_state['status'] = Job.Status.STAND_BY
             else:
                 # EPILOG
+                if debug:
+                    utils.start_debugger(**debug)
                 new_state['output'] = self.task.epilog(self)
                 new_state['children'] = self.new_children
                 new_state['status'] = Job.Status.DONE

@@ -135,23 +135,23 @@ class StaticDispatcher(object):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='dispatcher.static', add_help=False)
-    parser.add_argument('--allowed-tasks', '-a', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
+    parser.add_argument('--allowed-tasks', '-t', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
         help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
-    parser.add_argument('--ce-queue',    metavar='ENDPOINT', default=argparse.SUPPRESS,
+    parser.add_argument('--ce-queue', '-q', metavar='ENDPOINT', default=argparse.SUPPRESS,
         help="select the batch queue to sent the pilots into", required=True)
-    parser.add_argument('--help', '-h', action='help',
+    parser.add_argument('--help', '-?', action='help',
         help='show this help message and exit')
-    parser.add_argument('--pool-size',   metavar='NUMBER',   default=5, type=int,
+    parser.add_argument('--pool-size', '-s', metavar='NUMBER',   default=5, type=int,
         help="set the pool size to %(metavar)s pilots (default: %(default)s)")
-    parser.add_argument('--runner-path', metavar='COMMAND',  default=argparse.SUPPRESS,
+    parser.add_argument('--runner-path', '-p', metavar='COMMAND',  default=argparse.SUPPRESS,
         help="specify the location of the runner in the remote nodes", required=True)
-    parser.add_argument('--runner-args', metavar='COMMAND',  default=argparse.SUPPRESS,
+    parser.add_argument('--runner-args', '-a', metavar='COMMAND',  default=argparse.SUPPRESS,
         help="specify the arguments for the remote runner", required=True)
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
-    parser.add_argument('--version', action='version', 
+    parser.add_argument('--version', '-V', action='version', 
         version='%%(prog)s %s' % bt.release.__version__)
     
     options = vars(parser.parse_args(args))

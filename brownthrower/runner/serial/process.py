@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import brownthrower as bt
 import errno
 import logging
 import multiprocessing
@@ -15,17 +14,20 @@ from sqlalchemy.exc import InternalError
 from sqlalchemy.orm import undefer_group, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
+import brownthrower as bt
+
 log = logging.getLogger('brownthrower.runner.serial')
 
 # Number of seconds to wait between SIGTERM and SIGKILL when terminating a job
 KILL_TIMEOUT=2
 
 class Job(multiprocessing.Process):
-    def __init__(self, db_url, job_id, token):
+    def __init__(self, db_url, job_id, token, debug):
         super(Job, self).__init__(name='bt_job_%d' % job_id)
         self._job_id = job_id
         self._db_url = db_url
         self._token  = token
+        self._debug  = debug
         self._lock   = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
@@ -45,7 +47,7 @@ class Job(multiprocessing.Process):
                 joinedload(bt.Job.subjobs),
             ).one()
             
-            return job._run(self._token)
+            return job._run(self._token, self._debug)
     
     def _finish_job(self, new_state):
         @bt.retry_on_serializable_error
@@ -96,12 +98,13 @@ class Job(multiprocessing.Process):
 
 class Monitor(multiprocessing.Process):
     
-    def __init__(self, db_url, job_id, q_finish, token, submit=False):
+    def __init__(self, db_url, job_id, q_finish, token, debug, submit=False):
         super(Monitor, self).__init__(name='bt_monitor_%d' % job_id)
         self._job_id = job_id
         self._db_url = db_url
         self._q_finish = q_finish
         self._token  = token
+        self._debug  = debug
         self._submit = submit
         self._lock   = threading.Lock()
     
@@ -146,6 +149,7 @@ class Monitor(multiprocessing.Process):
             db_url = self._db_url,
             job_id = self._job_id,
             token  = self._token,
+            debug  = self._debug,
         )
         
         try:

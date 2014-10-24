@@ -32,13 +32,16 @@ class SerialRunner(object):
         db_url = options.get('database_url')
         
         self._session_maker = bt.session_maker(db_url)
+        self._allowed_tasks = options.get('allowed_tasks', None)
         self._job_id        = options.pop('job_id', None)
-        self._loop          = options.pop('loop', 0)
-        self._notify_failed = options.pop('notify_failed', None)
-        self._post_mortem   = options.pop('post_mortem', None)
+        self._loop          = options.pop('loop', None)
         self._submit        = options.pop('submit', False)
         self._token         = options.pop('reserved', uuid.uuid1().hex)
-        self._allowed_tasks = options.get('allowed_tasks', None)
+        
+        self._debug = {}
+        if options.get('debug'):
+            self._debug['host'] = options.get('debug_host')
+            self._debug['port'] = options.get('debug_port')
         
         self._lock = threading.Lock()
         
@@ -69,6 +72,7 @@ class SerialRunner(object):
             token    = token,
             submit   = submit,
             q_finish = q_finish,
+            debug    = self._debug,
         )
         
         try:
@@ -139,7 +143,7 @@ class SerialRunner(object):
             while True:
                 self._run_all(q_finish, q_abort)
                 
-                if not self._loop:
+                if self._loop != None:
                     return
                 
                 log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
@@ -147,28 +151,36 @@ class SerialRunner(object):
 
 def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='runner.serial', add_help=False)
-    parser.add_argument('--allowed-tasks', '-a', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
+    parser.add_argument('--allowed-tasks', '-t', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
         help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
-    parser.add_argument('--help', '-h', action='help',
+    parser.add_argument('--help', '-?', action='help',
         help='show this help message and exit')
     
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--job-id', '-j', type=int, default=argparse.SUPPRESS, metavar='ID',
         help="run only the job identified by %(metavar)s")
-    group.add_argument('--loop', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
+    group.add_argument('--loop', '-l', metavar='NUMBER', nargs='?', type=int, const=60, default=argparse.SUPPRESS,
         help="enable infinite looping, waiting %(metavar)s seconds between iterations (default: %(const)s)")
     
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--reserved', '-r', default=argparse.SUPPRESS, metavar='TOKEN',
         help='in conjunction with --job-id, run a previously reserved job')
-    group.add_argument('--submit', '-s', action='store_true',
+    group.add_argument('--submit', '-s', action='store_true', default=False,
         help='in conjunction with --job-id, submit the job before executing')
+    
+    group = parser.add_argument_group(title='debug')
+    group.add_argument('--debug', '-d', action='store_true',
+        help='run the task inside a remote debugging session')
+    group.add_argument('--debug-host', '-h', default='localhost',
+        help='connect to this remote host (default: %(default)s)')
+    group.add_argument('--debug-port', '-p', default=5678, type=int,
+        help='connect using this port (default: %(default)s)')
     
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
-    parser.add_argument('--version', action='version', 
+    parser.add_argument('--version', '-V', action='version',
         version='%%(prog)s %s' % bt.release.__version__)
     
     options = vars(parser.parse_args(args))

@@ -90,13 +90,13 @@ def _parse_args(args):
     parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
-    parser.add_argument('--help', '-h', action='help',
+    parser.add_argument('--help', '-?', action='help',
         help='show this help message and exit')
     parser.add_argument('--initialize-db', '-i', action='store_true', default=False,
         help="create database structure, if not present")
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
-    parser.add_argument('--version', action='version', 
+    parser.add_argument('--version', '-V', action='version', 
         version='%%(prog)s %s' % bt.release.__version__)
     
     options = vars(parser.parse_args(args))

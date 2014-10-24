@@ -54,6 +54,10 @@ def deprecated(func):
     
     return newFunc
 
+def start_debugger(host, port):
+    from pysrc import pydevd
+    pydevd.settrace(host, port=port)
+
 class SelectableQueue(multiprocessing.queues.SimpleQueue):
     """\
     Simple subclass hack to allow 'selecting' when reading.
