@@ -3,7 +3,7 @@
 
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
@@ -29,7 +29,7 @@ execfile(os.path.join(here, 'brownthrower', 'release.py'))
 setup(
     name = 'brownthrower',
     version = __version__, # @UndefinedVariable
-    packages = [ 'brownthrower' ],
+    packages = find_packages(),
     #namespace_packages = ['brownthrower'],
     
     install_requires = install_requires,
