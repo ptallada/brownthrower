@@ -38,14 +38,12 @@ class Task(object):
         Prepares this Task for execution.
         
         This code is run over a read-only transaction, so no modifications of
-        any kind are allowed on the job database. Is this task has to be
+        any kind are allowed on the job database. If this task has to be
         decomposed in several subtasks, they must be created, configured (and
         optionally submitted) and appended to job.new_subjobs set.
         
         @param job: corresponding job for this task
         @type job: brownthrower.Job
-        @return: a mapping representing the structure of the subjobs
-        @rtype: mapping
         """
         pass
     
