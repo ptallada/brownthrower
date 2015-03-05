@@ -39,7 +39,7 @@ class TaskStore(collections.Mapping):
                     task._bt_name = key
                 
                 if task._bt_name != key:
-                    raise RuntimeError("Task from '%s' has an inconsistent name ('%s'!='%s')" % (entry.module, task._bt_name, key))
+                    raise RuntimeError("Task from '%s' has an inconsistent name ('%s'!='%s')" % (entry.module_name, task._bt_name, key))
                 
                 self._tasks[key] = task
                 
