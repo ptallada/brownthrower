@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 ### Added
 - Add `CHANGELOG.md`. (Pau Tallada)
+- Add `MANIFEST.in`. (Pau Tallada)
 
 ### Changed
 - Rename `README.txt` to `README.md`. (Pau Tallada)
