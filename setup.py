@@ -21,7 +21,7 @@ install_requires = [
 
 # Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
-README  = open(os.path.join(here, 'README.txt')).read()
+README  = open(os.path.join(here, 'README.md')).read()
 
 # Read the version information
 execfile(os.path.join(here, 'brownthrower', 'release.py'))

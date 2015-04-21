@@ -6,4 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Add ``CHANGELOG.md``. (Pau Tallada)
 
+### Changed
+- Rename ``README.txt`` to ``README.md``. (Pau Tallada)
+
 ## [2.0.0] - 2014-11-21
