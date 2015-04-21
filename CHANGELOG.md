@@ -9,4 +9,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Rename ``README.txt`` to ``README.md``. (Pau Tallada)
 
+### Fixed
+- Do not upgrade to ``pyparsing`` ~2.0. (Pau Tallada)
+
 ## [2.0.0] - 2014-11-21
