@@ -9,7 +9,7 @@ install_requires = [
     'argparse',
     'glite>=1.9.0',
     'logutils', # Only for Python <= 2.6
-    'pyparsing',
+    'pyparsing <2.0a0',
     'PyYAML',
     'setuptools',
     'SQLAlchemy >=0.9, <1.0',
@@ -21,7 +21,7 @@ install_requires = [
 
 # Read README and CHANGES files for the long description
 here = os.path.abspath(os.path.dirname(__file__))
-README  = open(os.path.join(here, 'README.txt')).read()
+README  = open(os.path.join(here, 'README.md')).read()
 
 # Read the version information
 execfile(os.path.join(here, 'brownthrower', 'release.py'))
