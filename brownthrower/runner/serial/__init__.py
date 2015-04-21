@@ -143,7 +143,7 @@ class SerialRunner(object):
             while True:
                 self._run_all(q_finish, q_abort)
                 
-                if self._loop != None:
+                if not self._loop:
                     return
                 
                 log.info("No runnable jobs found. Sleeping %d seconds until next iteration." % self._loop)
