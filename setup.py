@@ -7,12 +7,12 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
-    'glite>=1.9.0',
+    'glite >=1.10.1, <2.0a0',
     'logutils', # Only for Python <= 2.6
-    'pyparsing <2.0a0',
+    'pyparsing >=2.0, <3.0a0',
     'PyYAML',
     'setuptools',
-    'SQLAlchemy >=0.9, <1.0',
+    'SQLAlchemy >=0.9a0, <1.0a0',
     'tabulate',
     'termcolor',
     'trunk',
