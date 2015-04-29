@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased][unreleased]
+### Changed
+- Remove outdated data from `README.md`. (Pau Tallada)
 
 ## [2.0.1] - 2015-04-21
 ### Added
