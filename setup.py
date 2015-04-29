@@ -7,30 +7,26 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
-    'glite>=1.9.0',
+    'glite >=1.10.1, <2.0a0',
     'logutils', # Only for Python <= 2.6
-    'pyparsing <2.0a0',
+    'pyparsing >=2.0, <3.0a0',
     'PyYAML',
     'setuptools',
-    'SQLAlchemy >=0.9, <1.0',
+    'SQLAlchemy >=0.9a0, <1.0a0',
     'tabulate',
     'termcolor',
     'trunk',
     'urwid',
 ]
 
-# Read README and CHANGES files for the long description
-here = os.path.abspath(os.path.dirname(__file__))
-README  = open(os.path.join(here, 'README.md')).read()
-
 # Read the version information
+here = os.path.abspath(os.path.dirname(__file__))
 execfile(os.path.join(here, 'brownthrower', 'release.py'))
 
 setup(
     name = 'brownthrower',
     version = __version__, # @UndefinedVariable
     packages = find_packages(),
-    #namespace_packages = ['brownthrower'],
     
     install_requires = install_requires,
     
@@ -41,27 +37,17 @@ setup(
     ],
     
     description = "Framework for executing jobs with inter-dependencies",
-    long_description = README,
+    
     author = 'Pau Tallada Crespí',
     author_email = 'pau.tallada@gmail.com',
     maintainer = 'Pau Tallada Crespí',
     maintainer_email = 'pau.tallada@gmail.com',
+    
     #url = "http://packages.python.org/brownthrower",
     
     #license = 'AGPLv3+',
     #keywords = "",
-    #classifiers = [
-    #    "Development Status :: 5 - Production/Stable",
-    #    "Intended Audience :: Developers",
-    #    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
-    #    "Programming Language :: Python",
-    #    "Operating System :: OS Independent",
-    #    "Topic :: Database",
-    #    "Topic :: Software Development :: Libraries :: Python Modules",
-    #    "Topic :: Utilities"
-    #],
     
-    # other arguments here...
     entry_points = {
         'console_scripts' : [
             'brownthrower = brownthrower.manager.__init__:main',
@@ -80,5 +66,5 @@ setup(
     },
     
     include_package_data=True,
-    #zip_safe=True,
+    zip_safe=True,
 )
