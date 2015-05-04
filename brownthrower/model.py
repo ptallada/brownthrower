@@ -529,9 +529,9 @@ class Job(Base):
     
     def clone(self):
         job = Job(self.name, self.task)
-        job._config   = copy.deepcopy(self._config)
-        job._input    = copy.deepcopy(self._input)
-        job.parents  = self.parents.copy()
+        job._config = copy.deepcopy(self._config)
+        job._input  = copy.deepcopy(self._input)
+        job.parents = self.parents.copy()
         
         return job
     
