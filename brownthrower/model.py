@@ -149,18 +149,19 @@ class Job(Base):
     # COLUMNS                                                                 #
     ###########################################################################
     
-    _id         =          Column('id',         Integer,    nullable=False)
-    _super_id   =          Column('super_id',   Integer,    nullable=True)
-    _name       =          Column('name',       String(50), nullable=False)
-    _status     =          Column('status',     String(20), nullable=False)
-    _token      =          Column('token',      String(32), nullable=True)
-    _config     = deferred(Column('config',     Text,       nullable=True), group='yaml')
-    _input      = deferred(Column('input',      Text,       nullable=True), group='yaml')
-    _output     = deferred(Column('output',     Text,       nullable=True), group='yaml')
-    _ts_created =          Column('ts_created', DateTime,   nullable=False, default=functions.now())
-    _ts_queued  =          Column('ts_queued',  DateTime,   nullable=True)
-    _ts_started =          Column('ts_started', DateTime,   nullable=True)
-    _ts_ended   =          Column('ts_ended',   DateTime,   nullable=True)
+    _id          =          Column('id',          Integer,    nullable=False)
+    _super_id    =          Column('super_id',    Integer,    nullable=True)
+    _name        =          Column('name',        String(50), nullable=False)
+    _status      =          Column('status',      String(20), nullable=False)
+    _description = deferred(Column('description', Text,       nullable=False, server_default=''), group='desc')
+    _token       =          Column('token',       String(32), nullable=True)
+    _config      = deferred(Column('config',      Text,       nullable=True), group='yaml')
+    _input       = deferred(Column('input',       Text,       nullable=True), group='yaml')
+    _output      = deferred(Column('output',      Text,       nullable=True), group='yaml')
+    _ts_created  =          Column('ts_created',  DateTime,   nullable=False, default=functions.now())
+    _ts_queued   =          Column('ts_queued',   DateTime,   nullable=True)
+    _ts_started  =          Column('ts_started',  DateTime,   nullable=True)
+    _ts_ended    =          Column('ts_ended',    DateTime,   nullable=True)
     
     ###########################################################################
     # RELATIONSHIPS                                                           #
@@ -285,6 +286,14 @@ class Job(Base):
     @hybrid_property
     def status(self):
         return self._status
+    
+    @hybrid_property
+    def description(self):
+        return self._description
+    
+    @description.setter
+    def description(self, description):
+        self._description = description
     
     @hybrid_property
     def token(self):
