@@ -26,7 +26,7 @@ def setup():
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
     
     if config.get('pydevd', {}).get('enabled', 'off') == 'on':
-        from pysrc import pydevd
+        import pydevd
         pydevd.settrace()
 
 def teardown():

@@ -9,6 +9,7 @@ install_requires = [
     'argparse',
     'glite >=1.10.1, <2.0a0',
     'logutils', # Only for Python <= 2.6
+    'pydevd',
     'pyparsing >=2.0, <3.0a0',
     'PyYAML',
     'setuptools',

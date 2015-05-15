@@ -55,7 +55,7 @@ def deprecated(func):
     return newFunc
 
 def start_debugger(host, port):
-    from pysrc import pydevd
+    import pydevd
     pydevd.settrace(host, port=port)
 
 class SelectableQueue(multiprocessing.queues.SimpleQueue):
