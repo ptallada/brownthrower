@@ -76,6 +76,9 @@ class Job(multiprocessing.Process):
         return os.path.join(self._log_dir, name)
     
     def run(self):
+        import pydevd
+        pydevd.settrace('wl-tallada', port=5678)
+        
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, self._system_exit)
         
@@ -168,6 +171,10 @@ class Monitor(multiprocessing.Process):
         
         try:
             job_process.start()
+            
+            import pydevd
+            pydevd.settrace('wl-tallada', port=5678)
+            
             job_process.join()
         except SystemExit:
             job_process.cancel()

@@ -80,6 +80,9 @@ class SerialRunner(object):
         try:
             proc.start()
             
+            import pydevd
+            pydevd.settrace('wl-tallada', port=5678)
+            
             while True:
                 try:
                     r, _, _ = select.select([q_abort, q_finish], [], [], None)
@@ -202,8 +205,8 @@ def main(args=None):
     bt._setup_logging(verbosity)
     
     # TODO: Add debugging option
-    #from pysrc import pydevd
-    #pydevd.settrace(port=5678)
+    #import pydevd
+    #pydevd.settrace('wl-tallada', port=5678)
     
     runner = SerialRunner(options)
     try:

@@ -114,8 +114,8 @@ def main(args=None):
     bt._setup_logging(verbosity)
     
     # TODO: Add debugging option
-    #from pysrc import pydevd
-    #pydevd.settrace()
+    import pydevd
+    pydevd.settrace('wl-tallada', port=5678)
     
     manager = Manager(options)
     try:
