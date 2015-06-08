@@ -692,7 +692,7 @@ class Job(Base):
             return
         
         if 'output' in new_state:
-            self.set_dataset('output', new_state['output'])
+            self.set_dataset('output', new_state.get('output', None))
         
         children = new_state.get('children', set())
         self.children |= children
