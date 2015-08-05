@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 ### Fixed
 - Job new state might not have output in case of error. (Pau Tallada)
+- Transactional session helper may execute the commit twice. (Pau Tallada)
 
 ## [2.2.0] - 2015-05-15
 ### Changed
