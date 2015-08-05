@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - Job new state might not have output in case of error. (Pau Tallada)
 - Transactional session helper may execute the commit twice. (Pau Tallada)
+- Allow dots ('.') when filtering in `job list`. (Pau Tallada)
+
 
 ## [2.2.0] - 2015-05-15
 ### Changed
