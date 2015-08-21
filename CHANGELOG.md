@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 
 
+## [2.3.0] - 2015-08-21
+### Fixed
+- Job new state might not have output in case of error. (Pau Tallada)
+- Transactional session helper may execute the commit twice. (Pau Tallada)
+- Allow dots ('.') when filtering in `job list`. (Pau Tallada)
+
+
 ## [2.2.0] - 2015-05-15
 ### Changed
 - Use packaged version of `pydevd`.

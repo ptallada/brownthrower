@@ -206,7 +206,7 @@ class JobList(Command):
             pp.Literal('>' )
         ).setResultsName('operator')
         
-        value = pp.Word(pp.alphanums + '_').setResultsName('value')
+        value = pp.Word(pp.alphanums + '_.').setResultsName('value')
         
         grammar = field + operator + value
         

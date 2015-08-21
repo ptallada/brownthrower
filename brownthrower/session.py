@@ -101,10 +101,11 @@ def transactional_session(session_cls, read_only=False):
         if read_only:
             session.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE READ ONLY DEFERRABLE")
         yield session
-        session.commit()
     except:
         # Roll back if the nested block raised an error
         session.rollback()
         raise
+    else:
+        session.commit()
     finally:
         session.close()
