@@ -47,7 +47,7 @@ class LauncherThread(threading.Thread):
     
     POLL_INTERVAL = 30
     
-    def __init__(self, session_maker, allowed_tasks, runner_path, runner_args, ce_queue,
+    def __init__(self, session_maker, allowed_tasks, runner_path, runner_args, ce_queue, delegation_id,
                  bt_status, bt_ids, glite_status, glite_ids, pool_size, refresh):
         super(LauncherThread, self).__init__(name='job_launcher')
         self._session_maker = session_maker
@@ -55,6 +55,7 @@ class LauncherThread(threading.Thread):
         self._runner_path = runner_path
         self._runner_args = runner_args
         self._ce_queue = ce_queue
+        self._delegation_id = delegation_id
         self._bt_status = bt_status
         self._bt_ids = bt_ids
         self._glite_status = glite_status
@@ -96,7 +97,7 @@ class LauncherThread(threading.Thread):
     @utils.retry(tries=3, log=log)
     def _launch_pilot(self):
         with self._write_jdl() as jdl_file:
-            return glite.ce.job.submit(jdl_file, endpoint=self._ce_queue)
+            return glite.ce.job.submit(jdl_file, endpoint=self._ce_queue, delegation_id=self._delegation_id)
     
     def _launch_one(self):
         with self._glite_ids as glite_ids:

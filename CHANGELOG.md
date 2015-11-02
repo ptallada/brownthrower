@@ -4,7 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
-
+### Changed
+- Add an option to specify a custom delegation_id for gLite. (Pau Tallada)
 
 ## [2.3.0] - 2015-08-21
 ### Fixed
