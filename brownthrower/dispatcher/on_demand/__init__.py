@@ -32,6 +32,7 @@ class OnDemandDispatcher(object):
         self._ce_queue      = options.pop('ce_queue')
         self._runner_path   = options.pop('runner_path')
         self._allowed_tasks = options.get('allowed_tasks', None)
+        self._delegation_id = options.get('delegation_id', None)
         
         self._lock = threading.Lock()
         
@@ -51,6 +52,7 @@ class OnDemandDispatcher(object):
             self._runner_path,
             self._runner_args,
             self._ce_queue,
+            self._delegation_id,
             self._bt_status,
             self._bt_ids,
             self._glite_status,
@@ -118,10 +120,12 @@ def _parse_args(args = None):
     parser = argparse.ArgumentParser(prog='dispatcher.on_demand', add_help=False)
     parser.add_argument('--allowed-tasks', '-t', nargs='+', metavar='PATTERN', default=argparse.SUPPRESS,
         help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
-    parser.add_argument('--database-url', '-u', required=True, metavar='URL',
-        help="database connection settings")
     parser.add_argument('--ce-queue', '-q', metavar='ENDPOINT', default=argparse.SUPPRESS,
         help="submit the pilot jobs to %(metavar)s", required=True)
+    parser.add_argument('--database-url', '-u', required=True, metavar='URL',
+        help="database connection settings")
+    parser.add_argument('--delegation-id', '-d', metavar='STRING', default=argparse.SUPPRESS,
+        help="specify the name of a previously delegated proxy")
     parser.add_argument('--help', '-?', action='help',
         help='show this help message and exit')
     parser.add_argument('--runner-path', '-p', metavar='COMMAND',  default=argparse.SUPPRESS,

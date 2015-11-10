@@ -20,12 +20,14 @@ log = logging.getLogger('brownthrower')
 log.addHandler(NullHandler())
 
 def _setup_logging(verbosity):
+    fmt='%(asctime)s %(levelname)-8s %(name)s %(message)s'
+    
     if verbosity == 0:
-        logging.basicConfig(level=logging.WARNING)
+        logging.basicConfig(level=logging.WARNING, format=fmt)
         logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     elif verbosity == 1:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format=fmt)
         logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     elif verbosity == 2:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=fmt)
         logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
