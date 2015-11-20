@@ -4,7 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
-
+### Fixed
+- Require `glite` version compatible with delelgation_id argument. (Pau Tallada)
 
 ## [2.4.0] - 2015-11-10
 ### Changed
