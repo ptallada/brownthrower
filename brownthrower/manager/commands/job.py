@@ -641,7 +641,14 @@ class JobEdit(Command):
                 return fh.read()
         
         def _edit_dataset(task, value):
-            doc = '# ' + '\n# '.join(textwrap.dedent(task.__doc__).splitlines()) + '\n'
+            if task:
+                doc = '# ' + '\n# '.join(textwrap.dedent(task.__doc__).splitlines()) + '\n'
+            else:
+                doc = textwrap.dedent("""\
+                # NOTE: The documentation of the task is not available because
+                #       this task is not present in this environment.
+                
+                """)
             original_value = doc + yaml.safe_dump(value, default_flow_style=False)
             current_value = original_value
             while True:

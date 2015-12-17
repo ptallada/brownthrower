@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 
 
+## [2.5.0] - 2015-12-17
+### Added
+- Store a copy of stdout and stderr of each job. (Pau Tallada)
+
+## Fixed
+- Do not crash editing a dataset of an unavailable task. (Pau Tallada)
+
+
 ## [2.4.1] - 2015-11-20
 ### Fixed
 - Require `glite` version compatible with delelgation_id argument. (Pau Tallada)

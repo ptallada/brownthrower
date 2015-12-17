@@ -34,6 +34,7 @@ class SerialRunner(object):
         self._session_maker = bt.session_maker(db_url)
         self._allowed_tasks = options.get('allowed_tasks', None)
         self._job_id        = options.pop('job_id', None)
+        self._log_dir       = options.pop('log_dir')
         self._loop          = options.pop('loop', None)
         self._submit        = options.pop('submit', False)
         self._token         = options.pop('reserved', uuid.uuid1().hex)
@@ -73,6 +74,7 @@ class SerialRunner(object):
             submit   = submit,
             q_finish = q_finish,
             debug    = self._debug,
+            log_dir  = self._log_dir
         )
         
         try:
@@ -155,6 +157,8 @@ def _parse_args(args = None):
         help="only run jobs which name matches at least one %(metavar)s. '?' and '*' may be used as wildcards")
     parser.add_argument('--database-url', '-u', required=True, metavar='URL',
         help="use the settings in %(metavar)s to establish the database connection")
+    parser.add_argument('--log-dir', metavar='PATH', default='.',
+        help="place the copy of stdout and stderr of each job in %(metavar)s. [default: '%(default)s']")
     parser.add_argument('--help', '-?', action='help',
         help='show this help message and exit')
     
