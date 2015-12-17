@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
+### Added
+- Store a copy of stdout and stderr of each job. (Pau Tallada)
 
 
 ## [2.4.1] - 2015-11-20

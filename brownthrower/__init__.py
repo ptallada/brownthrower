@@ -5,6 +5,7 @@ import logging
 
 from . import release
 from .engine import Notifications
+from .io import clone_stdout_stderr
 from .model import (InvalidStatusException, TaskNotAvailableException, TokenMismatchException,
                     tasks, Dependency, Job, Tag)
 from .session import (is_serializable_error, retry_on_serializable_error,

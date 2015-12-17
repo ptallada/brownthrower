@@ -22,13 +22,14 @@ log = logging.getLogger('brownthrower.runner.serial')
 KILL_TIMEOUT=2
 
 class Job(multiprocessing.Process):
-    def __init__(self, db_url, job_id, token, debug):
+    def __init__(self, db_url, job_id, token, debug, log_dir):
         super(Job, self).__init__(name='bt_job_%d' % job_id)
-        self._job_id = job_id
-        self._db_url = db_url
-        self._token  = token
-        self._debug  = debug
-        self._lock   = threading.Lock()
+        self._job_id  = job_id
+        self._db_url  = db_url
+        self._token   = token
+        self._debug   = debug
+        self._log_dir = log_dir
+        self._lock    = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
         if self._lock.acquire(False):
@@ -64,24 +65,35 @@ class Job(multiprocessing.Process):
         except (bt.InvalidStatusException, bt.TokenMismatchException, NoResultFound):
             pass
     
+    @property
+    def _stdout_fname(self):
+        name = '{job_id}.out'.format(job_id = self._job_id)
+        return os.path.join(self._log_dir, name)
+    
+    @property
+    def _stderr_fname(self):
+        name = '{job_id}.err'.format(job_id = self._job_id)
+        return os.path.join(self._log_dir, name)
+    
     def run(self):
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, self._system_exit)
         
-        new_state = {}
-        try:
-            new_state = self._run_job()
-        except (
-            bt.InvalidStatusException,
-            bt.TokenMismatchException,
-            bt.TaskNotAvailableException,
-            NoResultFound,
-        ):
-            log.warning("An error was found running job %d" % self._job_id, exc_info=True)
-        except InternalError:
-            new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
-        finally:
-            self._finish_job(new_state)
+        with bt.clone_stdout_stderr(self._stdout_fname, self._stderr_fname):
+            new_state = {}
+            try:
+                new_state = self._run_job()
+            except (
+                bt.InvalidStatusException,
+                bt.TokenMismatchException,
+                bt.TaskNotAvailableException,
+                NoResultFound,
+            ):
+                log.warning("An error was found running job %d" % self._job_id, exc_info=True)
+            except InternalError:
+                new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
+            finally:
+                self._finish_job(new_state)
     
     def cancel(self):
         if self.is_alive():
@@ -98,15 +110,16 @@ class Job(multiprocessing.Process):
 
 class Monitor(multiprocessing.Process):
     
-    def __init__(self, db_url, job_id, q_finish, token, debug, submit=False):
+    def __init__(self, db_url, job_id, q_finish, token, debug, log_dir, submit=False):
         super(Monitor, self).__init__(name='bt_monitor_%d' % job_id)
-        self._job_id = job_id
-        self._db_url = db_url
+        self._job_id   = job_id
+        self._db_url   = db_url
         self._q_finish = q_finish
-        self._token  = token
-        self._debug  = debug
-        self._submit = submit
-        self._lock   = threading.Lock()
+        self._token    = token
+        self._debug    = debug
+        self._log_dir  = log_dir
+        self._submit   = submit
+        self._lock     = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
         if self._lock.acquire(False):
@@ -146,10 +159,11 @@ class Monitor(multiprocessing.Process):
         signal.signal(signal.SIGTERM, self._system_exit)
         
         job_process = Job(
-            db_url = self._db_url,
-            job_id = self._job_id,
-            token  = self._token,
-            debug  = self._debug,
+            db_url  = self._db_url,
+            job_id  = self._job_id,
+            token   = self._token,
+            debug   = self._debug,
+            log_dir = self._log_dir
         )
         
         try:
