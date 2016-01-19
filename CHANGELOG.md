@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
+### Changed
+- Bump required version of `sqlalchemy` to 1.0. (Pau Tallada)
 
 
 ## [2.5.0] - 2015-12-17

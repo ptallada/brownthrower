@@ -13,7 +13,7 @@ install_requires = [
     'pyparsing >=2.0, <3.0a0',
     'PyYAML',
     'setuptools',
-    'SQLAlchemy >=0.9a0, <1.0a0',
+    'SQLAlchemy >=1.0, <2.0a0',
     'tabulate',
     'termcolor',
     'trunk',
