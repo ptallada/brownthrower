@@ -7,7 +7,6 @@ from setuptools import setup, find_packages
 
 install_requires = [
     'argparse',
-    'glite >=1.11.0, <2.0a0',
     'logutils', # Only for Python <= 2.6
     'pydevd',
     'pyparsing >=2.0, <3.0a0',
@@ -17,7 +16,6 @@ install_requires = [
     'tabulate',
     'termcolor',
     'trunk',
-    'urwid',
 ]
 
 # Read the version information
@@ -53,8 +51,6 @@ setup(
         'console_scripts' : [
             'brownthrower = brownthrower.manager.__init__:main',
             'runner.serial = brownthrower.runner.serial.__init__:main',
-            'dispatcher.static = brownthrower.dispatcher.static.__init__:main',
-            'dispatcher.on_demand = brownthrower.dispatcher.on_demand.__init__:main',
         ],
         'brownthrower.task' : [
             'random   = brownthrower.examples.math:Random',
