@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 ### Added
 - New `job edit description` command for documentation purposes. (Pau Tallada)
+- Columns and tables may have comments stored at the database level. (Pau Tallada)
 
 ### Changed
 - Bump required version of `sqlalchemy` to 1.0. (Pau Tallada)

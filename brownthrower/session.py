@@ -58,6 +58,7 @@ def session_maker(dsn, initialize_db=False):
     if initialize_db:
         log.info("Initializing database structure on %s" % dsn)
         model.Base.metadata.create_all(bind=eng) # @UndefinedVariable
+        model.Base.metadata.create_comments(bind=eng) # @UndefinedVariable
     
     return session_maker
 
