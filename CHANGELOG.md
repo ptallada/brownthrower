@@ -11,6 +11,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Bump required version of `sqlalchemy` to 1.0. (Pau Tallada)
 
+### Fixed
+- Fix bug when recovering `Table` documentation. (Pau Tallada)
+
 ### Removed
 - Dispatchers are no longer shipped nor supported. (Pau Tallada)
 

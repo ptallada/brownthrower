@@ -39,7 +39,7 @@ class DeclarativeMeta(declarative.DeclarativeMeta):
         if hasattr(cls, '__table__') and cls.__table__.__doc__:
             cls.__doc__ = textwrap.dedent(cls.__table__.__doc__)
         ret = declarative.DeclarativeMeta.__init__(cls, classname, bases, dict_)
-        if hasattr(cls, '__table__'):
+        if hasattr(cls, '__table__') and cls.__doc__:
             cls.__table__.__doc__ = textwrap.dedent(cls.__doc__)
         return ret
 
