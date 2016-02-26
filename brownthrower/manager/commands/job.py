@@ -15,7 +15,7 @@ import yaml
 from .base import Command, error, warn, success, strong
 
 from sqlalchemy.exc import IntegrityError, DataError, DBAPIError
-from sqlalchemy.orm import joinedload, undefer_group
+from sqlalchemy.orm import joinedload, undefer_group, undefer
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import literal
 from tabulate import tabulate
@@ -294,11 +294,14 @@ class JobShow(Command):
             with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(
                     id = items[0]
-                ).options(undefer_group('yaml')).one()
+                ).options(undefer_group('yaml'), undefer('description')).one()
                 
                 print strong("### JOB DETAILS:")
                 for field in ['id', 'super_id', 'name', 'status', 'token', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
                     print field.ljust(10) + ' : ' + str(getattr(job, field))
+                print
+                print strong("### JOB DESCRIPTION:")
+                print job.description if job.description else ''
                 print
                 print strong("### JOB CONFIG:")
                 print job.raw_config.strip() if job.raw_config else '...'
@@ -602,7 +605,7 @@ class JobClone(Command):
 
 class JobEdit(Command):
     """\
-    usage: job edit { 'input' | 'config' } <id>
+    usage: job edit { 'input' | 'config' | 'description' } <id>
       
     Edit the specified dataset of the job with the given id.
     """
@@ -610,14 +613,14 @@ class JobEdit(Command):
     def complete(self, text, items):
         if not items:
             matching = [attr
-                        for attr in ['config', 'input']
+                        for attr in ['config', 'input', 'description']
                         if attr.startswith(text)]
             return matching
       
     def do(self, items):
         if (
             (len(items) != 2) or
-            (items[0] not in ['config', 'input'])
+            (items[0] not in ['config', 'input', 'description'])
         ):
             return self.help(items)
         
@@ -681,16 +684,28 @@ class JobEdit(Command):
             while True:
                 try:
                     with bt.transactional_session(self.session_maker) as session:
-                        job = session.query(bt.Job).filter_by(
-                            id = job_id
-                        ).options(undefer_group('yaml')).one()
-                        job.assert_editable_dataset(dataset)
+                        if dataset == 'description':
+                            job = session.query(bt.Job).filter_by(
+                                id = job_id
+                            ).options(undefer_group('desc')).one()
+                            
+                            current_value = job.description
+                            
+                            new_value = _open_in_editor(current_value)
+                            job.description = new_value
+                            return current_value != new_value
                         
-                        current_value = job.get_dataset(dataset)
-                        
-                        new_value = _edit_dataset(job.task, current_value)
-                        job.set_dataset(dataset, new_value)
-                        return current_value != new_value
+                        else: # dataset in ['config', 'input']
+                            job = session.query(bt.Job).filter_by(
+                                id = job_id
+                            ).options(undefer_group('yaml')).one()
+                            job.assert_editable_dataset(dataset)
+                            
+                            current_value = job.get_dataset(dataset)
+                            
+                            new_value = _edit_dataset(job.task, current_value)
+                            job.set_dataset(dataset, new_value)
+                            return current_value != new_value
                 
                 except DBAPIError as e:
                     if bt.is_serializable_error(e):

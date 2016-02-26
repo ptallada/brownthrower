@@ -10,24 +10,21 @@ import yaml
 
 from sqlalchemy import event, func, literal_column
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, reconstructor, deferred
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.exc import DetachedInstanceError
 from sqlalchemy.orm.session import object_session
-from sqlalchemy.schema import (Column, ForeignKeyConstraint, Index,
-                               PrimaryKeyConstraint, UniqueConstraint)
+from sqlalchemy.schema import ForeignKeyConstraint, Index, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.sql import functions
 from sqlalchemy.sql.expression import literal
 from sqlalchemy.types import DateTime, Integer, String, Text
 
 from . import taskstore
 from . import utils
+from .base import Column, Base
 
 log = logging.getLogger('brownthrower.model')
-
-Base = declarative_base()
 
 tasks = taskstore.TaskStore()
 """Global task container, implemented as a read-only dict."""
@@ -36,7 +33,7 @@ TAG_TRACEBACK = 'bt_traceback'
 
 class Dependency(Base):
     """\
-    Main class Dependency documentation text
+    Parent-child dependencies between jobs.
     """
     
     __tablename__ = 'dependency'
@@ -52,9 +49,9 @@ class Dependency(Base):
     )
     
     # Columns
-    _super_id  = Column('super_id',  Integer, nullable=True)
-    _parent_id = Column('parent_id', Integer, nullable=False)
-    _child_id  = Column('child_id',  Integer, nullable=False)
+    _super_id  = Column('super_id',  Integer, nullable=True,  comment="super job ID.")
+    _parent_id = Column('parent_id', Integer, nullable=False, comment="parent job ID.")
+    _child_id  = Column('child_id',  Integer, nullable=False, comment="child job ID.")
     
     @hybrid_property
     def super_id(self):
@@ -122,10 +119,7 @@ class InvalidChildOrSubjobException(Exception):
 
 class Job(Base):
     """
-    Base class for user-defined Jobs.
-    
-    All Job subclasses must inherit from this class and override the methods
-    defined in brownthrower.interface.Job.
+    All jobs in under BT domain are stored here.
     """
     
     ###########################################################################
@@ -149,18 +143,19 @@ class Job(Base):
     # COLUMNS                                                                 #
     ###########################################################################
     
-    _id         =          Column('id',         Integer,    nullable=False)
-    _super_id   =          Column('super_id',   Integer,    nullable=True)
-    _name       =          Column('name',       String(50), nullable=False)
-    _status     =          Column('status',     String(20), nullable=False)
-    _token      =          Column('token',      String(32), nullable=True)
-    _config     = deferred(Column('config',     Text,       nullable=True), group='yaml')
-    _input      = deferred(Column('input',      Text,       nullable=True), group='yaml')
-    _output     = deferred(Column('output',     Text,       nullable=True), group='yaml')
-    _ts_created =          Column('ts_created', DateTime,   nullable=False, default=functions.now())
-    _ts_queued  =          Column('ts_queued',  DateTime,   nullable=True)
-    _ts_started =          Column('ts_started', DateTime,   nullable=True)
-    _ts_ended   =          Column('ts_ended',   DateTime,   nullable=True)
+    _id          =          Column('id',          Integer,    nullable=False, comment="unique identifier (ID)")
+    _super_id    =          Column('super_id',    Integer,    nullable=True,  comment="super job ID")
+    _name        =          Column('name',        String(50), nullable=False, comment="short name for categorization")
+    _status      =          Column('status',      String(20), nullable=False, comment="current status")
+    _description = deferred(Column('description', Text,       nullable=False, comment="user description", server_default=''), group='desc')
+    _token       =          Column('token',       String(32), nullable=True,  comment="unique value for reservations")
+    _config      = deferred(Column('config',      Text,       nullable=True,  comment="configuration data (in YAML format)"), group='yaml')
+    _input       = deferred(Column('input',       Text,       nullable=True,  comment="input data (in YAML format)"),         group='yaml')
+    _output      = deferred(Column('output',      Text,       nullable=True,  comment="output data (in YAML format)"),        group='yaml')
+    _ts_created  =          Column('ts_created',  DateTime,   nullable=False, comment="when was this job created (UTC)", default=functions.now())
+    _ts_queued   =          Column('ts_queued',   DateTime,   nullable=True,  comment="when was this job submitted for execution (UTC)")
+    _ts_started  =          Column('ts_started',  DateTime,   nullable=True,  comment="when did this job start executing (UTC)")
+    _ts_ended    =          Column('ts_ended',    DateTime,   nullable=True,  comment="when did this job finish executing (UTC)")
     
     ###########################################################################
     # RELATIONSHIPS                                                           #
@@ -210,7 +205,7 @@ class Job(Base):
     
     class Status(object):
         """\
-        status class
+        All the different values a job status can be.
         """
         STASHED = 'STASHED'
         """Preparation phase. It is being configured and cannot be executed yet."""
@@ -285,6 +280,14 @@ class Job(Base):
     @hybrid_property
     def status(self):
         return self._status
+    
+    @hybrid_property
+    def description(self):
+        return self._description
+    
+    @description.setter
+    def description(self, description):
+        self._description = description
     
     @hybrid_property
     def token(self):
@@ -746,6 +749,9 @@ class Job(Base):
         return crit
 
 class Tag(Base):
+    """\
+    Arbitrary key-value data associated with a job.
+    """
     __tablename__ = 'tag'
     __table_args__ = (
         # Primary key
@@ -757,9 +763,9 @@ class Tag(Base):
     )
     
     # Columns
-    _job_id = Column('job_id', Integer,    nullable=False)
-    _name   = Column('name',   String(20), nullable=False)
-    _value  = Column('value',  Text,       nullable=True)
+    _job_id = Column('job_id', Integer,    nullable=False, comment="job ID")
+    _name   = Column('name',   String(20), nullable=False, comment="unique name")
+    _value  = Column('value',  Text,       nullable=True,  comment="data associated")
     
     @hybrid_property
     def job_id(self):

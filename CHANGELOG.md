@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 
 
+## [3.0.0a1] - 2016-02-26
+### Added
+- New `job edit description` command for documentation purposes. (Pau Tallada)
+- Columns and tables may have comments stored at the database level. (Pau Tallada)
+
+### Changed
+- Bump required version of `sqlalchemy` to 1.0. (Pau Tallada)
+
+### Fixed
+- Fix bug when recovering `Table` documentation. (Pau Tallada)
+
+### Removed
+- Dispatchers are no longer shipped nor supported. (Pau Tallada)
+
+
 ## [2.5.0] - 2015-12-17
 ### Added
 - Store a copy of stdout and stderr of each job. (Pau Tallada)
