@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
+### Removed
+- Removed unused index on `Tag` (`name`, `value`). (Pau Tallada)
 
 
 ## [3.0.0a1] - 2016-02-26

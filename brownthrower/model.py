@@ -758,8 +758,6 @@ class Tag(Base):
         PrimaryKeyConstraint('job_id', 'name', name = 'pk_tag'),
         # Foreign keys
         ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name='fk_tag_job'),
-        # Indexes
-        Index('ix_tag_name_value', 'name', 'value'),
     )
     
     # Columns
