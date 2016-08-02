@@ -4,7 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
-
+### Changed
+- Loosen dependency on SQLAlchemy. (Pau Tallada)
 
 ## [2.5.0] - 2015-12-17
 ### Added
