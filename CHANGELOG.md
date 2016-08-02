@@ -6,6 +6,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 
 
+## [2.5.1] - 2016-08-02
+### Changed
+- Loosen dependency on SQLAlchemy. (Pau Tallada)
+
+
 ## [2.5.0] - 2015-12-17
 ### Added
 - Store a copy of stdout and stderr of each job. (Pau Tallada)
