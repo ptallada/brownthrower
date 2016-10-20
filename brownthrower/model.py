@@ -3,6 +3,7 @@
 
 import contextlib
 import copy
+import cProfile
 import logging
 import sys
 import traceback
@@ -631,7 +632,7 @@ class Job(Base):
         for ancestor in self._ancestors():
             ancestor._update_status()
     
-    def _run(self, token, debug):
+    def _run(self, token, debug, profile):
         def validate_new_jobs(jobs):
             for job in jobs:
                 if job.superjob or job.super_id or job.id:
@@ -646,6 +647,10 @@ class Job(Base):
         
         if self.status != Job.Status.RUNNING:
             raise InvalidStatusException("Only jobs in RUNNING state can be executed.")
+        
+        if profile:
+            pr = cProfile.Profile()
+            pr.enable()
         
         new_state = {}
         try:
@@ -681,6 +686,10 @@ class Job(Base):
             finally:
                 new_state['traceback'] = ''.join(traceback.format_exception(*sys.exc_info()))
         finally:
+            if profile:
+                pr.disable()
+                pr.dump_stats('{0}.pstats'.format(self.id))
+            
             return new_state
     
     def _finish(self, token, new_state):
@@ -758,8 +767,6 @@ class Tag(Base):
         PrimaryKeyConstraint('job_id', 'name', name = 'pk_tag'),
         # Foreign keys
         ForeignKeyConstraint(['job_id'], ['job.id'], onupdate='CASCADE', ondelete='CASCADE', name='fk_tag_job'),
-        # Indexes
-        Index('ix_tag_name_value', 'name', 'value'),
     )
     
     # Columns

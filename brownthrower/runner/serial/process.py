@@ -22,13 +22,14 @@ log = logging.getLogger('brownthrower.runner.serial')
 KILL_TIMEOUT=2
 
 class Job(multiprocessing.Process):
-    def __init__(self, db_url, job_id, token, debug, log_dir):
+    def __init__(self, db_url, job_id, token, debug, log_dir, profile):
         super(Job, self).__init__(name='bt_job_%d' % job_id)
         self._job_id  = job_id
         self._db_url  = db_url
         self._token   = token
         self._debug   = debug
         self._log_dir = log_dir
+        self._profile = profile
         self._lock    = threading.Lock()
     
     def _system_exit(self, *args, **kwargs):
@@ -48,7 +49,7 @@ class Job(multiprocessing.Process):
                 joinedload(bt.Job.subjobs),
             ).one()
             
-            return job._run(self._token, self._debug)
+            return job._run(self._token, self._debug, self._profile)
     
     def _finish_job(self, new_state):
         @bt.retry_on_serializable_error
@@ -110,7 +111,7 @@ class Job(multiprocessing.Process):
 
 class Monitor(multiprocessing.Process):
     
-    def __init__(self, db_url, job_id, q_finish, token, debug, log_dir, submit=False):
+    def __init__(self, db_url, job_id, q_finish, token, debug, log_dir, profile, submit=False):
         super(Monitor, self).__init__(name='bt_monitor_%d' % job_id)
         self._job_id   = job_id
         self._db_url   = db_url
@@ -118,6 +119,7 @@ class Monitor(multiprocessing.Process):
         self._token    = token
         self._debug    = debug
         self._log_dir  = log_dir
+        self._profile  = profile
         self._submit   = submit
         self._lock     = threading.Lock()
     
@@ -163,7 +165,8 @@ class Monitor(multiprocessing.Process):
             job_id  = self._job_id,
             token   = self._token,
             debug   = self._debug,
-            log_dir = self._log_dir
+            log_dir = self._log_dir,
+            profile = self._profile,
         )
         
         try:

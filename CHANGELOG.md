@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased][unreleased]
 
 
+## [3.0.1] - 2016-10-20
+### Added
+- Implement job profiling. (Pau Tallada)
+
+### Removed
+- Removed unused index on `Tag` (`name`, `value`). (Pau Tallada)
+
+
 ## [3.0.0a1] - 2016-02-26
 ### Added
 - New `job edit description` command for documentation purposes. (Pau Tallada)
