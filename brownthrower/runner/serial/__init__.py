@@ -37,6 +37,7 @@ class SerialRunner(object):
         self._log_dir       = options.pop('log_dir')
         self._loop          = options.pop('loop', None)
         self._submit        = options.pop('submit', False)
+        self._profile       = options.pop('profile', False)
         self._token         = options.pop('reserved', uuid.uuid1().hex)
         
         self._debug = {}
@@ -74,7 +75,8 @@ class SerialRunner(object):
             submit   = submit,
             q_finish = q_finish,
             debug    = self._debug,
-            log_dir  = self._log_dir
+            log_dir  = self._log_dir,
+            profile  = self._profile
         )
         
         try:
@@ -182,6 +184,8 @@ def _parse_args(args = None):
     group.add_argument('--debug-port', '-p', default=5678, type=int,
         help='connect using this port (default: %(default)s)')
     
+    parser.add_argument('--profile', action='store_true', default=False,
+        help='profile job and dump stats to a file')
     parser.add_argument('--verbose', '-v', action='count', default=0,
         help='increment verbosity level (can be specified twice)')
     parser.add_argument('--version', '-V', action='version',

@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 ## [Unreleased][unreleased]
+### Added
+- Implement job profiling. (Pau Tallada)
+
 ### Removed
 - Removed unused index on `Tag` (`name`, `value`). (Pau Tallada)
 
