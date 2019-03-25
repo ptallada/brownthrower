@@ -6,8 +6,6 @@ import brownthrower as bt
 import contextlib
 import errno
 import logging
-import multiprocessing
-import multiprocessing.queues
 import os
 import select
 import signal
@@ -213,7 +211,7 @@ def main(args=None):
     try:
         runner.main()
     except SystemExit:
-        print
+        print()
 
 if __name__ == '__main__':
     sys.exit(main())

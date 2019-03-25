@@ -19,12 +19,14 @@ install_requires = [
 ]
 
 # Read the version information
+version = {}
 here = os.path.abspath(os.path.dirname(__file__))
-execfile(os.path.join(here, 'brownthrower', 'release.py'))
+with open(os.path.join(here, 'brownthrower', 'release.py')) as fp:
+    exec(fp.read(), version)
 
 setup(
     name = 'brownthrower',
-    version = __version__, # @UndefinedVariable
+    version = version['__version__'],
     packages = find_packages(),
     
     install_requires = install_requires,

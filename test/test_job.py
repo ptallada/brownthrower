@@ -19,8 +19,8 @@ class TestCreate(TestJobBase):
             assert isinstance(j, bt.Job)
             assert j.status == bt.Job.Status.STASHED
             assert j.ts_created is not None
-            print repr(j)
-            print str(j)
+            print(repr(j))
+            print(str(j))
             return j
     
     @raises(TypeError)
@@ -35,8 +35,8 @@ class TestCreate(TestJobBase):
             assert isinstance(j2, bt.Job)
             assert j2.status == bt.Job.Status.STASHED
             assert j2.ts_created is not None
-            print repr(j2)
-            print str(j2)
+            print(repr(j2))
+            print(str(j2))
             return j2
 
 class TestSuperSub(TestJobBase):

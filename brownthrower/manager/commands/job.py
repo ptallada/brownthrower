@@ -54,7 +54,7 @@ class JobCreate(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in bt.tasks.iterkeys()
+                        for key in bt.tasks.keys()
                         if key.startswith(text)]
             
             return matching
@@ -246,7 +246,7 @@ class JobList(Command):
                         job.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if job.ts_ended else None,
                     ])
             
-            print tabulate(table, headers=headers)
+            print(tabulate(table, headers=headers))
         
         except pp.ParseException as e:
             error("One of the filters has the wrong syntax.")
@@ -270,10 +270,10 @@ class JobTags(Command):
             with bt.transactional_session(self.session_maker) as session:
                 job = session.query(bt.Job).filter_by(id = items[0]).one()
                 
-                for name, value in job.tag.iteritems():
-                    print strong("### %s:" % name)
-                    print value
-                    print
+                for name, value in job.tag.items():
+                    print(strong("### %s:" % name))
+                    print(value)
+                    print()
         
         except (DataError, NoResultFound) as e:
             error("The specified job does not exist.")
@@ -296,21 +296,21 @@ class JobShow(Command):
                     id = items[0]
                 ).options(undefer_group('yaml'), undefer('description')).one()
                 
-                print strong("### JOB DETAILS:")
+                print(strong("### JOB DETAILS:"))
                 for field in ['id', 'super_id', 'name', 'status', 'token', 'ts_created', 'ts_queued', 'ts_started', 'ts_ended']:
-                    print field.ljust(10) + ' : ' + str(getattr(job, field))
-                print
-                print strong("### JOB DESCRIPTION:")
-                print job.description if job.description else ''
-                print
-                print strong("### JOB CONFIG:")
-                print job.raw_config.strip() if job.raw_config else '...'
-                print
-                print strong("### JOB INPUT:")
-                print job.raw_input.strip()  if job.raw_input  else '...'
-                print
-                print strong("### JOB OUTPUT:")
-                print job.raw_output.strip() if job.raw_output else '...'
+                    print(field.ljust(10) + ' : ' + str(getattr(job, field)))
+                print()
+                print(strong("### JOB DESCRIPTION:"))
+                print(job.description if job.description else '')
+                print()
+                print(strong("### JOB CONFIG:"))
+                print(job.raw_config.strip() if job.raw_config else '...')
+                print()
+                print(strong("### JOB INPUT:"))
+                print(job.raw_input.strip()  if job.raw_input  else '...')
+                print()
+                print(strong("### JOB OUTPUT:"))
+                print(job.raw_output.strip() if job.raw_output else '...')
         
         except (DataError, NoResultFound) as e:
             error("The specified job does not exist.")
@@ -362,8 +362,8 @@ class JobGraph(Command):
                         child.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if child.ts_ended   else None,
                     ])
                 
-                print strong("PARENT/CHILD JOBS:")
-                print tabulate(table, headers=headers)
+                print(strong("PARENT/CHILD JOBS:"))
+                print(tabulate(table, headers=headers))
                  
                 table = []
                 if job.superjob:
@@ -390,9 +390,9 @@ class JobGraph(Command):
                         subjob.ts_ended.strftime('%Y-%m-%d %H:%M:%S')   if subjob.ts_ended   else None,
                     ])
                 
-                print
-                print strong("SUPER/SUB JOBS:")
-                print tabulate(table, headers=headers)
+                print()
+                print(strong("SUPER/SUB JOBS:"))
+                print(tabulate(table, headers=headers))
         
         except (DataError, NoResultFound) as e:
             error("The specified job does not exist.")
@@ -626,7 +626,7 @@ class JobEdit(Command):
         
         def _input(msg):
             readline.parse_and_bind('set disable-completion on')
-            entry = raw_input(msg)
+            entry = input(msg)
             readline.parse_and_bind('set disable-completion off')
             readline.remove_history_item(readline.get_current_history_length()-1)
             return entry
@@ -660,14 +660,14 @@ class JobEdit(Command):
                     return yaml.safe_load(new_value)
                 except yaml.YAMLError as e:
                     warn("Syntax error detected:")
-                    print e
-                    print textwrap.dedent("""\
+                    print(e)
+                    print(textwrap.dedent("""\
                     Available options:
                       u) Undo all changes and edit again
                       r) Return to editor and continue editing
                       d) Discard all changes and abort
                     """
-                    )
+                    ))
                     while True:
                         option = _input("Please select an option (u, r, d): ")
                         if option not in ['u', 'r', 'd']:
@@ -710,11 +710,11 @@ class JobEdit(Command):
                 except DBAPIError as e:
                     if bt.is_serializable_error(e):
                         warn("This job has received a concurrent modification.")
-                        print textwrap.dedent("""\
+                        print(textwrap.dedent("""\
                         Available options:
                           r) Refresh the new values and edit again
                           d) Discard all changes and abort
-                        """)
+                        """))
                         while True:
                             option = _input("Please select an option (r, d): ")
                             if option not in ['r', 'd']:

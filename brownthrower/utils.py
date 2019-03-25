@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import collections
-import multiprocessing.queues
+import multiprocessing
 import threading
 import time
 import warnings
 
 from functools import wraps
+from multiprocessing.queues import SimpleQueue
 
 def retry(tries, log):
     """\
@@ -58,10 +59,13 @@ def start_debugger(host, port):
     import pydevd
     pydevd.settrace(host, port=port)
 
-class SelectableQueue(multiprocessing.queues.SimpleQueue):
+class SelectableQueue(SimpleQueue):
     """\
     Simple subclass hack to allow 'selecting' when reading.
     """
+    def __init__(self):
+        super().__init__(ctx=multiprocessing.get_context())
+    
     def fileno(self):
         return self._reader.fileno()
     

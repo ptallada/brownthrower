@@ -47,8 +47,8 @@ class Manager(cmd.Cmd):
             if subcmd:
                 return subcmd._help(items[1:])
         
-        print textwrap.dedent(self.__doc__).strip()
-        print "\nAvailable commands:"
+        print(textwrap.dedent(self.__doc__).strip())
+        print("\nAvailable commands:")
         subcmds = {'quit' : 'Exit this program'}
         subcmds.update(self._subcmds)
         table = []
@@ -57,7 +57,7 @@ class Manager(cmd.Cmd):
                 table.append([" ", name, subcmds[name]])
             else:
                 table.append([" ", name, textwrap.dedent(subcmds[name].__doc__).strip().split('\n')[2]])
-        print tabulate(table, tablefmt="plain")
+        print(tabulate(table, tablefmt="plain"))
     
     def completedefault(self, text, line, begidx, endidx):
         items = line[:begidx].strip().split()
@@ -84,7 +84,7 @@ class Manager(cmd.Cmd):
         return cmd.Cmd.postcmd(self, stop, line)
     
     def postloop(self):
-        print
+        print()
 
 def _parse_args(args):
     parser = argparse.ArgumentParser(prog='brownthrower', add_help=False)
@@ -121,7 +121,7 @@ def main(args=None):
     try:
         manager.cmdloop()
     except KeyboardInterrupt:
-        print
+        print()
 
 if __name__ == '__main__':
     sys.exit(main())

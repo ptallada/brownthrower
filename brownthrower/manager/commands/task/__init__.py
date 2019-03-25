@@ -38,7 +38,7 @@ class TaskList(Command):
             except KeyError:
                 pass
         
-        print tabulate(table, headers=['name', 'module'])
+        print(tabulate(table, headers=['name', 'module']))
 
 class TaskShow(Command):
     """\
@@ -50,7 +50,7 @@ class TaskShow(Command):
     def complete(self, text, items):
         if not items:
             matching = [key
-                        for key in bt.tasks.iterkeys()
+                        for key in bt.tasks.keys()
                         if key.startswith(text)]
             
             return matching
@@ -61,9 +61,9 @@ class TaskShow(Command):
         
         try:
             task = bt.tasks[items[0]]
-            print task.summary
-            print
-            print task.description
+            print(task.summary)
+            print()
+            print(task.description)
         
         except KeyError as e:
             error("The task '%s' is not available in this environment." % e.task)
