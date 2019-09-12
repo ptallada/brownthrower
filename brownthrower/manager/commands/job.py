@@ -638,7 +638,8 @@ class JobEdit(Command):
                 
                 env = os.environ
                 env['TERM'] = 'xterm'
-                subprocess.check_call(['nano', fh.name], env=env)
+                editor_cmd = env.get('EDITOR', 'vi')
+                subprocess.check_call([editor_cmd, fh.name], env=env)
                 
                 fh.seek(0)
                 return fh.read()

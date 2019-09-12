@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Changes for Python 3 compatibility. (Santiago Serrano)
 - Randomize job selection to avoid queue contention. (Santiago Serrano)
+- Use $EDITOR by default, fallback to `vi`. (Pau Tallada)
 
 
 ## [3.0.1] - 2016-10-20
