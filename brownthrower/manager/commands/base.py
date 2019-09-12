@@ -56,17 +56,17 @@ class Command(object):
         return self.do(items)
     
     def help(self, items):
-        print textwrap.dedent(self.__doc__).strip()
+        print(textwrap.dedent(self.__doc__).strip())
         if self._subcmds:
-            print "\nAvailable commands:"
+            print("\nAvailable commands:")
             table = []
             for name in sorted(self._subcmds.keys()):
                 table.append([" ", name, textwrap.dedent(self._subcmds[name].__doc__).strip().split('\n')[2]])
-            print tabulate(table, tablefmt="plain")
+            print(tabulate(table, tablefmt="plain"))
     
     def complete(self, text, items):
         # Autocomplete with subcommands by default
-        available = self._subcmds.keys()
+        available = list(self._subcmds.keys())
         
         return [command
                 for command in available

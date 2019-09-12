@@ -67,7 +67,7 @@ class Dependency(Base):
         return self._child_id
     
     def __repr__(self):
-        return u"%s(super_id=%s, parent_job_id=%s, child_job_id=%s)" % (
+        return "%s(super_id=%s, parent_job_id=%s, child_job_id=%s)" % (
             self.__class__.__name__,
             repr(self._super_id),
             repr(self._parent_id),
@@ -254,7 +254,7 @@ class Job(Base):
         self.new_subjobs  = set()
     
     def __repr__(self):
-        return u"%s(id=%s, super_id=%s, name=%s, status=%s)" % (
+        return "%s(id=%s, super_id=%s, name=%s, status=%s)" % (
             self.__class__.__name__,
             repr(self._id),
             repr(self._super_id),
@@ -787,7 +787,7 @@ class Tag(Base):
         return self._value
     
     def __repr__(self):
-        return u"%s(job_id=%s, name=%s, value=%s)" % (
+        return "%s(job_id=%s, name=%s, value=%s)" % (
             self.__class__.__name__,
             repr(self._job_id),
             repr(self._name),

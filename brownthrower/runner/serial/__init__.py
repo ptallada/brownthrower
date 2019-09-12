@@ -6,8 +6,6 @@ import brownthrower as bt
 import contextlib
 import errno
 import logging
-import multiprocessing
-import multiprocessing.queues
 import os
 import select
 import signal
@@ -15,6 +13,7 @@ import sys
 import threading
 import time
 import uuid
+import random
 
 from brownthrower.utils import SelectableQueue
 from sqlalchemy.orm.exc import NoResultFound
@@ -115,6 +114,9 @@ class SerialRunner(object):
             )
             job_ids = [job.id for job in jobs]
         
+        # Shuffle jobs to avoid multiple jobs getting the same id
+        random.shuffle(job_ids)
+
         for job_id in job_ids:
             try:
                 self._run_job(job_id, q_finish, q_abort, self._token)
@@ -213,7 +215,7 @@ def main(args=None):
     try:
         runner.main()
     except SystemExit:
-        print
+        print()
 
 if __name__ == '__main__':
     sys.exit(main())

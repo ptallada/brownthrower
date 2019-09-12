@@ -6,7 +6,7 @@ import sys
 import random
 import logging
 
-import base
+from . import base
 import brownthrower as bt
 
 from sqlalchemy.orm import scoped_session

@@ -107,7 +107,7 @@ class Notifications(trunk.Trunk):
         return self.conn.fileno()
     
     def listen(self, channels):
-        if isinstance(channels, basestring):
+        if isinstance(channels, str):
             super(Notifications, self).listen(channels)
         else:
             for channel in channels:
@@ -207,7 +207,7 @@ class Notifications(trunk.Trunk):
     def __iter__(self):
         return self
      
-    def next(self):
+    def __next__(self):
         """
         Returns (channel, payload)
         """
